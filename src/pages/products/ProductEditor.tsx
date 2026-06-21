@@ -40,7 +40,11 @@ import {
 	dummyProducts,
 } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { productSchema } from "./productSchema";
+import {
+	type ProductCareCategoryValue,
+	type ProductFormData,
+	productSchema,
+} from "./productSchema";
 
 // Order of the editor tabs, used by the Previous/Next footer navigation.
 const TAB_ORDER = ["general", "materials", "dimension", "media"];
@@ -81,8 +85,8 @@ export function ProductEditor() {
 		watch,
 		setValue,
 		formState: { errors },
-	} = useForm({
-		resolver: zodResolver(productSchema) as any,
+	} = useForm<ProductFormData>({
+		resolver: zodResolver(productSchema),
 		defaultValues: product
 			? {
 					name: product.name,
@@ -145,9 +149,9 @@ export function ProductEditor() {
 		});
 	}, [variants, setValue]);
 
-	const media = watch("media") as string[] | undefined;
+	const media = watch("media");
 
-	const onSubmit = (data: any) => {
+	const onSubmit = (data: ProductFormData) => {
 		console.log("Form submitted:", data);
 	};
 
@@ -610,11 +614,16 @@ export function ProductEditor() {
 														key={option.value}
 														label={option.label}
 														checked={
-															(value as any)?.includes(option.value) || false
+															value?.includes(
+																option.value as ProductCareCategoryValue,
+															) || false
 														}
 														onChange={(e) => {
 															if (e.currentTarget.checked) {
-																onChange([...(value || []), option.value]);
+																onChange([
+																	...(value || []),
+																	option.value as ProductCareCategoryValue,
+																]);
 															} else {
 																onChange(
 																	(value || []).filter(

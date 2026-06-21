@@ -11,7 +11,7 @@ export const productVariantSchema = z.object({
 	comparePrice: z.number(),
 	marketplacePrice: z.number().min(0),
 	stock: z.number().min(0, "Stock must be 0 or greater"),
-	images: z.array(z.string()).default([]),
+	images: z.array(z.string()),
 });
 
 export const productSchema = z.object({
@@ -20,20 +20,18 @@ export const productSchema = z.object({
 	collection: z.string().min(1, "Collection is required"),
 	category: z.string().min(1, "Category is required"),
 	status: z.enum(["published", "draft", "scheduled", "archived"]),
-	description: z.string().default(""),
+	description: z.string(),
 	lowStockAlert: z.number().min(0).optional(),
-	variants: z.array(productVariantSchema).default([]),
-	materialInfo: z.string().default(""),
-	careCategories: z
-		.array(
-			z.enum([
-				"high-end-panels",
-				"fabric-boucle",
-				"wood-accents",
-				"stone-marble",
-			]),
-		)
-		.default([]),
+	variants: z.array(productVariantSchema),
+	materialInfo: z.string(),
+	careCategories: z.array(
+		z.enum([
+			"high-end-panels",
+			"fabric-boucle",
+			"wood-accents",
+			"stone-marble",
+		]),
+	),
 	dimension: z
 		.object({
 			image: z.string().optional(),
@@ -52,7 +50,9 @@ export const productSchema = z.object({
 			weight: z.number().optional(),
 		})
 		.optional(),
-	media: z.array(z.string()).default([]),
+	media: z.array(z.string()),
 });
 
 export type ProductFormData = z.infer<typeof productSchema>;
+export type ProductCareCategoryValue =
+	ProductFormData["careCategories"][number];
