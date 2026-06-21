@@ -1,6 +1,5 @@
 import {
 	ActionIcon,
-	Avatar,
 	Badge,
 	Button,
 	Card,
@@ -313,27 +312,27 @@ export function ProductsList() {
 					<Table.Tbody>
 						{paged.length > 0 ? (
 							paged.map((product) => (
-								<Table.Tr key={product.id}>
-									<Table.Td>
+								<Table.Tr
+									key={product.id}
+									style={{ cursor: "pointer" }}
+									onClick={() => navigate(`/products/${product.id}`)}
+								>
+									<Table.Td onClick={(e) => e.stopPropagation()}>
 										<Checkbox
 											checked={selectedIds.includes(product.id)}
 											onChange={() => toggleSelectProduct(product.id)}
+											onClick={(e) => e.stopPropagation()}
 										/>
 									</Table.Td>
 									<Table.Td>
-										<Group gap="sm">
-											<Avatar size="md" src={product.image} />
-											<Stack gap={0}>
-												<Group gap="xs">
-													<span style={{ fontWeight: 500 }}>
-														{product.name}
-													</span>
-												</Group>
-												<span style={{ fontSize: "12px", color: "gray" }}>
-													SKU: {product.sku}
-												</span>
-											</Stack>
-										</Group>
+										<Stack gap={0}>
+											<span style={{ fontWeight: 500 }}>
+												{product.name}
+											</span>
+											<span style={{ fontSize: "12px", color: "gray" }}>
+												SKU: {product.sku}
+											</span>
+										</Stack>
 									</Table.Td>
 									<Table.Td>{product.collection}</Table.Td>
 									<Table.Td>{product.category}</Table.Td>
@@ -366,7 +365,7 @@ export function ProductsList() {
 											}
 										/>
 									</Table.Td>
-									<Table.Td>
+									<Table.Td onClick={(e) => e.stopPropagation()}>
 										<Menu>
 											<Menu.Target>
 												<ActionIcon size="sm" variant="subtle">
