@@ -6,6 +6,7 @@ import {
 import { AppLayout } from "@/components/AppLayout";
 import { Dashboard } from "@/pages/Dashboard";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
+import { ProductDetail } from "@/pages/products/ProductDetail";
 import { ProductEditor } from "@/pages/products/ProductEditor";
 import { ProductsList } from "@/pages/products/ProductsList";
 import { SignIn } from "@/pages/SignIn";
@@ -30,6 +31,10 @@ const routes: RouteObject[] = [
 			{
 				path: "/products/new",
 				element: <ProductEditor />,
+			},
+			{
+				path: "/products/:id",
+				element: <ProductDetail />,
 			},
 			{
 				path: "/products/:id/edit",
