@@ -6,6 +6,7 @@ import {
 	Container,
 	Grid,
 	Group,
+	Image,
 	NumberInput,
 	Paper,
 	Select,
@@ -15,13 +16,14 @@ import {
 	Textarea,
 	TextInput,
 } from "@mantine/core";
-import { IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconUpload, IconX } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router";
 import { PageHeader } from "@/components/PageHeader";
 import {
 	CARE_CATEGORY_OPTIONS,
+	STATUS_OPTIONS,
 	VISIBILITY_OPTIONS,
 } from "@/config/productOptions";
 import {
@@ -32,6 +34,22 @@ import {
 } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { productSchema } from "./productSchema";
+
+// Always give variants a unique data id. useFieldArray uses its own internal
+// key, so this only needs to be unique enough to be a stable number value.
+const createEmptyVariant = () => ({
+	id: Date.now() + Math.floor(Math.random() * 1000),
+	colorFinish: "",
+	sku: "",
+	visibility: "visible" as const,
+	price: 0,
+	cost: 0,
+	discount: 0,
+	comparePrice: 0,
+	marketplacePrice: 0,
+	stock: 0,
+	images: [] as string[],
+});
 
 export function ProductEditor() {
 	usePageTitle("Product");
@@ -59,7 +77,11 @@ export function ProductEditor() {
 					status: product.status,
 					description: product.description || "",
 					lowStockAlert: product.lowStockAlert,
-					variants: product.variants?.map((v) => ({ ...v, id: v.id })) || [],
+					// Ensure there is always at least one variant to fill in.
+					variants:
+						product.variants && product.variants.length > 0
+							? product.variants.map((v) => ({ ...v }))
+							: [createEmptyVariant()],
 					materialInfo: product.materialInfo || "",
 					careCategories: product.careCategories || [],
 					dimension: product.dimension,
@@ -74,7 +96,9 @@ export function ProductEditor() {
 					status: "draft" as const,
 					description: "",
 					lowStockAlert: 5,
-					variants: [],
+					// Start with one empty variant so the user can fill it in
+					// without having to click "Add Variant" first.
+					variants: [createEmptyVariant()],
 					materialInfo: "",
 					careCategories: [],
 					dimension: undefined,
@@ -92,7 +116,7 @@ export function ProductEditor() {
 		name: "variants",
 	});
 
-	// Watch variant fields to calculate compare price
+	// Watch variant fields to calculate compare price.
 	const variants = watch("variants");
 	useEffect(() => {
 		variants?.forEach((variant, idx) => {
@@ -105,6 +129,8 @@ export function ProductEditor() {
 			}
 		});
 	}, [variants, setValue]);
+
+	const media = watch("media") as string[] | undefined;
 
 	const onSubmit = (data: any) => {
 		console.log("Form submitted:", data);
@@ -156,59 +182,78 @@ export function ProductEditor() {
 								</Card.Section>
 								<Card.Section inheritPadding pb="md">
 									<Stack gap="md">
+										{/* Product name - full width */}
 										<TextInput
 											label="Product Name"
 											placeholder="Enter product name"
 											{...register("name")}
 											error={errors.name?.message}
 										/>
-										<TextInput
-											label="SKU"
-											placeholder="Enter SKU"
-											{...register("sku")}
-											error={errors.sku?.message}
-										/>
-										<Controller
-											name="collection"
-											control={control}
-											render={({ field }) => (
-												<Select
-													{...field}
-													label="Collection"
-													placeholder="Select collection"
-													data={collectionOptions}
-													searchable
-													error={errors.collection?.message}
+
+										{/* SKU + Collection - side by side */}
+										<Grid gap="md">
+											<Grid.Col span={{ base: 12, sm: 6 }}>
+												<TextInput
+													label="SKU"
+													placeholder="Enter SKU"
+													{...register("sku")}
+													error={errors.sku?.message}
 												/>
-											)}
-										/>
-										<Controller
-											name="category"
-											control={control}
-											render={({ field }) => (
-												<Select
-													{...field}
-													label="Category"
-													placeholder="Select category"
-													data={categoryOptions}
-													searchable
-													error={errors.category?.message}
+											</Grid.Col>
+											<Grid.Col span={{ base: 12, sm: 6 }}>
+												<Controller
+													name="collection"
+													control={control}
+													render={({ field }) => (
+														<Select
+															{...field}
+															label="Collection"
+															placeholder="Select collection"
+															data={collectionOptions}
+															searchable
+															error={errors.collection?.message}
+														/>
+													)}
 												/>
-											)}
-										/>
-										<Controller
-											name="status"
-											control={control}
-											render={({ field }) => (
-												<Select
-													{...field}
-													label="Status"
-													placeholder="Select status"
-													data={["published", "draft", "scheduled", "archived"]}
-													error={errors.status?.message}
+											</Grid.Col>
+										</Grid>
+
+										{/* Category + Status - side by side */}
+										<Grid gap="md">
+											<Grid.Col span={{ base: 12, sm: 6 }}>
+												<Controller
+													name="category"
+													control={control}
+													render={({ field }) => (
+														<Select
+															{...field}
+															label="Category"
+															placeholder="Select category"
+															data={categoryOptions}
+															searchable
+															error={errors.category?.message}
+														/>
+													)}
 												/>
-											)}
-										/>
+											</Grid.Col>
+											<Grid.Col span={{ base: 12, sm: 6 }}>
+												<Controller
+													name="status"
+													control={control}
+													render={({ field }) => (
+														<Select
+															{...field}
+															label="Status"
+															placeholder="Select status"
+															data={[...STATUS_OPTIONS]}
+															error={errors.status?.message}
+														/>
+													)}
+												/>
+											</Grid.Col>
+										</Grid>
+
+										{/* Description - full width */}
 										<Textarea
 											label="Description"
 											placeholder="Enter product description"
@@ -216,49 +261,49 @@ export function ProductEditor() {
 											{...register("description")}
 											error={errors.description?.message}
 										/>
-										<Controller
-											name="lowStockAlert"
-											control={control}
-											render={({ field: { onChange, value } }) => (
-												<NumberInput
-													label="Low Stock Alert"
-													placeholder="5"
-													value={value || ""}
-													onChange={onChange}
-													error={errors.lowStockAlert?.message}
+
+										{/* Low-stock alert - inline sentence */}
+										<div>
+											<Text size="sm" fw={500} mb={4}>
+												Low-stock alert
+											</Text>
+											<Group gap="xs" align="center" wrap="wrap">
+												<Text size="sm">
+													Flag for reorder when stock drops to
+												</Text>
+												<Controller
+													name="lowStockAlert"
+													control={control}
+													render={({ field: { onChange, value } }) => (
+														<NumberInput
+															w={90}
+															min={0}
+															hideControls
+															value={value ?? ""}
+															onChange={onChange}
+															error={!!errors.lowStockAlert}
+														/>
+													)}
 												/>
-											)}
-										/>
+												<Text size="sm">units or fewer</Text>
+											</Group>
+											<Text size="xs" c="dimmed" mt={4}>
+												Shows up in the Reorder list on the Stocks page.
+											</Text>
+										</div>
 									</Stack>
 								</Card.Section>
 							</Card>
 
-							{/* Product Variants */}
+							{/* Product Variant - no visible title, starts with one variant */}
 							<Card withBorder>
 								<Card.Section inheritPadding py="md" pb="lg">
-									<Group justify="space-between" align="center">
-										<Text fw={600}>Product Variant</Text>
+									<Group justify="flex-end">
 										<Button
 											size="sm"
 											variant="light"
 											leftSection={<IconPlus size={14} />}
-											onClick={() => {
-												const newId =
-													Math.max(0, ...variantFields.map((v) => v.id)) + 1;
-												appendVariant({
-													id: newId,
-													colorFinish: "",
-													sku: "",
-													visibility: "visible",
-													price: 0,
-													cost: 0,
-													discount: 0,
-													comparePrice: 0,
-													marketplacePrice: 0,
-													stock: 0,
-													images: [],
-												});
-											}}
+											onClick={() => appendVariant(createEmptyVariant())}
 										>
 											Add Variant
 										</Button>
@@ -266,181 +311,238 @@ export function ProductEditor() {
 								</Card.Section>
 								<Card.Section inheritPadding pb="md">
 									<Stack gap="md">
-										{variantFields.length === 0 ? (
-											<Text c="dimmed" size="sm" ta="center" py="md">
-												No variants yet. Click "Add Variant" to create one.
-											</Text>
-										) : (
-											variantFields.map((field, idx) => (
+										{variantFields.map((field, idx) => {
+											const variantImages = variants?.[idx]?.images ?? [];
+											return (
 												<Paper key={field.id} p="md" radius="md" withBorder>
-													<Grid gap="md">
-														<Grid.Col span={{ base: 12, sm: 6 }}>
-															<Controller
-																name={`variants.${idx}.colorFinish`}
-																control={control}
-																render={({ field }) => (
-																	<Select
-																		{...field}
-																		label="Color / Finish"
-																		placeholder="Select color"
-																		data={colorOptions}
-																		searchable
-																	/>
-																)}
-															/>
-														</Grid.Col>
-														<Grid.Col span={{ base: 12, sm: 6 }}>
-															<TextInput
-																label="SKU"
-																placeholder="Variant SKU"
-																{...register(`variants.${idx}.sku`)}
-															/>
-														</Grid.Col>
-														<Grid.Col span={{ base: 12, sm: 6 }}>
-															<Controller
-																name={`variants.${idx}.visibility`}
-																control={control}
-																render={({ field }) => (
-																	<Select
-																		{...field}
-																		label="Visibility"
-																		data={VISIBILITY_OPTIONS}
-																	/>
-																)}
-															/>
-														</Grid.Col>
-														<Grid.Col span={{ base: 12, sm: 6 }}>
-															<Controller
-																name={`variants.${idx}.price`}
-																control={control}
-																render={({ field: { onChange, value } }) => (
-																	<NumberInput
-																		label="Price"
-																		placeholder="0.00"
-																		prefix="$"
-																		value={value || ""}
-																		onChange={onChange}
-																	/>
-																)}
-															/>
-														</Grid.Col>
-														<Grid.Col span={{ base: 12, sm: 6 }}>
-															<Controller
-																name={`variants.${idx}.cost`}
-																control={control}
-																render={({ field: { onChange, value } }) => (
-																	<NumberInput
-																		label="Cost"
-																		placeholder="0.00"
-																		prefix="$"
-																		value={value || ""}
-																		onChange={onChange}
-																	/>
-																)}
-															/>
-														</Grid.Col>
-														<Grid.Col span={{ base: 12, sm: 6 }}>
-															<Controller
-																name={`variants.${idx}.discount`}
-																control={control}
-																render={({ field: { onChange, value } }) => (
-																	<NumberInput
-																		label="Discount"
-																		placeholder="0"
-																		suffix="%"
-																		value={value || ""}
-																		onChange={onChange}
-																	/>
-																)}
-															/>
-														</Grid.Col>
-														<Grid.Col span={{ base: 12, sm: 6 }}>
-															<Controller
-																name={`variants.${idx}.comparePrice`}
-																control={control}
-																render={({ field: { value } }) => (
-																	<NumberInput
-																		label="Compare Price (auto)"
-																		placeholder="0.00"
-																		prefix="$"
-																		value={value || ""}
-																		disabled
-																	/>
-																)}
-															/>
-														</Grid.Col>
-														<Grid.Col span={{ base: 12, sm: 6 }}>
-															<Controller
-																name={`variants.${idx}.marketplacePrice`}
-																control={control}
-																render={({ field: { onChange, value } }) => (
-																	<NumberInput
-																		label="Marketplace Price"
-																		placeholder="0.00"
-																		prefix="$"
-																		value={value || ""}
-																		onChange={onChange}
-																	/>
-																)}
-															/>
-														</Grid.Col>
-														<Grid.Col span={{ base: 12, sm: 6 }}>
-															<Controller
-																name={`variants.${idx}.stock`}
-																control={control}
-																render={({ field: { onChange, value } }) => (
-																	<NumberInput
-																		label={
-																			isNew ? "Initial Stock" : "Current Stock"
-																		}
-																		placeholder="0"
-																		value={value || ""}
-																		onChange={onChange}
-																	/>
-																)}
-															/>
-														</Grid.Col>
-														<Grid.Col span={12}>
-															<Text size="sm" c="dimmed" mb="xs">
+													<Stack gap="md">
+														{/* Row 1: Color/Finish + SKU + Visibility */}
+														<Grid gap="md">
+															<Grid.Col span={{ base: 12, sm: 4 }}>
+																<Controller
+																	name={`variants.${idx}.colorFinish`}
+																	control={control}
+																	render={({ field }) => (
+																		<Select
+																			{...field}
+																			label="Color / Finish"
+																			placeholder="Select color"
+																			data={colorOptions}
+																			searchable
+																		/>
+																	)}
+																/>
+															</Grid.Col>
+															<Grid.Col span={{ base: 12, sm: 4 }}>
+																<TextInput
+																	label="SKU"
+																	placeholder="Variant SKU"
+																	{...register(`variants.${idx}.sku`)}
+																/>
+															</Grid.Col>
+															<Grid.Col span={{ base: 12, sm: 4 }}>
+																<Controller
+																	name={`variants.${idx}.visibility`}
+																	control={control}
+																	render={({ field }) => (
+																		<Select
+																			{...field}
+																			label="Visibility"
+																			data={VISIBILITY_OPTIONS}
+																		/>
+																	)}
+																/>
+															</Grid.Col>
+														</Grid>
+
+														{/* Row 2: Price, Cost, Discount, Compare, Marketplace, Stock */}
+														<Grid gap="md">
+															<Grid.Col span={{ base: 6, sm: 2 }}>
+																<Controller
+																	name={`variants.${idx}.price`}
+																	control={control}
+																	render={({ field: { onChange, value } }) => (
+																		<NumberInput
+																			label="Price"
+																			placeholder="0.00"
+																			prefix="$"
+																			hideControls
+																			value={value || ""}
+																			onChange={onChange}
+																		/>
+																	)}
+																/>
+															</Grid.Col>
+															<Grid.Col span={{ base: 6, sm: 2 }}>
+																<Controller
+																	name={`variants.${idx}.cost`}
+																	control={control}
+																	render={({ field: { onChange, value } }) => (
+																		<NumberInput
+																			label="Cost"
+																			placeholder="0.00"
+																			prefix="$"
+																			hideControls
+																			value={value || ""}
+																			onChange={onChange}
+																		/>
+																	)}
+																/>
+															</Grid.Col>
+															<Grid.Col span={{ base: 6, sm: 2 }}>
+																<Controller
+																	name={`variants.${idx}.discount`}
+																	control={control}
+																	render={({ field: { onChange, value } }) => (
+																		<NumberInput
+																			label="Discount"
+																			placeholder="0"
+																			suffix="%"
+																			hideControls
+																			value={value || ""}
+																			onChange={onChange}
+																		/>
+																	)}
+																/>
+															</Grid.Col>
+															<Grid.Col span={{ base: 6, sm: 2 }}>
+																<Controller
+																	name={`variants.${idx}.comparePrice`}
+																	control={control}
+																	render={({ field: { value } }) => (
+																		<NumberInput
+																			label="Compare Price"
+																			placeholder="0.00"
+																			prefix="$"
+																			hideControls
+																			value={value || ""}
+																			disabled
+																		/>
+																	)}
+																/>
+															</Grid.Col>
+															<Grid.Col span={{ base: 6, sm: 2 }}>
+																<Controller
+																	name={`variants.${idx}.marketplacePrice`}
+																	control={control}
+																	render={({ field: { onChange, value } }) => (
+																		<NumberInput
+																			label="Marketplace"
+																			placeholder="0.00"
+																			prefix="$"
+																			hideControls
+																			value={value || ""}
+																			onChange={onChange}
+																		/>
+																	)}
+																/>
+															</Grid.Col>
+															<Grid.Col span={{ base: 6, sm: 2 }}>
+																<Controller
+																	name={`variants.${idx}.stock`}
+																	control={control}
+																	render={({ field: { onChange, value } }) => (
+																		<NumberInput
+																			label={
+																				isNew
+																					? "Initial Stock"
+																					: "Current Stock"
+																			}
+																			placeholder="0"
+																			hideControls
+																			value={value || ""}
+																			onChange={onChange}
+																		/>
+																	)}
+																/>
+															</Grid.Col>
+														</Grid>
+
+														{/* Row 3: Images upload + preview */}
+														<div>
+															<Text size="sm" fw={500} mb="xs">
 																Images
 															</Text>
-															<Paper
-																p="lg"
-																radius="md"
-																style={{
-																	border:
-																		"2px dashed var(--mantine-color-gray-3)",
-																	textAlign: "center",
-																	minHeight: "120px",
-																	display: "flex",
-																	alignItems: "center",
-																	justifyContent: "center",
-																}}
-															>
-																<Stack align="center">
-																	<IconUpload size={24} color="gray" />
-																	<Text size="sm" c="dimmed">
-																		Upload variant images
-																	</Text>
-																</Stack>
-															</Paper>
-														</Grid.Col>
-														<Grid.Col span={12}>
+															<Group gap="sm" align="flex-start" wrap="wrap">
+																<Paper
+																	radius="md"
+																	style={{
+																		border:
+																			"2px dashed var(--mantine-color-gray-3)",
+																		textAlign: "center",
+																		cursor: "pointer",
+																		width: 110,
+																		height: 110,
+																		display: "flex",
+																		alignItems: "center",
+																		justifyContent: "center",
+																	}}
+																>
+																	<Stack align="center" gap={4}>
+																		<IconUpload size={20} color="gray" />
+																		<Text size="xs" c="dimmed">
+																			Upload
+																		</Text>
+																	</Stack>
+																</Paper>
+																{variantImages.map((url, imgIdx) => (
+																	<div
+																		key={url}
+																		style={{ position: "relative" }}
+																	>
+																		<Image
+																			src={url}
+																			w={110}
+																			h={110}
+																			radius="md"
+																			fit="cover"
+																			alt="Variant image"
+																		/>
+																		<Button
+																			size="compact-xs"
+																			color="red"
+																			variant="filled"
+																			onClick={() =>
+																				setValue(
+																					`variants.${idx}.images`,
+																					variantImages.filter(
+																						(_, i) => i !== imgIdx,
+																					),
+																				)
+																			}
+																			style={{
+																				position: "absolute",
+																				top: 4,
+																				right: 4,
+																				padding: 0,
+																				width: 20,
+																				height: 20,
+																			}}
+																		>
+																			<IconX size={12} />
+																		</Button>
+																	</div>
+																))}
+															</Group>
+														</div>
+
+														{/* Remove variant (kept disabled when it is the last one) */}
+														<Group justify="flex-end">
 															<Button
 																color="red"
-																variant="light"
-																size="sm"
+																variant="subtle"
+																size="xs"
 																leftSection={<IconTrash size={14} />}
+																disabled={variantFields.length === 1}
 																onClick={() => removeVariant(idx)}
-																fullWidth
 															>
 																Remove Variant
 															</Button>
-														</Grid.Col>
-													</Grid>
+														</Group>
+													</Stack>
 												</Paper>
-											))
-										)}
+											);
+										})}
 									</Stack>
 								</Card.Section>
 							</Card>
@@ -515,198 +617,212 @@ export function ProductEditor() {
 						</Stack>
 					</Tabs.Panel>
 
-					{/* TAB: DIMENSION */}
+					{/* TAB: DIMENSION - split into two columns */}
 					<Tabs.Panel value="dimension" pt="md">
-						<Stack gap="md">
+						<Grid gap="md">
 							{/* Product Dimension */}
-							<Card withBorder>
-								<Card.Section inheritPadding py="md" pb="lg">
-									<div>
-										<Text fw={600}>Product Dimension</Text>
-										<Text size="sm" c="dimmed">
-											Upload your dimension diagram — typically a photo with
-											width/depth/height labelled directly on the product. This
-											is what appears on the storefront.
-										</Text>
-									</div>
-								</Card.Section>
-								<Card.Section inheritPadding pb="md">
-									<Stack gap="md">
-										<Paper
-											p="lg"
-											radius="md"
-											style={{
-												border: "2px dashed var(--mantine-color-gray-3)",
-												textAlign: "center",
-												minHeight: "150px",
-												display: "flex",
-												alignItems: "center",
-												justifyContent: "center",
-											}}
-										>
-											<Stack align="center">
-												<IconUpload size={24} color="gray" />
-												<Text size="sm" c="dimmed">
-													Upload dimension diagram
-												</Text>
-											</Stack>
-										</Paper>
-										<Grid gap="md">
-											<Grid.Col span={{ base: 12, sm: 6 }}>
-												<Controller
-													name="dimension.width"
-													control={control}
-													render={({ field: { onChange, value } }) => (
-														<NumberInput
-															label="Width (cm)"
-															placeholder="0"
-															value={value || ""}
-															onChange={onChange}
-														/>
-													)}
-												/>
-											</Grid.Col>
-											<Grid.Col span={{ base: 12, sm: 6 }}>
-												<Controller
-													name="dimension.depth"
-													control={control}
-													render={({ field: { onChange, value } }) => (
-														<NumberInput
-															label="Depth (cm)"
-															placeholder="0"
-															value={value || ""}
-															onChange={onChange}
-														/>
-													)}
-												/>
-											</Grid.Col>
-											<Grid.Col span={{ base: 12, sm: 6 }}>
-												<Controller
-													name="dimension.height"
-													control={control}
-													render={({ field: { onChange, value } }) => (
-														<NumberInput
-															label="Height (cm)"
-															placeholder="0"
-															value={value || ""}
-															onChange={onChange}
-														/>
-													)}
-												/>
-											</Grid.Col>
-											<Grid.Col span={{ base: 12, sm: 6 }}>
-												<Controller
-													name="dimension.weight"
-													control={control}
-													render={({ field: { onChange, value } }) => (
-														<NumberInput
-															label="Weight (kg)"
-															placeholder="0"
-															value={value || ""}
-															onChange={onChange}
-														/>
-													)}
-												/>
-											</Grid.Col>
-										</Grid>
-									</Stack>
-								</Card.Section>
-							</Card>
+							<Grid.Col span={{ base: 12, md: 6 }}>
+								<Card withBorder h="100%">
+									<Card.Section inheritPadding py="md" pb="lg">
+										<div>
+											<Text fw={600}>Product Dimension</Text>
+											<Text size="sm" c="dimmed">
+												Upload your dimension diagram — typically a photo with
+												width/depth/height labelled directly on the product.
+												This is what appears on the storefront.
+											</Text>
+										</div>
+									</Card.Section>
+									<Card.Section inheritPadding pb="md">
+										<Stack gap="md">
+											<Paper
+												p="lg"
+												radius="md"
+												style={{
+													border: "2px dashed var(--mantine-color-gray-3)",
+													textAlign: "center",
+													minHeight: "150px",
+													display: "flex",
+													alignItems: "center",
+													justifyContent: "center",
+												}}
+											>
+												<Stack align="center">
+													<IconUpload size={24} color="gray" />
+													<Text size="sm" c="dimmed">
+														Upload dimension diagram
+													</Text>
+												</Stack>
+											</Paper>
+											{/* Width / Depth / Height / Weight - side by side */}
+											<Grid gap="md">
+												<Grid.Col span={{ base: 6, sm: 3 }}>
+													<Controller
+														name="dimension.width"
+														control={control}
+														render={({ field: { onChange, value } }) => (
+															<NumberInput
+																label="Width (cm)"
+																placeholder="0"
+																hideControls
+																value={value || ""}
+																onChange={onChange}
+															/>
+														)}
+													/>
+												</Grid.Col>
+												<Grid.Col span={{ base: 6, sm: 3 }}>
+													<Controller
+														name="dimension.depth"
+														control={control}
+														render={({ field: { onChange, value } }) => (
+															<NumberInput
+																label="Depth (cm)"
+																placeholder="0"
+																hideControls
+																value={value || ""}
+																onChange={onChange}
+															/>
+														)}
+													/>
+												</Grid.Col>
+												<Grid.Col span={{ base: 6, sm: 3 }}>
+													<Controller
+														name="dimension.height"
+														control={control}
+														render={({ field: { onChange, value } }) => (
+															<NumberInput
+																label="Height (cm)"
+																placeholder="0"
+																hideControls
+																value={value || ""}
+																onChange={onChange}
+															/>
+														)}
+													/>
+												</Grid.Col>
+												<Grid.Col span={{ base: 6, sm: 3 }}>
+													<Controller
+														name="dimension.weight"
+														control={control}
+														render={({ field: { onChange, value } }) => (
+															<NumberInput
+																label="Weight (kg)"
+																placeholder="0"
+																hideControls
+																value={value || ""}
+																onChange={onChange}
+															/>
+														)}
+													/>
+												</Grid.Col>
+											</Grid>
+										</Stack>
+									</Card.Section>
+								</Card>
+							</Grid.Col>
 
 							{/* Box Dimension */}
-							<Card withBorder>
-								<Card.Section inheritPadding py="md" pb="lg">
-									<div>
-										<Text fw={600}>Box Dimensions</Text>
-										<Text size="sm" c="dimmed">
-											Upload your shipping-box diagram. Used by shipping zones
-											to calculate freight.
-										</Text>
-									</div>
-								</Card.Section>
-								<Card.Section inheritPadding pb="md">
-									<Stack gap="md">
-										<Paper
-											p="lg"
-											radius="md"
-											style={{
-												border: "2px dashed var(--mantine-color-gray-3)",
-												textAlign: "center",
-												minHeight: "150px",
-												display: "flex",
-												alignItems: "center",
-												justifyContent: "center",
-											}}
-										>
-											<Stack align="center">
-												<IconUpload size={24} color="gray" />
-												<Text size="sm" c="dimmed">
-													Upload box diagram
-												</Text>
-											</Stack>
-										</Paper>
-										<Grid gap="md">
-											<Grid.Col span={{ base: 12, sm: 6 }}>
-												<Controller
-													name="boxDimension.width"
-													control={control}
-													render={({ field: { onChange, value } }) => (
-														<NumberInput
-															label="Box Width (cm)"
-															placeholder="0"
-															value={value || ""}
-															onChange={onChange}
-														/>
-													)}
-												/>
-											</Grid.Col>
-											<Grid.Col span={{ base: 12, sm: 6 }}>
-												<Controller
-													name="boxDimension.depth"
-													control={control}
-													render={({ field: { onChange, value } }) => (
-														<NumberInput
-															label="Box Depth (cm)"
-															placeholder="0"
-															value={value || ""}
-															onChange={onChange}
-														/>
-													)}
-												/>
-											</Grid.Col>
-											<Grid.Col span={{ base: 12, sm: 6 }}>
-												<Controller
-													name="boxDimension.height"
-													control={control}
-													render={({ field: { onChange, value } }) => (
-														<NumberInput
-															label="Box Height (cm)"
-															placeholder="0"
-															value={value || ""}
-															onChange={onChange}
-														/>
-													)}
-												/>
-											</Grid.Col>
-											<Grid.Col span={{ base: 12, sm: 6 }}>
-												<Controller
-													name="boxDimension.weight"
-													control={control}
-													render={({ field: { onChange, value } }) => (
-														<NumberInput
-															label="Box Weight (kg)"
-															placeholder="0"
-															value={value || ""}
-															onChange={onChange}
-														/>
-													)}
-												/>
-											</Grid.Col>
-										</Grid>
-									</Stack>
-								</Card.Section>
-							</Card>
-						</Stack>
+							<Grid.Col span={{ base: 12, md: 6 }}>
+								<Card withBorder h="100%">
+									<Card.Section inheritPadding py="md" pb="lg">
+										<div>
+											<Text fw={600}>Box Dimensions</Text>
+											<Text size="sm" c="dimmed">
+												Upload your shipping-box diagram. Used by shipping zones
+												to calculate freight.
+											</Text>
+										</div>
+									</Card.Section>
+									<Card.Section inheritPadding pb="md">
+										<Stack gap="md">
+											<Paper
+												p="lg"
+												radius="md"
+												style={{
+													border: "2px dashed var(--mantine-color-gray-3)",
+													textAlign: "center",
+													minHeight: "150px",
+													display: "flex",
+													alignItems: "center",
+													justifyContent: "center",
+												}}
+											>
+												<Stack align="center">
+													<IconUpload size={24} color="gray" />
+													<Text size="sm" c="dimmed">
+														Upload box diagram
+													</Text>
+												</Stack>
+											</Paper>
+											{/* Box W / D / H / Weight - side by side */}
+											<Grid gap="md">
+												<Grid.Col span={{ base: 6, sm: 3 }}>
+													<Controller
+														name="boxDimension.width"
+														control={control}
+														render={({ field: { onChange, value } }) => (
+															<NumberInput
+																label="Box W (cm)"
+																placeholder="0"
+																hideControls
+																value={value || ""}
+																onChange={onChange}
+															/>
+														)}
+													/>
+												</Grid.Col>
+												<Grid.Col span={{ base: 6, sm: 3 }}>
+													<Controller
+														name="boxDimension.depth"
+														control={control}
+														render={({ field: { onChange, value } }) => (
+															<NumberInput
+																label="Box D (cm)"
+																placeholder="0"
+																hideControls
+																value={value || ""}
+																onChange={onChange}
+															/>
+														)}
+													/>
+												</Grid.Col>
+												<Grid.Col span={{ base: 6, sm: 3 }}>
+													<Controller
+														name="boxDimension.height"
+														control={control}
+														render={({ field: { onChange, value } }) => (
+															<NumberInput
+																label="Box H (cm)"
+																placeholder="0"
+																hideControls
+																value={value || ""}
+																onChange={onChange}
+															/>
+														)}
+													/>
+												</Grid.Col>
+												<Grid.Col span={{ base: 6, sm: 3 }}>
+													<Controller
+														name="boxDimension.weight"
+														control={control}
+														render={({ field: { onChange, value } }) => (
+															<NumberInput
+																label="Box Weight (kg)"
+																placeholder="0"
+																hideControls
+																value={value || ""}
+																onChange={onChange}
+															/>
+														)}
+													/>
+												</Grid.Col>
+											</Grid>
+										</Stack>
+									</Card.Section>
+								</Card>
+							</Grid.Col>
+						</Grid>
 					</Tabs.Panel>
 
 					{/* TAB: MEDIA */}
@@ -749,9 +865,50 @@ export function ProductEditor() {
 												</div>
 											</Stack>
 										</Paper>
-										<Text size="sm" c="dimmed">
-											{(watch("media") as any)?.length || 0} image(s) uploaded
-										</Text>
+
+										{/* Preview of uploaded images */}
+										{media && media.length > 0 ? (
+											<Grid gap="md">
+												{media.map((url, imgIdx) => (
+													<Grid.Col key={url} span={{ base: 6, sm: 4, md: 3 }}>
+														<div style={{ position: "relative" }}>
+															<Image
+																src={url}
+																radius="md"
+																fit="cover"
+																h={160}
+																alt="Product media"
+															/>
+															<Button
+																size="compact-xs"
+																color="red"
+																variant="filled"
+																onClick={() =>
+																	setValue(
+																		"media",
+																		media.filter((_, i) => i !== imgIdx),
+																	)
+																}
+																style={{
+																	position: "absolute",
+																	top: 6,
+																	right: 6,
+																	padding: 0,
+																	width: 24,
+																	height: 24,
+																}}
+															>
+																<IconX size={14} />
+															</Button>
+														</div>
+													</Grid.Col>
+												))}
+											</Grid>
+										) : (
+											<Text size="sm" c="dimmed">
+												No images uploaded yet.
+											</Text>
+										)}
 									</Stack>
 								</Card.Section>
 							</Card>
