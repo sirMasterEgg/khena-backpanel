@@ -1,4 +1,58 @@
-export const dummyProducts = [
+export type ProductVariant = {
+	id: number;
+	colorFinish: string;
+	sku: string;
+	visibility: "visible" | "hidden";
+	price: number;
+	cost: number;
+	discount: number;
+	comparePrice: number;
+	marketplacePrice: number;
+	stock: number;
+	images: string[];
+};
+
+export type ProductCareCategory =
+	| "high-end-panels"
+	| "fabric-boucle"
+	| "wood-accents"
+	| "stone-marble";
+
+export type Product = {
+	id: number;
+	name: string;
+	sku: string;
+	collection: string;
+	category: string;
+	status: "published" | "draft" | "scheduled" | "archived";
+	description?: string;
+	lowStockAlert?: number;
+	price: number;
+	cost: number;
+	stock: number;
+	updatedAt: string;
+	image: string;
+	variants?: ProductVariant[];
+	materialInfo?: string;
+	careCategories?: ProductCareCategory[];
+	dimension?: {
+		image?: string;
+		width?: number;
+		depth?: number;
+		height?: number;
+		weight?: number;
+	};
+	boxDimension?: {
+		image?: string;
+		width?: number;
+		depth?: number;
+		height?: number;
+		weight?: number;
+	};
+	media?: string[];
+};
+
+export const dummyProducts: Product[] = [
 	{
 		id: 1,
 		name: "Modern Sofa Set",
@@ -11,6 +65,39 @@ export const dummyProducts = [
 		status: "published",
 		image: "https://placehold.co/80x80?text=Sofa",
 		updatedAt: "2026-06-19",
+		description: "Elegant modern sofa set with premium fabric upholstery",
+		lowStockAlert: 3,
+		variants: [
+			{
+				id: 1,
+				colorFinish: "Black",
+				sku: "SOFA-001-BLK",
+				visibility: "visible",
+				price: 2500,
+				cost: 1500,
+				discount: 10,
+				comparePrice: 2778,
+				marketplacePrice: 2450,
+				stock: 8,
+				images: ["https://placehold.co/200x200?text=Sofa+Black"],
+			},
+			{
+				id: 2,
+				colorFinish: "Beige",
+				sku: "SOFA-001-BEI",
+				visibility: "visible",
+				price: 2500,
+				cost: 1500,
+				discount: 0,
+				comparePrice: 2500,
+				marketplacePrice: 2500,
+				stock: 7,
+				images: ["https://placehold.co/200x200?text=Sofa+Beige"],
+			},
+		],
+		materialInfo: "High-quality fabric with wooden frame, stainless steel legs",
+		careCategories: ["fabric-boucle"],
+		media: ["https://placehold.co/400x400?text=Sofa+1", "https://placehold.co/400x400?text=Sofa+2"],
 	},
 	{
 		id: 2,
@@ -24,6 +111,26 @@ export const dummyProducts = [
 		status: "published",
 		image: "https://placehold.co/80x80?text=Table",
 		updatedAt: "2026-06-18",
+		description: "Solid wood dining table, seats up to 8 people",
+		lowStockAlert: 2,
+		variants: [
+			{
+				id: 3,
+				colorFinish: "Natural Wood",
+				sku: "TABLE-001-NAT",
+				visibility: "visible",
+				price: 1200,
+				cost: 700,
+				discount: 5,
+				comparePrice: 1263,
+				marketplacePrice: 1180,
+				stock: 3,
+				images: ["https://placehold.co/200x200?text=Table+Natural"],
+			},
+		],
+		materialInfo: "Oak wood frame with tempered glass top, wood accents",
+		careCategories: ["wood-accents", "stone-marble"],
+		media: ["https://placehold.co/400x400?text=Dining+Table"],
 	},
 	{
 		id: 3,
