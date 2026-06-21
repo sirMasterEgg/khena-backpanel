@@ -97,7 +97,10 @@ export const dummyProducts: Product[] = [
 		],
 		materialInfo: "High-quality fabric with wooden frame, stainless steel legs",
 		careCategories: ["fabric-boucle"],
-		media: ["https://placehold.co/400x400?text=Sofa+1", "https://placehold.co/400x400?text=Sofa+2"],
+		media: [
+			"https://placehold.co/400x400?text=Sofa+1",
+			"https://placehold.co/400x400?text=Sofa+2",
+		],
 	},
 	{
 		id: 2,

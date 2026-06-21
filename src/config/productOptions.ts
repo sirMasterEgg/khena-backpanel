@@ -1,4 +1,9 @@
-export const STATUS_OPTIONS = ["published", "draft", "scheduled", "archived"] as const;
+export const STATUS_OPTIONS = [
+	"published",
+	"draft",
+	"scheduled",
+	"archived",
+] as const;
 
 export const VISIBILITY_OPTIONS = [
 	{ value: "visible", label: "Visible" },

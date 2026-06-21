@@ -326,9 +326,7 @@ export function ProductsList() {
 									</Table.Td>
 									<Table.Td>
 										<Stack gap={0}>
-											<span style={{ fontWeight: 500 }}>
-												{product.name}
-											</span>
+											<span style={{ fontWeight: 500 }}>{product.name}</span>
 											<span style={{ fontSize: "12px", color: "gray" }}>
 												SKU: {product.sku}
 											</span>

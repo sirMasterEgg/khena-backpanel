@@ -186,7 +186,9 @@ export function ProductDetail() {
 											<Text size="sm" c="dimmed">
 												Margin
 											</Text>
-											<Text fw={500}>{calculateMargin(product.price, product.cost)}%</Text>
+											<Text fw={500}>
+												{calculateMargin(product.price, product.cost)}%
+											</Text>
 										</div>
 									</Grid.Col>
 									<Grid.Col span={{ base: 12, sm: 6 }}>
@@ -270,20 +272,21 @@ export function ProductDetail() {
 												<Text fw={500}>{product.materialInfo}</Text>
 											</div>
 										)}
-										{product.careCategories && product.careCategories.length > 0 && (
-											<div>
-												<Text size="sm" c="dimmed" mb="xs">
-													Care Categories
-												</Text>
-												<Group gap="xs">
-													{product.careCategories.map((cat) => (
-														<Badge key={cat} variant="light">
-															{cat}
-														</Badge>
-													))}
-												</Group>
-											</div>
-										)}
+										{product.careCategories &&
+											product.careCategories.length > 0 && (
+												<div>
+													<Text size="sm" c="dimmed" mb="xs">
+														Care Categories
+													</Text>
+													<Group gap="xs">
+														{product.careCategories.map((cat) => (
+															<Badge key={cat} variant="light">
+																{cat}
+															</Badge>
+														))}
+													</Group>
+												</div>
+											)}
 									</Stack>
 								</Card.Section>
 							</Card>
@@ -324,7 +327,9 @@ export function ProductDetail() {
 															<Text size="xs" c="dimmed">
 																Height
 															</Text>
-															<Text fw={500}>{product.dimension.height} cm</Text>
+															<Text fw={500}>
+																{product.dimension.height} cm
+															</Text>
 														</Grid.Col>
 													)}
 													{product.dimension.weight && (
@@ -332,7 +337,9 @@ export function ProductDetail() {
 															<Text size="xs" c="dimmed">
 																Weight
 															</Text>
-															<Text fw={500}>{product.dimension.weight} kg</Text>
+															<Text fw={500}>
+																{product.dimension.weight} kg
+															</Text>
 														</Grid.Col>
 													)}
 												</Grid>
@@ -349,7 +356,9 @@ export function ProductDetail() {
 															<Text size="xs" c="dimmed">
 																Box Width
 															</Text>
-															<Text fw={500}>{product.boxDimension.width} cm</Text>
+															<Text fw={500}>
+																{product.boxDimension.width} cm
+															</Text>
 														</Grid.Col>
 													)}
 													{product.boxDimension.depth && (
@@ -357,7 +366,9 @@ export function ProductDetail() {
 															<Text size="xs" c="dimmed">
 																Box Depth
 															</Text>
-															<Text fw={500}>{product.boxDimension.depth} cm</Text>
+															<Text fw={500}>
+																{product.boxDimension.depth} cm
+															</Text>
 														</Grid.Col>
 													)}
 													{product.boxDimension.height && (
@@ -365,7 +376,9 @@ export function ProductDetail() {
 															<Text size="xs" c="dimmed">
 																Box Height
 															</Text>
-															<Text fw={500}>{product.boxDimension.height} cm</Text>
+															<Text fw={500}>
+																{product.boxDimension.height} cm
+															</Text>
 														</Grid.Col>
 													)}
 													{product.boxDimension.weight && (
@@ -373,7 +386,9 @@ export function ProductDetail() {
 															<Text size="xs" c="dimmed">
 																Box Weight
 															</Text>
-															<Text fw={500}>{product.boxDimension.weight} kg</Text>
+															<Text fw={500}>
+																{product.boxDimension.weight} kg
+															</Text>
 														</Grid.Col>
 													)}
 												</Grid>
