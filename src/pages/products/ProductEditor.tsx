@@ -16,8 +16,15 @@ import {
 	Textarea,
 	TextInput,
 } from "@mantine/core";
-import { IconPlus, IconTrash, IconUpload, IconX } from "@tabler/icons-react";
-import { useEffect } from "react";
+import {
+	IconChevronLeft,
+	IconChevronRight,
+	IconPlus,
+	IconTrash,
+	IconUpload,
+	IconX,
+} from "@tabler/icons-react";
+import { useEffect, useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router";
 import { PageHeader } from "@/components/PageHeader";
@@ -34,6 +41,9 @@ import {
 } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { productSchema } from "./productSchema";
+
+// Order of the editor tabs, used by the Previous/Next footer navigation.
+const TAB_ORDER = ["general", "materials", "dimension", "media"];
 
 // Always give variants a unique data id. useFieldArray uses its own internal
 // key, so this only needs to be unique enough to be a stable number value.
@@ -58,6 +68,11 @@ export function ProductEditor() {
 	const isNew = !id;
 
 	const product = isNew ? null : dummyProducts.find((p) => p.id === Number(id));
+
+	const [activeTab, setActiveTab] = useState<string | null>("general");
+	const currentTabIndex = TAB_ORDER.indexOf(activeTab ?? "general");
+	const goToPrevTab = () => setActiveTab(TAB_ORDER[currentTabIndex - 1]);
+	const goToNextTab = () => setActiveTab(TAB_ORDER[currentTabIndex + 1]);
 
 	const {
 		control,
@@ -164,7 +179,7 @@ export function ProductEditor() {
 			/>
 
 			<form onSubmit={handleSubmit(onSubmit)}>
-				<Tabs defaultValue="general">
+				<Tabs value={activeTab} onChange={setActiveTab}>
 					<Tabs.List>
 						<Tabs.Tab value="general">General</Tabs.Tab>
 						<Tabs.Tab value="materials">Materials & Care</Tabs.Tab>
@@ -295,10 +310,11 @@ export function ProductEditor() {
 								</Card.Section>
 							</Card>
 
-							{/* Product Variant - no visible title, starts with one variant */}
+							{/* Variant & Finishes - starts with one variant */}
 							<Card withBorder>
 								<Card.Section inheritPadding py="md" pb="lg">
-									<Group justify="flex-end">
+									<Group justify="space-between" align="center">
+										<Text fw={600}>Variant & Finishes</Text>
 										<Button
 											size="sm"
 											variant="light"
@@ -915,6 +931,26 @@ export function ProductEditor() {
 						</Stack>
 					</Tabs.Panel>
 				</Tabs>
+
+				{/* Previous / Next tab navigation */}
+				<Group justify="space-between" mt="xl">
+					<Button
+						variant="default"
+						leftSection={<IconChevronLeft size={16} />}
+						disabled={currentTabIndex <= 0}
+						onClick={goToPrevTab}
+					>
+						Previous
+					</Button>
+					<Button
+						variant="default"
+						rightSection={<IconChevronRight size={16} />}
+						disabled={currentTabIndex >= TAB_ORDER.length - 1}
+						onClick={goToNextTab}
+					>
+						Next
+					</Button>
+				</Group>
 			</form>
 		</Container>
 	);
