@@ -41,7 +41,14 @@ export function ProductEditor() {
 
 	const product = isNew ? null : dummyProducts.find((p) => p.id === Number(id));
 
-	const { control, handleSubmit, register, watch, setValue, formState: { errors } } = useForm({
+	const {
+		control,
+		handleSubmit,
+		register,
+		watch,
+		setValue,
+		formState: { errors },
+	} = useForm({
 		resolver: zodResolver(productSchema) as any,
 		defaultValues: product
 			? {
@@ -76,7 +83,11 @@ export function ProductEditor() {
 				},
 	});
 
-	const { fields: variantFields, append: appendVariant, remove: removeVariant } = useFieldArray({
+	const {
+		fields: variantFields,
+		append: appendVariant,
+		remove: removeVariant,
+	} = useFieldArray({
 		control,
 		name: "variants",
 	});
@@ -87,7 +98,9 @@ export function ProductEditor() {
 		variants?.forEach((variant, idx) => {
 			if (variant.price !== undefined && variant.discount !== undefined) {
 				const comparePrice =
-					variant.discount > 0 ? Math.round(variant.price / (1 - variant.discount / 100)) : variant.price;
+					variant.discount > 0
+						? Math.round(variant.price / (1 - variant.discount / 100))
+						: variant.price;
 				setValue(`variants.${idx}.comparePrice`, comparePrice);
 			}
 		});
@@ -97,9 +110,18 @@ export function ProductEditor() {
 		console.log("Form submitted:", data);
 	};
 
-	const collectionOptions = dummyCollections.map((c) => ({ value: c.name, label: c.name }));
-	const categoryOptions = dummyCategories.map((c) => ({ value: c.name, label: c.name }));
-	const colorOptions = dummyColors.map((c) => ({ value: c.name, label: c.name }));
+	const collectionOptions = dummyCollections.map((c) => ({
+		value: c.name,
+		label: c.name,
+	}));
+	const categoryOptions = dummyCategories.map((c) => ({
+		value: c.name,
+		label: c.name,
+	}));
+	const colorOptions = dummyColors.map((c) => ({
+		value: c.name,
+		label: c.name,
+	}));
 
 	return (
 		<Container size="xl">
@@ -221,7 +243,8 @@ export function ProductEditor() {
 											variant="light"
 											leftSection={<IconPlus size={14} />}
 											onClick={() => {
-												const newId = Math.max(0, ...variantFields.map((v) => v.id)) + 1;
+												const newId =
+													Math.max(0, ...variantFields.map((v) => v.id)) + 1;
 												appendVariant({
 													id: newId,
 													colorFinish: "",
@@ -367,7 +390,9 @@ export function ProductEditor() {
 																control={control}
 																render={({ field: { onChange, value } }) => (
 																	<NumberInput
-																		label={isNew ? "Initial Stock" : "Current Stock"}
+																		label={
+																			isNew ? "Initial Stock" : "Current Stock"
+																		}
 																		placeholder="0"
 																		value={value || ""}
 																		onChange={onChange}
@@ -383,7 +408,8 @@ export function ProductEditor() {
 																p="lg"
 																radius="md"
 																style={{
-																	border: "2px dashed var(--mantine-color-gray-3)",
+																	border:
+																		"2px dashed var(--mantine-color-gray-3)",
 																	textAlign: "center",
 																	minHeight: "120px",
 																	display: "flex",
@@ -450,8 +476,8 @@ export function ProductEditor() {
 									<div>
 										<Text fw={600}>Care Instructions</Text>
 										<Text size="sm" c="dimmed">
-											Select all material categories that apply to this product. Care guidance will be shown
-											on the product page.
+											Select all material categories that apply to this product.
+											Care guidance will be shown on the product page.
 										</Text>
 									</div>
 								</Card.Section>
@@ -465,12 +491,18 @@ export function ProductEditor() {
 													<Checkbox
 														key={option.value}
 														label={option.label}
-														checked={(value as any)?.includes(option.value) || false}
+														checked={
+															(value as any)?.includes(option.value) || false
+														}
 														onChange={(e) => {
 															if (e.currentTarget.checked) {
 																onChange([...(value || []), option.value]);
 															} else {
-																onChange((value || []).filter((v) => v !== option.value));
+																onChange(
+																	(value || []).filter(
+																		(v) => v !== option.value,
+																	),
+																);
 															}
 														}}
 													/>
@@ -492,8 +524,9 @@ export function ProductEditor() {
 									<div>
 										<Text fw={600}>Product Dimension</Text>
 										<Text size="sm" c="dimmed">
-											Upload your dimension diagram — typically a photo with width/depth/height labelled
-											directly on the product. This is what appears on the storefront.
+											Upload your dimension diagram — typically a photo with
+											width/depth/height labelled directly on the product. This
+											is what appears on the storefront.
 										</Text>
 									</div>
 								</Card.Section>
@@ -586,7 +619,8 @@ export function ProductEditor() {
 									<div>
 										<Text fw={600}>Box Dimensions</Text>
 										<Text size="sm" c="dimmed">
-											Upload your shipping-box diagram. Used by shipping zones to calculate freight.
+											Upload your shipping-box diagram. Used by shipping zones
+											to calculate freight.
 										</Text>
 									</div>
 								</Card.Section>
@@ -683,8 +717,8 @@ export function ProductEditor() {
 									<div>
 										<Text fw={600}>Media Overview</Text>
 										<Text size="sm" c="dimmed">
-											Upload and manage product images. These images will be displayed on the product detail
-											page.
+											Upload and manage product images. These images will be
+											displayed on the product detail page.
 										</Text>
 									</div>
 								</Card.Section>

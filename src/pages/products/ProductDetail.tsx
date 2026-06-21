@@ -414,11 +414,11 @@ export function ProductDetail() {
 								</Card.Section>
 								<Card.Section inheritPadding pb="md">
 									<Stack gap="md">
-										{product.media.map((url, idx) => (
+										{product.media.map((url) => (
 											<img
-												key={idx}
+												key={url}
 												src={url}
-												alt={`Media ${idx + 1}`}
+												alt="Product media"
 												style={{ width: "100%", borderRadius: "8px" }}
 											/>
 										))}
