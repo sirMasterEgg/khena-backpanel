@@ -4,6 +4,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { queryClient } from "@/config/queryClient";
 import { Router } from "@/router";
 import "@mantine/core/styles.css";
+import "@tabler/icons-react";
 
 export function App() {
 	return (
