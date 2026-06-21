@@ -3,6 +3,7 @@ import {
 	AppShell,
 	Avatar,
 	Badge,
+	Divider,
 	Group,
 	Indicator,
 	Menu,
@@ -206,6 +207,8 @@ export function AppLayout() {
 								<IconBell size={20} />
 							</ActionIcon>
 						</Indicator>
+
+						<Divider size="sm" orientation="vertical" />
 
 						{/* User menu */}
 						<Menu position="bottom-end">
