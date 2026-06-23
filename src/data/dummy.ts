@@ -354,10 +354,30 @@ export const dummyContacts = [
 	},
 ];
 
-export const dummyCollections = [
-	{ id: 1, name: "Modern Living", count: 24 },
-	{ id: 2, name: "Minimalist", count: 18 },
-	{ id: 3, name: "Classic", count: 12 },
+export type Collection = {
+	id: number;
+	name: string;
+	productCount: number;
+	status: "published" | "draft";
+	updatedAt: string;
+};
+
+export const dummyCollections: Collection[] = [
+	{ id: 1, name: "Modern Living", productCount: 24, status: "published", updatedAt: "2026-06-19" },
+	{ id: 2, name: "Minimalist", productCount: 18, status: "published", updatedAt: "2026-06-18" },
+	{ id: 3, name: "Classic", productCount: 12, status: "draft", updatedAt: "2026-06-17" },
+	{ id: 4, name: "Contemporary", productCount: 16, status: "published", updatedAt: "2026-06-16" },
+	{ id: 5, name: "Vintage", productCount: 9, status: "published", updatedAt: "2026-06-15" },
+	{ id: 6, name: "Scandinavian", productCount: 14, status: "draft", updatedAt: "2026-06-14" },
+	{ id: 7, name: "Industrial", productCount: 11, status: "published", updatedAt: "2026-06-13" },
+	{ id: 8, name: "Mediterranean", productCount: 8, status: "published", updatedAt: "2026-06-12" },
+	{ id: 9, name: "Bohemian", productCount: 13, status: "draft", updatedAt: "2026-06-11" },
+	{ id: 10, name: "Art Deco", productCount: 7, status: "published", updatedAt: "2026-06-10" },
+	{ id: 11, name: "Rustic", productCount: 19, status: "published", updatedAt: "2026-06-09" },
+	{ id: 12, name: "Japanese Zen", productCount: 10, status: "draft", updatedAt: "2026-06-08" },
+	{ id: 13, name: "Coastal", productCount: 15, status: "published", updatedAt: "2026-06-07" },
+	{ id: 14, name: "Mid-Century Modern", productCount: 21, status: "published", updatedAt: "2026-06-06" },
+	{ id: 15, name: "Tropical", productCount: 6, status: "draft", updatedAt: "2026-06-05" },
 ];
 
 export const dummyCategories = [
