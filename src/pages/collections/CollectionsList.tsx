@@ -2,6 +2,7 @@ import {
 	ActionIcon,
 	Button,
 	Card,
+	Checkbox,
 	Container,
 	Grid,
 	Group,
@@ -9,6 +10,7 @@ import {
 	Pagination,
 	Select,
 	Table,
+	Text,
 	TextInput,
 } from "@mantine/core";
 import {
@@ -35,6 +37,7 @@ export function CollectionsList() {
 	const [statusFilter, setStatusFilter] = useState<string | null>(null);
 	const [sortBy, setSortBy] = useState<string | null>(null);
 	const [page, setPage] = useState(1);
+	const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
 	const stats = useMemo(() => {
 		return {
@@ -86,17 +89,68 @@ export function CollectionsList() {
 		callback();
 	};
 
+	const toggleSelectAll = () => {
+		if (selectedIds.length === paged.length) {
+			setSelectedIds([]);
+		} else {
+			setSelectedIds(paged.map((c) => c.id));
+		}
+	};
+
+	const toggleSelectCollection = (id: number) => {
+		setSelectedIds((prev) =>
+			prev.includes(id) ? prev.filter((cid) => cid !== id) : [...prev, id],
+		);
+	};
+
+	const handleBulkAction = (
+		action: "publish" | "draft" | "archive" | "delete",
+	) => {
+		console.log(`Bulk "${action}" pada collections:`, selectedIds);
+		setSelectedIds([]);
+	};
+
+	const clearSelection = () => setSelectedIds([]);
+
 	return (
 		<Container size="xl">
 			<PageHeader
 				title="Collections"
 				subtitle="Edit collections and manage all collections settings"
 				actions={
-					<Button leftSection={<IconPlus size={16} />}>
+					<Button leftSection={<IconPlus size={16} />} onClick={() => navigate("/collections/new")}>
 						Add Collections
 					</Button>
 				}
 			/>
+
+			{/* Bulk Actions Toolbar */}
+			{selectedIds.length > 0 && (
+				<Card withBorder mb="md">
+					<Group justify="space-between">
+						<Text fw={500} size="sm">
+							{selectedIds.length} selected
+						</Text>
+						<Group gap="sm">
+							<Button size="xs" variant="default" onClick={() => handleBulkAction("publish")}>
+								Publish
+							</Button>
+							<Button size="xs" variant="default" onClick={() => handleBulkAction("draft")}>
+								Move to Draft
+							</Button>
+							<Button size="xs" variant="default" onClick={() => handleBulkAction("archive")}>
+								Archive
+							</Button>
+							<Button size="xs" color="red" variant="light" onClick={() => handleBulkAction("delete")}>
+								Delete
+							</Button>
+							<Button size="xs" variant="subtle" onClick={clearSelection}>
+								Clear
+							</Button>
+						</Group>
+					</Group>
+				</Card>
+			)}
 
 			{/* Stats Cards */}
 			<Grid gap="md" mb="xl">
@@ -171,6 +225,13 @@ export function CollectionsList() {
 				<Table striped>
 					<Table.Thead>
 						<Table.Tr>
+t						<Table.Th style={{ width: 40 }}>
+								<Checkbox
+									checked={selectedIds.length === paged.length && paged.length > 0}
+									indeterminate={selectedIds.length > 0 && selectedIds.length < paged.length}
+									onChange={toggleSelectAll}
+								/>
+							</Table.Th>
 							<Table.Th style={{ width: 50 }}>No</Table.Th>
 							<Table.Th>Collection</Table.Th>
 							<Table.Th>Products</Table.Th>
@@ -186,6 +247,12 @@ export function CollectionsList() {
 									style={{ cursor: "pointer" }}
 									onClick={() => navigate(`/collections/${collection.id}`)}
 								>
+t							<Table.Td onClick={(e) => e.stopPropagation()}>
+									<Checkbox
+										checked={selectedIds.includes(collection.id)}
+										onChange={() => toggleSelectCollection(collection.id)}
+									/>
+								</Table.Td>
 									<Table.Td>{(page - 1) * itemsPerPage + index + 1}</Table.Td>
 									<Table.Td>
 										<span style={{ fontWeight: 500 }}>{collection.name}</span>
@@ -218,7 +285,7 @@ export function CollectionsList() {
 							))
 						) : (
 							<Table.Tr>
-								<Table.Td colSpan={5} style={{ textAlign: "center", padding: "2rem" }}>
+								<Table.Td colSpan={6} style={{ textAlign: "center", padding: "2rem" }}>
 									No collections found
 								</Table.Td>
 							</Table.Tr>

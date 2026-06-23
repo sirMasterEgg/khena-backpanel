@@ -6,6 +6,7 @@ import {
 import { AppLayout } from "@/components/AppLayout";
 import { Dashboard } from "@/pages/Dashboard";
 import { CollectionDetail } from "@/pages/collections/CollectionDetail";
+import { CollectionEditor } from "@/pages/collections/CollectionEditor";
 import { CollectionsList } from "@/pages/collections/CollectionsList";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { ProductDetail } from "@/pages/products/ProductDetail";
@@ -51,12 +52,16 @@ const routes: RouteObject[] = [
 				element: <CollectionsList />,
 			},
 			{
+				path: "/collections/new",
+				element: <CollectionEditor />,
+			},
+			{
 				path: "/collections/:id",
 				element: <CollectionDetail />,
 			},
 			{
 				path: "/collections/:id/edit",
-				element: <CollectionDetail />,
+				element: <CollectionEditor />,
 			},
 			{
 				path: "/categories",
