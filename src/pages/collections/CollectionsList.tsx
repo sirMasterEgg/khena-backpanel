@@ -42,9 +42,13 @@ export function CollectionsList() {
 	const stats = useMemo(() => {
 		return {
 			total: dummyCollections.length,
-			published: dummyCollections.filter((c) => c.status === "published").length,
+			published: dummyCollections.filter((c) => c.status === "published")
+				.length,
 			draft: dummyCollections.filter((c) => c.status === "draft").length,
-			productInCollections: dummyCollections.reduce((sum, c) => sum + c.productCount, 0),
+			productInCollections: dummyCollections.reduce(
+				(sum, c) => sum + c.productCount,
+				0,
+			),
 		};
 	}, []);
 
@@ -63,10 +67,16 @@ export function CollectionsList() {
 		if (sortBy) {
 			switch (sortBy) {
 				case "newest":
-					result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+					result.sort(
+						(a, b) =>
+							new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+					);
 					break;
 				case "oldest":
-					result.sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
+					result.sort(
+						(a, b) =>
+							new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime(),
+					);
 					break;
 				case "name-az":
 					result.sort((a, b) => a.name.localeCompare(b.name));
@@ -81,7 +91,10 @@ export function CollectionsList() {
 	}, [search, statusFilter, sortBy]);
 
 	const itemsPerPage = 10;
-	const paged = filteredCollections.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+	const paged = filteredCollections.slice(
+		(page - 1) * itemsPerPage,
+		page * itemsPerPage,
+	);
 	const totalPages = Math.ceil(filteredCollections.length / itemsPerPage);
 
 	const handleFilterChange = (callback: () => void) => {
@@ -103,9 +116,7 @@ export function CollectionsList() {
 		);
 	};
 
-	const handleBulkAction = (
-		action: "publish" | "draft" | "archive" | "delete",
-	) => {
+	const handleBulkAction = (action: "publish" | "draft" | "delete") => {
 		console.log(`Bulk "${action}" pada collections:`, selectedIds);
 		setSelectedIds([]);
 	};
@@ -118,7 +129,10 @@ export function CollectionsList() {
 				title="Collections"
 				subtitle="Edit collections and manage all collections settings"
 				actions={
-					<Button leftSection={<IconPlus size={16} />} onClick={() => navigate("/collections/new")}>
+					<Button
+						leftSection={<IconPlus size={16} />}
+						onClick={() => navigate("/collections/new")}
+					>
 						Add Collections
 					</Button>
 				}
@@ -132,16 +146,26 @@ export function CollectionsList() {
 							{selectedIds.length} selected
 						</Text>
 						<Group gap="sm">
-							<Button size="xs" variant="default" onClick={() => handleBulkAction("publish")}>
+							<Button
+								size="xs"
+								variant="default"
+								onClick={() => handleBulkAction("publish")}
+							>
 								Publish
 							</Button>
-							<Button size="xs" variant="default" onClick={() => handleBulkAction("draft")}>
+							<Button
+								size="xs"
+								variant="default"
+								onClick={() => handleBulkAction("draft")}
+							>
 								Move to Draft
 							</Button>
-							<Button size="xs" variant="default" onClick={() => handleBulkAction("archive")}>
-								Archive
-							</Button>
-							<Button size="xs" color="red" variant="light" onClick={() => handleBulkAction("delete")}>
+							<Button
+								size="xs"
+								color="red"
+								variant="light"
+								onClick={() => handleBulkAction("delete")}
+							>
 								Delete
 							</Button>
 							<Button size="xs" variant="subtle" onClick={clearSelection}>
@@ -193,7 +217,9 @@ export function CollectionsList() {
 							placeholder="Search collections..."
 							leftSection={<IconSearch size={16} />}
 							value={search}
-							onChange={(e) => handleFilterChange(() => setSearch(e.currentTarget.value))}
+							onChange={(e) =>
+								handleFilterChange(() => setSearch(e.currentTarget.value))
+							}
 						/>
 						<Select
 							placeholder="Status"
@@ -225,10 +251,14 @@ export function CollectionsList() {
 				<Table striped>
 					<Table.Thead>
 						<Table.Tr>
-t						<Table.Th style={{ width: 40 }}>
+							<Table.Th style={{ width: 40 }}>
 								<Checkbox
-									checked={selectedIds.length === paged.length && paged.length > 0}
-									indeterminate={selectedIds.length > 0 && selectedIds.length < paged.length}
+									checked={
+										selectedIds.length === paged.length && paged.length > 0
+									}
+									indeterminate={
+										selectedIds.length > 0 && selectedIds.length < paged.length
+									}
 									onChange={toggleSelectAll}
 								/>
 							</Table.Th>
@@ -247,12 +277,12 @@ t						<Table.Th style={{ width: 40 }}>
 									style={{ cursor: "pointer" }}
 									onClick={() => navigate(`/collections/${collection.id}`)}
 								>
-t							<Table.Td onClick={(e) => e.stopPropagation()}>
-									<Checkbox
-										checked={selectedIds.includes(collection.id)}
-										onChange={() => toggleSelectCollection(collection.id)}
-									/>
-								</Table.Td>
+									<Table.Td onClick={(e) => e.stopPropagation()}>
+										<Checkbox
+											checked={selectedIds.includes(collection.id)}
+											onChange={() => toggleSelectCollection(collection.id)}
+										/>
+									</Table.Td>
 									<Table.Td>{(page - 1) * itemsPerPage + index + 1}</Table.Td>
 									<Table.Td>
 										<span style={{ fontWeight: 500 }}>{collection.name}</span>
@@ -269,13 +299,24 @@ t							<Table.Td onClick={(e) => e.stopPropagation()}>
 												</ActionIcon>
 											</Menu.Target>
 											<Menu.Dropdown>
-												<Menu.Item onClick={() => navigate(`/collections/${collection.id}/edit`)}>
+												<Menu.Item
+													onClick={() =>
+														navigate(`/collections/${collection.id}/edit`)
+													}
+												>
 													Edit
 												</Menu.Item>
-												<Menu.Item onClick={() => console.log(`Duplicate ${collection.id}`)}>
+												<Menu.Item
+													onClick={() =>
+														console.log(`Duplicate ${collection.id}`)
+													}
+												>
 													Duplicate
 												</Menu.Item>
-												<Menu.Item color="red" onClick={() => console.log(`Delete ${collection.id}`)}>
+												<Menu.Item
+													color="red"
+													onClick={() => console.log(`Delete ${collection.id}`)}
+												>
 													Delete
 												</Menu.Item>
 											</Menu.Dropdown>
@@ -285,7 +326,10 @@ t							<Table.Td onClick={(e) => e.stopPropagation()}>
 							))
 						) : (
 							<Table.Tr>
-								<Table.Td colSpan={6} style={{ textAlign: "center", padding: "2rem" }}>
+								<Table.Td
+									colSpan={6}
+									style={{ textAlign: "center", padding: "2rem" }}
+								>
 									No collections found
 								</Table.Td>
 							</Table.Tr>

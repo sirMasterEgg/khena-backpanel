@@ -359,7 +359,7 @@ export type Collection = {
 	name: string;
 	slug: string;
 	productCount: number;
-	status: "published" | "draft" | "archived";
+	status: "published" | "draft";
 	updatedAt: string;
 	description?: string;
 	coverImage?: string;

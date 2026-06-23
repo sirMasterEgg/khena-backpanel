@@ -96,7 +96,6 @@ export function CollectionEditor() {
 								data={[
 									{ value: "draft", label: "Draft" },
 									{ value: "published", label: "Published" },
-									{ value: "archived", label: "Archived" },
 								]}
 								value={status}
 								onChange={setStatus}
