@@ -13,6 +13,7 @@ import {
 	Stack,
 	Table,
 	Tabs,
+	Text,
 	TextInput,
 } from "@mantine/core";
 import {
@@ -149,6 +150,15 @@ export function ProductsList() {
 		);
 	};
 
+	const handleBulkAction = (
+		action: "publish" | "draft" | "archive" | "delete",
+	) => {
+		console.log(`Bulk "${action}" pada produk:`, selectedIds);
+		setSelectedIds([]);
+	};
+
+	const clearSelection = () => setSelectedIds([]);
+
 	// Helper to calculate margin
 	const calculateMargin = (price: number, cost: number) => {
 		return Math.round(((price - cost) / price) * 100);
@@ -188,6 +198,34 @@ export function ProductsList() {
 					</Group>
 				}
 			/>
+
+			{/* Bulk Actions Toolbar */}
+			{selectedIds.length > 0 && (
+				<Card withBorder mb="md">
+					<Group justify="space-between">
+						<Text fw={500} size="sm">
+							{selectedIds.length} selected
+						</Text>
+						<Group gap="sm">
+							<Button size="xs" variant="default" onClick={() => handleBulkAction("publish")}>
+								Publish
+							</Button>
+							<Button size="xs" variant="default" onClick={() => handleBulkAction("draft")}>
+								Move to Draft
+							</Button>
+							<Button size="xs" variant="default" onClick={() => handleBulkAction("archive")}>
+								Archive
+							</Button>
+							<Button size="xs" color="red" variant="light" onClick={() => handleBulkAction("delete")}>
+								Delete
+							</Button>
+							<Button size="xs" variant="subtle" onClick={clearSelection}>
+								Clear
+							</Button>
+						</Group>
+					</Group>
+				</Card>
+			)}
 
 			{/* Stats Cards */}
 			<Grid gap="md" mb="xl">

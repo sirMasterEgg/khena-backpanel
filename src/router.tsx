@@ -5,6 +5,9 @@ import {
 } from "react-router";
 import { AppLayout } from "@/components/AppLayout";
 import { Dashboard } from "@/pages/Dashboard";
+import { CollectionDetail } from "@/pages/collections/CollectionDetail";
+import { CollectionEditor } from "@/pages/collections/CollectionEditor";
+import { CollectionsList } from "@/pages/collections/CollectionsList";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { ProductDetail } from "@/pages/products/ProductDetail";
 import { ProductEditor } from "@/pages/products/ProductEditor";
@@ -46,7 +49,19 @@ const routes: RouteObject[] = [
 			},
 			{
 				path: "/collections",
-				element: <PlaceholderPage title="Collections" />,
+				element: <CollectionsList />,
+			},
+			{
+				path: "/collections/new",
+				element: <CollectionEditor />,
+			},
+			{
+				path: "/collections/:id",
+				element: <CollectionDetail />,
+			},
+			{
+				path: "/collections/:id/edit",
+				element: <CollectionEditor />,
 			},
 			{
 				path: "/categories",
