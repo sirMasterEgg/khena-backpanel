@@ -627,8 +627,21 @@ export const dummyCategories: Category[] = [
 export type Color = {
 	id: number;
 	name: string;
-	hex: string;
+	hex?: string;
+	photo?: string;
+	notes?: string;
 };
+
+export const dummyMedia: string[] = [
+	"https://placehold.co/200x200/C19A6B/ffffff?text=Oak",
+	"https://placehold.co/200x200/8B5A2B/ffffff?text=Walnut",
+	"https://placehold.co/200x200/E8E8E8/333333?text=Marble",
+	"https://placehold.co/200x200/B5A642/ffffff?text=Brass",
+	"https://placehold.co/200x200/D2B48C/333333?text=Tan",
+	"https://placehold.co/200x200/2F4F4F/ffffff?text=Slate",
+	"https://placehold.co/200x200/F5DEB3/333333?text=Linen",
+	"https://placehold.co/200x200/4A4A4A/ffffff?text=Charcoal",
+];
 
 export type MaterialType = {
 	id: number;

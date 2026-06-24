@@ -50,7 +50,7 @@ export function MaterialTypeCard({
 								size="sm"
 								onClick={onAddColor}
 							>
-								Add color
+								Add {material.name} color
 							</Button>
 							<ActionIcon
 								color="red"

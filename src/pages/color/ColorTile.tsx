@@ -30,7 +30,10 @@ export function ColorTile({
 							width: 28,
 							height: 28,
 							borderRadius: "50%",
-							backgroundColor: color.hex,
+							backgroundColor: color.hex ?? "transparent",
+							backgroundImage: color.photo ? `url(${color.photo})` : undefined,
+							backgroundSize: "cover",
+							backgroundPosition: "center",
 							border: "1px solid #ddd",
 							flexShrink: 0,
 						}}
@@ -40,7 +43,7 @@ export function ColorTile({
 							{color.name}
 						</Text>
 						<Text size="xs" c="dimmed">
-							{color.hex}
+							{color.hex ?? (color.photo ? "Photo swatch" : "No colour set")}
 						</Text>
 					</Stack>
 				</Group>

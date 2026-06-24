@@ -60,27 +60,49 @@ export function ColorList() {
 			colors: [],
 		};
 		console.log("Add material:", newMaterial);
+		// Newest non-locked material always on top.
 		setMaterials((prev) => [...prev, newMaterial]);
 		setNewName("");
 		setIsAdding(false);
 	};
 
-	const saveColor = (materialId: number, color: Color) => {
-		console.log(`Save color to material ${materialId}:`, color);
+	const saveColor = (
+		targetMaterialId: number,
+		color: Color,
+		sourceMaterialId: number | null,
+	) => {
+		console.log(`Save color to material ${targetMaterialId}:`, color);
 		setMaterials((prev) =>
 			prev.map((m) => {
-				if (m.id !== materialId) return m;
-				const existing = m.colors.find((c) => c.id === color.id);
-				if (existing) {
-					return {
-						...m,
-						colors: m.colors.map((c) => (c.id === color.id ? color : c)),
-					};
+				// Moving to a different category: drop it from the source card.
+				if (
+					m.id === sourceMaterialId &&
+					sourceMaterialId !== targetMaterialId
+				) {
+					return { ...m, colors: m.colors.filter((c) => c.id !== color.id) };
 				}
-				return { ...m, colors: [...m.colors, color] };
+				if (m.id === targetMaterialId) {
+					const existing = m.colors.some((c) => c.id === color.id);
+					return existing
+						? {
+								...m,
+								colors: m.colors.map((c) => (c.id === color.id ? color : c)),
+							}
+						: { ...m, colors: [...m.colors, color] };
+				}
+				return m;
 			}),
 		);
 	};
+
+	const lockedMaterials = materials.filter((m) => m.locked);
+	const editableMaterials = materials
+		.filter((m) => !m.locked)
+		.slice()
+		.reverse();
+	const categoryOptions = materials
+		.filter((m) => !m.locked)
+		.map((m) => ({ id: m.id, name: m.name }));
 
 	return (
 		<Container size="xl">
@@ -96,6 +118,25 @@ export function ColorList() {
 					</Button>
 				}
 			/>
+
+			{lockedMaterials.map((material) => (
+				<MaterialTypeCard
+					key={material.id}
+					material={material}
+					onAddColor={() => {
+						setEditingMaterialId(material.id);
+						setEditingColor(undefined);
+						setModalOpened(true);
+					}}
+					onEditColor={(color) => {
+						setEditingMaterialId(material.id);
+						setEditingColor(color);
+						setModalOpened(true);
+					}}
+					onDeleteColor={(colorId) => deleteColor(material.id, colorId)}
+					onDeleteMaterial={() => deleteMaterial(material.id)}
+				/>
+			))}
 
 			{isAdding && (
 				<Card withBorder mb="md">
@@ -129,7 +170,7 @@ export function ColorList() {
 				</Card>
 			)}
 
-			{materials.map((material) => (
+			{editableMaterials.map((material) => (
 				<MaterialTypeCard
 					key={material.id}
 					material={material}
@@ -151,15 +192,15 @@ export function ColorList() {
 			<ColorEditorModal
 				opened={modalOpened}
 				initial={editingColor}
+				categories={categoryOptions}
+				categoryId={editingMaterialId}
 				onClose={() => {
 					setModalOpened(false);
 					setEditingColor(undefined);
 					setEditingMaterialId(null);
 				}}
-				onSave={(color) => {
-					if (editingMaterialId !== null) {
-						saveColor(editingMaterialId, color);
-					}
+				onSave={(color, targetCategoryId) => {
+					saveColor(targetCategoryId, color, editingMaterialId);
 				}}
 			/>
 		</Container>
