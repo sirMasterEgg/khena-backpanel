@@ -4,10 +4,12 @@ import {
 	RouterProvider,
 } from "react-router";
 import { AppLayout } from "@/components/AppLayout";
-import { Dashboard } from "@/pages/Dashboard";
+import { CategoriesList } from "@/pages/categories/CategoriesList";
+import { CategoryEditor } from "@/pages/categories/CategoryEditor";
 import { CollectionDetail } from "@/pages/collections/CollectionDetail";
 import { CollectionEditor } from "@/pages/collections/CollectionEditor";
 import { CollectionsList } from "@/pages/collections/CollectionsList";
+import { Dashboard } from "@/pages/Dashboard";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { ProductDetail } from "@/pages/products/ProductDetail";
 import { ProductEditor } from "@/pages/products/ProductEditor";
@@ -65,7 +67,15 @@ const routes: RouteObject[] = [
 			},
 			{
 				path: "/categories",
-				element: <PlaceholderPage title="Categories" />,
+				element: <CategoriesList />,
+			},
+			{
+				path: "/categories/new",
+				element: <CategoryEditor />,
+			},
+			{
+				path: "/categories/:id/edit",
+				element: <CategoryEditor />,
 			},
 			{
 				path: "/jobs",
