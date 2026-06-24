@@ -78,7 +78,7 @@ export function MaterialTypeCard({
 						</Text>
 					</Box>
 				) : material.colors.length > 0 ? (
-					<SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
+					<SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
 						{material.colors.map((color) => (
 							<ColorTile
 								key={color.id}
