@@ -1,5 +1,4 @@
 import {
-	ActionIcon,
 	Button,
 	Card,
 	Container,
@@ -81,47 +80,56 @@ export function CategoryEditor() {
 								onChange={(e) => setName(e.currentTarget.value)}
 							/>
 
-							{isAddingRoomType ? (
-								<TextInput
-									label="Room Type"
-									description="Groups this category under a heading in the SHOP hover menu."
-									placeholder="New room type name"
-									value={roomType ?? ""}
-									onChange={(e) => setRoomType(e.currentTarget.value)}
-									rightSection={
-										<ActionIcon
-											size="xs"
-											variant="subtle"
-											onClick={() => {
+							<Stack gap="xs">
+								<div>
+									<Text fw={500} size="sm">
+										Room Type
+									</Text>
+									<Text size="xs" c="dimmed">
+										Groups this category under a heading in the SHOP hover menu.
+									</Text>
+								</div>
+								<Group gap="sm" align="flex-end">
+									{isAddingRoomType ? (
+										<TextInput
+											placeholder="New room type name"
+											value={roomType ?? ""}
+											onChange={(e) => setRoomType(e.currentTarget.value)}
+											style={{ flex: 1 }}
+										/>
+									) : (
+										<Select
+											placeholder="Select room type"
+											data={dummyRoomTypes}
+											value={roomType}
+											onChange={setRoomType}
+											style={{ flex: 1 }}
+										/>
+									)}
+									<Button
+										variant="subtle"
+										size="sm"
+										leftSection={
+											isAddingRoomType ? (
+												<IconX size={14} />
+											) : (
+												<IconPlus size={14} />
+											)
+										}
+										onClick={() => {
+											if (isAddingRoomType) {
 												setIsAddingRoomType(false);
 												setRoomType(existing?.roomType ?? null);
-											}}
-										>
-											<IconX size={14} />
-										</ActionIcon>
-									}
-								/>
-							) : (
-								<Select
-									label="Room Type"
-									description="Groups this category under a heading in the SHOP hover menu."
-									placeholder="Select room type"
-									data={dummyRoomTypes}
-									value={roomType}
-									onChange={setRoomType}
-								/>
-							)}
-							<Button
-								variant="subtle"
-								size="xs"
-								leftSection={<IconPlus size={14} />}
-								onClick={() => {
-									setIsAddingRoomType(true);
-									setRoomType("");
-								}}
-							>
-								+ new room type
-							</Button>
+											} else {
+												setIsAddingRoomType(true);
+												setRoomType("");
+											}
+										}}
+									>
+										{isAddingRoomType ? "Cancel" : "New Room Type"}
+									</Button>
+								</Group>
+							</Stack>
 
 							<NumberInput
 								label="Display order"
