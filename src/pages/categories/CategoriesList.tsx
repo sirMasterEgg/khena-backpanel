@@ -1,5 +1,6 @@
 import {
 	ActionIcon,
+	Badge,
 	Button,
 	Card,
 	Checkbox,
@@ -26,7 +27,7 @@ import { useNavigate } from "react-router";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { StatusBadge } from "@/components/StatusBadge";
-import { dummyCategories } from "@/data/dummy";
+import { dummyCategories, dummyRoomTypes } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
 export function CategoriesList() {
@@ -35,6 +36,7 @@ export function CategoriesList() {
 
 	const [search, setSearch] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string | null>(null);
+	const [roomTypeFilter, setRoomTypeFilter] = useState<string | null>(null);
 	const [sortBy, setSortBy] = useState<string | null>(null);
 	const [page, setPage] = useState(1);
 	const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -53,6 +55,10 @@ export function CategoriesList() {
 
 		if (statusFilter) {
 			result = result.filter((c) => c.status === statusFilter);
+		}
+
+		if (roomTypeFilter) {
+			result = result.filter((c) => c.roomType === roomTypeFilter);
 		}
 
 		if (search) {
@@ -84,7 +90,7 @@ export function CategoriesList() {
 		}
 
 		return result;
-	}, [search, statusFilter, sortBy]);
+	}, [search, statusFilter, roomTypeFilter, sortBy]);
 
 	const itemsPerPage = 10;
 	const paged = filteredCategories.slice(
@@ -207,7 +213,7 @@ export function CategoriesList() {
 			{/* Toolbar */}
 			<Card withBorder mb="md">
 				<Group justify="space-between">
-					{/* KIRI: search + filter status */}
+					{/* KIRI: search + filter status + filter room type */}
 					<Group>
 						<TextInput
 							placeholder="Search categories..."
@@ -222,6 +228,16 @@ export function CategoriesList() {
 							data={["published", "draft"]}
 							value={statusFilter}
 							onChange={(val) => handleFilterChange(() => setStatusFilter(val))}
+							clearable
+						/>
+						{/* FILTER BARU: Room Type */}
+						<Select
+							placeholder="Room Type"
+							data={dummyRoomTypes}
+							value={roomTypeFilter}
+							onChange={(val) =>
+								handleFilterChange(() => setRoomTypeFilter(val))
+							}
 							clearable
 						/>
 					</Group>
@@ -261,8 +277,6 @@ export function CategoriesList() {
 							<Table.Th style={{ width: 50 }}>No</Table.Th>
 							<Table.Th>Category</Table.Th>
 							<Table.Th>Room Type</Table.Th>
-							<Table.Th>Order</Table.Th>
-							<Table.Th>Products</Table.Th>
 							<Table.Th>Status</Table.Th>
 							<Table.Th>Action</Table.Th>
 						</Table.Tr>
@@ -285,9 +299,11 @@ export function CategoriesList() {
 									<Table.Td>
 										<span style={{ fontWeight: 500 }}>{category.name}</span>
 									</Table.Td>
-									<Table.Td>{category.roomType}</Table.Td>
-									<Table.Td>{category.displayOrder}</Table.Td>
-									<Table.Td>{category.products}</Table.Td>
+									<Table.Td>
+										<Badge variant="outline" color="gray" radius="sm">
+											{category.roomType}
+										</Badge>
+									</Table.Td>
 									<Table.Td>
 										<StatusBadge status={category.status} />
 									</Table.Td>
@@ -320,7 +336,7 @@ export function CategoriesList() {
 						) : (
 							<Table.Tr>
 								<Table.Td
-									colSpan={8}
+									colSpan={6}
 									style={{ textAlign: "center", padding: "2rem" }}
 								>
 									No categories found
