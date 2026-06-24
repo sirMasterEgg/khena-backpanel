@@ -1,8 +1,8 @@
 import { Container } from "@mantine/core";
 import { useParams } from "react-router";
 import { PageHeader } from "@/components/PageHeader";
-import { usePageTitle } from "@/hooks/usePageTitle";
 import { dummyCollections } from "@/data/dummy";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export function CollectionDetail() {
 	const { id } = useParams();

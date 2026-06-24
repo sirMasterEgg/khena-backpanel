@@ -30,8 +30,12 @@ export function CollectionEditor() {
 
 	const [name, setName] = useState(existing?.name ?? "");
 	const [slug, setSlug] = useState(existing?.slug ?? "");
-	const [status, setStatus] = useState<string | null>(existing?.status ?? "draft");
-	const [productIds, setProductIds] = useState<number[]>(existing?.productIds ?? []);
+	const [status, setStatus] = useState<string | null>(
+		existing?.status ?? "draft",
+	);
+	const [productIds, setProductIds] = useState<number[]>(
+		existing?.productIds ?? [],
+	);
 	const [productSearch, setProductSearch] = useState("");
 
 	const suggestions =
@@ -109,7 +113,8 @@ export function CollectionEditor() {
 							<div>
 								<Text fw={600}>Products in Collection</Text>
 								<Text size="sm" c="dimmed">
-									Type to find a product, then click it to add. Drag the handle to reorder.
+									Type to find a product, then click it to add. Drag the handle
+									to reorder.
 								</Text>
 							</div>
 
@@ -126,7 +131,12 @@ export function CollectionEditor() {
 									<Card
 										withBorder
 										p="xs"
-										style={{ position: "absolute", zIndex: 10, width: "100%", marginTop: 4 }}
+										style={{
+											position: "absolute",
+											zIndex: 10,
+											width: "100%",
+											marginTop: 4,
+										}}
 									>
 										<Stack gap={4}>
 											{suggestions.slice(0, 6).map((p) => (
@@ -188,11 +198,15 @@ export function CollectionEditor() {
 							<div>
 								<Text fw={600}>Cover Image</Text>
 								<Text size="sm" c="dimmed">
-									The main image people see in the Collections list and on the storefront grid.
+									The main image people see in the Collections list and on the
+									storefront grid.
 								</Text>
 							</div>
 							<Image
-								src={existing?.coverImage ?? "https://placehold.co/600x400?text=No+Image"}
+								src={
+									existing?.coverImage ??
+									"https://placehold.co/600x400?text=No+Image"
+								}
 								alt="Cover preview"
 								radius="md"
 							/>
@@ -205,11 +219,15 @@ export function CollectionEditor() {
 							<div>
 								<Text fw={600}>Product Showcase Hero</Text>
 								<Text size="sm" c="dimmed">
-									Wide banner shown at the top of this collection's page on the storefront.
+									Wide banner shown at the top of this collection's page on the
+									storefront.
 								</Text>
 							</div>
 							<Image
-								src={existing?.heroImage ?? "https://placehold.co/1200x400?text=No+Image"}
+								src={
+									existing?.heroImage ??
+									"https://placehold.co/1200x400?text=No+Image"
+								}
 								alt="Hero preview"
 								radius="md"
 							/>

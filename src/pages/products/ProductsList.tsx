@@ -207,16 +207,33 @@ export function ProductsList() {
 							{selectedIds.length} selected
 						</Text>
 						<Group gap="sm">
-							<Button size="xs" variant="default" onClick={() => handleBulkAction("publish")}>
+							<Button
+								size="xs"
+								variant="default"
+								onClick={() => handleBulkAction("publish")}
+							>
 								Publish
 							</Button>
-							<Button size="xs" variant="default" onClick={() => handleBulkAction("draft")}>
+							<Button
+								size="xs"
+								variant="default"
+								onClick={() => handleBulkAction("draft")}
+							>
 								Move to Draft
 							</Button>
-							<Button size="xs" variant="default" onClick={() => handleBulkAction("archive")}>
+							<Button
+								size="xs"
+								variant="default"
+								onClick={() => handleBulkAction("archive")}
+							>
 								Archive
 							</Button>
-							<Button size="xs" color="red" variant="light" onClick={() => handleBulkAction("delete")}>
+							<Button
+								size="xs"
+								color="red"
+								variant="light"
+								onClick={() => handleBulkAction("delete")}
+							>
 								Delete
 							</Button>
 							<Button size="xs" variant="subtle" onClick={clearSelection}>
