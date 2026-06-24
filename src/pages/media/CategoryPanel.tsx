@@ -1,4 +1,11 @@
-import { ActionIcon, Group, Stack, Text, UnstyledButton } from "@mantine/core";
+import {
+	ActionIcon,
+	Group,
+	Pill,
+	Stack,
+	Text,
+	UnstyledButton,
+} from "@mantine/core";
 import { IconArrowLeft, IconTrash } from "@tabler/icons-react";
 import type { MediaCategory } from "@/data/dummy";
 
@@ -48,9 +55,9 @@ export function CategoryPanel({
 								<Text size="sm" fw={active ? 600 : 400} truncate>
 									{category.name}
 								</Text>
-								<Text size="sm" c="dimmed">
+								<Pill size="sm" c="dimmed">
 									{countByCategory[category.id] ?? 0}
-								</Text>
+								</Pill>
 							</Group>
 						</UnstyledButton>
 					);
