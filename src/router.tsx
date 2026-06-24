@@ -9,6 +9,7 @@ import { CategoryEditor } from "@/pages/categories/CategoryEditor";
 import { CollectionDetail } from "@/pages/collections/CollectionDetail";
 import { CollectionEditor } from "@/pages/collections/CollectionEditor";
 import { CollectionsList } from "@/pages/collections/CollectionsList";
+import { ColorList } from "@/pages/color/ColorList";
 import { Dashboard } from "@/pages/Dashboard";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { ProductDetail } from "@/pages/products/ProductDetail";
@@ -95,7 +96,7 @@ const routes: RouteObject[] = [
 			},
 			{
 				path: "/color",
-				element: <PlaceholderPage title="Color" />,
+				element: <ColorList />,
 			},
 			{
 				path: "/orders",
