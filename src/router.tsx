@@ -11,6 +11,7 @@ import { CollectionEditor } from "@/pages/collections/CollectionEditor";
 import { CollectionsList } from "@/pages/collections/CollectionsList";
 import { ColorList } from "@/pages/color/ColorList";
 import { Dashboard } from "@/pages/Dashboard";
+import { MediaLibrary } from "@/pages/media/MediaLibrary";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { ProductDetail } from "@/pages/products/ProductDetail";
 import { ProductEditor } from "@/pages/products/ProductEditor";
@@ -92,7 +93,7 @@ const routes: RouteObject[] = [
 			},
 			{
 				path: "/media",
-				element: <PlaceholderPage title="Media Library" />,
+				element: <MediaLibrary />,
 			},
 			{
 				path: "/color",

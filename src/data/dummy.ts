@@ -677,3 +677,240 @@ export const dummyMaterialTypes: MaterialType[] = [
 	{ id: 5, name: "Metal", colors: [{ id: 30, name: "Brass", hex: "#B5A642" }] },
 	{ id: 6, name: "Leather", colors: [{ id: 40, name: "Tan", hex: "#D2B48C" }] },
 ];
+
+// ----- Media Library -----
+
+export type MediaFileType = "image" | "video";
+
+export type MediaFile = {
+	id: number;
+	name: string;
+	url: string;
+	type: MediaFileType;
+	size: number; // dalam byte
+	width?: number;
+	height?: number;
+	categoryId: number;
+	folderId: number | null; // null = berada di akar kategori
+	altText?: string;
+	uploadedAt: string;
+};
+
+export type MediaFolder = {
+	id: number;
+	name: string;
+	categoryId: number;
+};
+
+export type MediaCategory = {
+	id: number;
+	name: string;
+};
+
+export const dummyMediaCategories: MediaCategory[] = [
+	{ id: 1, name: "Products" },
+	{ id: 2, name: "Collections" },
+	{ id: 3, name: "Banners" },
+	{ id: 4, name: "Misc" },
+];
+
+export const dummyMediaFolders: MediaFolder[] = [
+	{ id: 1, name: "Sofa", categoryId: 1 },
+	{ id: 2, name: "Tables", categoryId: 1 },
+	{ id: 3, name: "Lighting", categoryId: 1 },
+	{ id: 4, name: "Modern Living", categoryId: 2 },
+	{ id: 5, name: "Minimalist", categoryId: 2 },
+];
+
+export const dummyMediaFiles: MediaFile[] = [
+	// Products › Sofa
+	{
+		id: 1,
+		name: "sofa-hero.jpg",
+		url: "https://placehold.co/600x400/C19A6B/ffffff?text=Sofa+Hero",
+		type: "image",
+		size: 1_240_000,
+		width: 600,
+		height: 400,
+		categoryId: 1,
+		folderId: 1,
+		altText: "Modern sofa set in living room",
+		uploadedAt: "2026-06-20",
+	},
+	{
+		id: 2,
+		name: "sofa-detail.jpg",
+		url: "https://placehold.co/600x400/8B5A2B/ffffff?text=Sofa+Detail",
+		type: "image",
+		size: 860_000,
+		width: 600,
+		height: 400,
+		categoryId: 1,
+		folderId: 1,
+		uploadedAt: "2026-06-19",
+	},
+	{
+		id: 3,
+		name: "sofa-360.mp4",
+		url: "https://placehold.co/600x400/4A4A4A/ffffff?text=Sofa+360",
+		type: "video",
+		size: 8_400_000,
+		width: 1280,
+		height: 720,
+		categoryId: 1,
+		folderId: 1,
+		uploadedAt: "2026-06-18",
+	},
+	// Products › Tables
+	{
+		id: 4,
+		name: "dining-table.jpg",
+		url: "https://placehold.co/600x400/D2B48C/333333?text=Dining+Table",
+		type: "image",
+		size: 1_020_000,
+		width: 600,
+		height: 400,
+		categoryId: 1,
+		folderId: 2,
+		uploadedAt: "2026-06-17",
+	},
+	{
+		id: 5,
+		name: "coffee-table.jpg",
+		url: "https://placehold.co/600x400/E8E8E8/333333?text=Coffee+Table",
+		type: "image",
+		size: 740_000,
+		width: 600,
+		height: 400,
+		categoryId: 1,
+		folderId: 2,
+		uploadedAt: "2026-06-16",
+	},
+	// Products › Lighting
+	{
+		id: 6,
+		name: "floor-lamp.jpg",
+		url: "https://placehold.co/600x400/B5A642/ffffff?text=Floor+Lamp",
+		type: "image",
+		size: 520_000,
+		width: 600,
+		height: 400,
+		categoryId: 1,
+		folderId: 3,
+		uploadedAt: "2026-06-15",
+	},
+	// Products › akar kategori (tanpa folder)
+	{
+		id: 7,
+		name: "catalogue-cover.jpg",
+		url: "https://placehold.co/600x400/2F4F4F/ffffff?text=Catalogue",
+		type: "image",
+		size: 1_480_000,
+		width: 600,
+		height: 400,
+		categoryId: 1,
+		folderId: null,
+		uploadedAt: "2026-06-21",
+	},
+	{
+		id: 8,
+		name: "promo-clip.mp4",
+		url: "https://placehold.co/600x400/1A1A1A/ffffff?text=Promo+Clip",
+		type: "video",
+		size: 12_300_000,
+		width: 1920,
+		height: 1080,
+		categoryId: 1,
+		folderId: null,
+		uploadedAt: "2026-06-22",
+	},
+	// Collections › Modern Living
+	{
+		id: 9,
+		name: "modern-living-hero.jpg",
+		url: "https://placehold.co/600x400/C19A6B/ffffff?text=Modern+Living",
+		type: "image",
+		size: 1_650_000,
+		width: 600,
+		height: 400,
+		categoryId: 2,
+		folderId: 4,
+		uploadedAt: "2026-06-14",
+	},
+	{
+		id: 10,
+		name: "modern-living-walkthrough.mp4",
+		url: "https://placehold.co/600x400/8B5A2B/ffffff?text=Walkthrough",
+		type: "video",
+		size: 21_800_000,
+		width: 1920,
+		height: 1080,
+		categoryId: 2,
+		folderId: 4,
+		uploadedAt: "2026-06-13",
+	},
+	// Collections › Minimalist
+	{
+		id: 11,
+		name: "minimalist-hero.jpg",
+		url: "https://placehold.co/600x400/F5DEB3/333333?text=Minimalist",
+		type: "image",
+		size: 980_000,
+		width: 600,
+		height: 400,
+		categoryId: 2,
+		folderId: 5,
+		uploadedAt: "2026-06-12",
+	},
+	// Collections › akar kategori
+	{
+		id: 12,
+		name: "collections-banner.jpg",
+		url: "https://placehold.co/600x400/4A4A4A/ffffff?text=Collections",
+		type: "image",
+		size: 1_120_000,
+		width: 600,
+		height: 400,
+		categoryId: 2,
+		folderId: null,
+		uploadedAt: "2026-06-11",
+	},
+	// Banners › akar kategori (tanpa folder sama sekali)
+	{
+		id: 13,
+		name: "homepage-banner.jpg",
+		url: "https://placehold.co/600x400/2F4F4F/ffffff?text=Homepage",
+		type: "image",
+		size: 2_040_000,
+		width: 1920,
+		height: 600,
+		categoryId: 3,
+		folderId: null,
+		uploadedAt: "2026-06-10",
+	},
+	{
+		id: 14,
+		name: "sale-banner.jpg",
+		url: "https://placehold.co/600x400/B5A642/ffffff?text=Sale",
+		type: "image",
+		size: 1_360_000,
+		width: 1920,
+		height: 600,
+		categoryId: 3,
+		folderId: null,
+		uploadedAt: "2026-06-09",
+	},
+	{
+		id: 15,
+		name: "promo-banner.mp4",
+		url: "https://placehold.co/600x400/1A1A1A/ffffff?text=Promo+Banner",
+		type: "video",
+		size: 9_600_000,
+		width: 1920,
+		height: 600,
+		categoryId: 3,
+		folderId: null,
+		uploadedAt: "2026-06-08",
+	},
+	// NB: kategori "Misc" (id 4) sengaja dibiarkan kosong untuk menguji empty state.
+];
