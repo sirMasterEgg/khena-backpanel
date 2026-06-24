@@ -16,49 +16,60 @@ export function ColorTile({
 	onDelete,
 }: ColorTileProps) {
 	return (
-		<Group justify="space-between" align="center" wrap="nowrap" mb="sm">
-			<Group gap="sm" align="center" flex={1}>
-				<Box
-					style={{
-						width: 28,
-						height: 28,
-						borderRadius: "50%",
-						backgroundColor: color.hex,
-						border: "1px solid #ddd",
-						flexShrink: 0,
-					}}
-				/>
-				<Stack gap={0} flex={1}>
-					<Text size="sm" fw={500}>
-						{color.name}
-					</Text>
-					<Text size="xs" c="dimmed">
-						{color.hex}
-					</Text>
-				</Stack>
-			</Group>
+		<Box
+			p="md"
+			style={{
+				border: "1px solid #ddd",
+				borderRadius: 4,
+			}}
+		>
+			<Group justify="space-between" align="center" wrap="nowrap">
+				<Group gap="sm" align="center" flex={1}>
+					<Box
+						style={{
+							width: 28,
+							height: 28,
+							borderRadius: "50%",
+							backgroundColor: color.hex,
+							border: "1px solid #ddd",
+							flexShrink: 0,
+						}}
+					/>
+					<Stack gap={0} flex={1}>
+						<Text size="sm" fw={500}>
+							{color.name}
+						</Text>
+						<Text size="xs" c="dimmed">
+							{color.hex}
+						</Text>
+					</Stack>
+				</Group>
 
-			{variant === "category" && (
-				<Menu>
-					<Menu.Target>
-						<ActionIcon size="sm" variant="subtle">
-							<IconDots size={14} />
-						</ActionIcon>
-					</Menu.Target>
-					<Menu.Dropdown>
-						<Menu.Item leftSection={<IconPencil size={14} />} onClick={onEdit}>
-							Edit color
-						</Menu.Item>
-						<Menu.Item
-							leftSection={<IconTrash size={14} />}
-							color="red"
-							onClick={onDelete}
-						>
-							Delete color
-						</Menu.Item>
-					</Menu.Dropdown>
-				</Menu>
-			)}
-		</Group>
+				{variant === "category" && (
+					<Menu>
+						<Menu.Target>
+							<ActionIcon size="sm" variant="subtle">
+								<IconDots size={14} />
+							</ActionIcon>
+						</Menu.Target>
+						<Menu.Dropdown>
+							<Menu.Item
+								leftSection={<IconPencil size={14} />}
+								onClick={onEdit}
+							>
+								Edit color
+							</Menu.Item>
+							<Menu.Item
+								leftSection={<IconTrash size={14} />}
+								color="red"
+								onClick={onDelete}
+							>
+								Delete color
+							</Menu.Item>
+						</Menu.Dropdown>
+					</Menu>
+				)}
+			</Group>
+		</Box>
 	);
 }
