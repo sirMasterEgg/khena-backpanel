@@ -1,4 +1,5 @@
 import {
+	ActionIcon,
 	Button,
 	Card,
 	Container,
@@ -10,7 +11,12 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
-import { IconSearch, IconTrash } from "@tabler/icons-react";
+import {
+	IconChevronDown,
+	IconChevronUp,
+	IconSearch,
+	IconTrash,
+} from "@tabler/icons-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { PageHeader } from "@/components/PageHeader";
@@ -54,6 +60,16 @@ export function CollectionEditor() {
 
 	const removeProduct = (productId: number) => {
 		setProductIds((prev) => prev.filter((pid) => pid !== productId));
+	};
+
+	const moveProduct = (index: number, direction: "up" | "down") => {
+		setProductIds((prev) => {
+			const target = direction === "up" ? index - 1 : index + 1;
+			if (target < 0 || target >= prev.length) return prev;
+			const next = [...prev];
+			[next[index], next[target]] = [next[target], next[index]];
+			return next;
+		});
 	};
 
 	const handleSave = () => {
@@ -113,7 +129,7 @@ export function CollectionEditor() {
 							<div>
 								<Text fw={600}>Products in Collection</Text>
 								<Text size="sm" c="dimmed">
-									Type to find a product, then click it to add. Drag the handle
+									Type to find a product, then click it to add. Use the arrows
 									to reorder.
 								</Text>
 							</div>
@@ -136,10 +152,12 @@ export function CollectionEditor() {
 											zIndex: 10,
 											width: "100%",
 											marginTop: 4,
+											maxHeight: 240,
+											overflowY: "auto",
 										}}
 									>
 										<Stack gap={4}>
-											{suggestions.slice(0, 6).map((p) => (
+											{suggestions.map((p) => (
 												<Button
 													key={p.id}
 													variant="subtle"
@@ -156,21 +174,45 @@ export function CollectionEditor() {
 							</div>
 
 							{/* List produk yang sudah ditambahkan */}
-							<Stack gap="xs">
+							<Stack
+								gap="xs"
+								style={{
+									minHeight: 250,
+								}}
+							>
 								{productIds.length === 0 && (
 									<Text size="sm" c="dimmed">
 										No products added yet.
 									</Text>
 								)}
-								{productIds.map((pid) => {
+								{productIds.map((pid, index) => {
 									const product = dummyProducts.find((p) => p.id === pid);
 									if (!product) return null;
 									return (
 										<Group key={pid} justify="space-between" wrap="nowrap">
 											<Group gap="sm" wrap="nowrap">
-												<Text c="dimmed" style={{ cursor: "grab" }}>
-													⠿
-												</Text>
+												<Stack gap={2}>
+													<ActionIcon
+														size="sm"
+														variant="subtle"
+														color="gray"
+														disabled={index === 0}
+														onClick={() => moveProduct(index, "up")}
+														aria-label="Move up"
+													>
+														<IconChevronUp size={14} />
+													</ActionIcon>
+													<ActionIcon
+														size="sm"
+														variant="subtle"
+														color="gray"
+														disabled={index === productIds.length - 1}
+														onClick={() => moveProduct(index, "down")}
+														aria-label="Move down"
+													>
+														<IconChevronDown size={14} />
+													</ActionIcon>
+												</Stack>
 												<Text size="sm">{product.name}</Text>
 											</Group>
 											<Button

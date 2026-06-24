@@ -370,7 +370,7 @@ export function ProductsList() {
 								<Table.Tr
 									key={product.id}
 									style={{ cursor: "pointer" }}
-									onClick={() => navigate(`/products/${product.id}`)}
+									onClick={() => navigate(`/products/${product.id}/edit`)}
 								>
 									<Table.Td onClick={(e) => e.stopPropagation()}>
 										<Checkbox

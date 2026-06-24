@@ -275,7 +275,7 @@ export function CollectionsList() {
 								<Table.Tr
 									key={collection.id}
 									style={{ cursor: "pointer" }}
-									onClick={() => navigate(`/collections/${collection.id}`)}
+									onClick={() => navigate(`/collections/${collection.id}/edit`)}
 								>
 									<Table.Td onClick={(e) => e.stopPropagation()}>
 										<Checkbox
