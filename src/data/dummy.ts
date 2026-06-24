@@ -624,9 +624,56 @@ export const dummyCategories: Category[] = [
 	},
 ];
 
-export const dummyColors = [
+export type Color = {
+	id: number;
+	name: string;
+	hex?: string;
+	photo?: string;
+	notes?: string;
+};
+
+export const dummyMedia: string[] = [
+	"https://placehold.co/200x200/C19A6B/ffffff?text=Oak",
+	"https://placehold.co/200x200/8B5A2B/ffffff?text=Walnut",
+	"https://placehold.co/200x200/E8E8E8/333333?text=Marble",
+	"https://placehold.co/200x200/B5A642/ffffff?text=Brass",
+	"https://placehold.co/200x200/D2B48C/333333?text=Tan",
+	"https://placehold.co/200x200/2F4F4F/ffffff?text=Slate",
+	"https://placehold.co/200x200/F5DEB3/333333?text=Linen",
+	"https://placehold.co/200x200/4A4A4A/ffffff?text=Charcoal",
+];
+
+export type MaterialType = {
+	id: number;
+	name: string;
+	locked?: boolean;
+	colors: Color[];
+};
+
+export const dummyColors: Color[] = [
 	{ id: 1, name: "Black", hex: "#000000" },
 	{ id: 2, name: "White", hex: "#FFFFFF" },
 	{ id: 3, name: "Navy", hex: "#001F3F" },
 	{ id: 4, name: "Beige", hex: "#F5DEB3" },
+];
+
+export const dummyMaterialTypes: MaterialType[] = [
+	{
+		id: 1,
+		name: "Brand",
+		locked: true,
+		colors: [
+			{ id: 1, name: "Khena Black", hex: "#1A1A1A" },
+			{ id: 2, name: "Khena White", hex: "#F5F5F5" },
+		],
+	},
+	{ id: 2, name: "Wood", colors: [{ id: 10, name: "Oak", hex: "#C19A6B" }] },
+	{ id: 3, name: "Fabric", colors: [] },
+	{
+		id: 4,
+		name: "Stone",
+		colors: [{ id: 20, name: "Marble", hex: "#E8E8E8" }],
+	},
+	{ id: 5, name: "Metal", colors: [{ id: 30, name: "Brass", hex: "#B5A642" }] },
+	{ id: 6, name: "Leather", colors: [{ id: 40, name: "Tan", hex: "#D2B48C" }] },
 ];
