@@ -3,6 +3,7 @@ import {
 	AppShell,
 	Avatar,
 	Badge,
+	Burger,
 	Divider,
 	Group,
 	Indicator,
@@ -12,6 +13,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import {
 	IconBell,
 	IconBox,
@@ -35,7 +37,6 @@ import {
 	IconUsers,
 } from "@tabler/icons-react";
 import type { ComponentType, ForwardRefExoticComponent, SVGProps } from "react";
-import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router";
 import "./AppLayout.css";
 
@@ -64,7 +65,8 @@ interface NavSection {
 export function AppLayout() {
 	const navigate = useNavigate();
 	const location = useLocation();
-	const [opened] = useState(false);
+	const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
+	const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
 
 	const isActive = (path: string) => location.pathname === path;
 
@@ -140,7 +142,7 @@ export function AppLayout() {
 			navbar={{
 				width: 265,
 				breakpoint: "sm",
-				collapsed: { mobile: !opened, desktop: false },
+				collapsed: { mobile: !mobileOpened, desktop: !desktopOpened },
 			}}
 			padding="md"
 			footer={{ height: 30 }}
@@ -199,7 +201,23 @@ export function AppLayout() {
 				</Stack>
 			</AppShell.Navbar>
 			<AppShell.Header p="md" display="flex" style={{ alignItems: "center" }}>
-				<Group justify="end" style={{ flex: 1 }}>
+				<Group justify="space-between" style={{ flex: 1 }}>
+					{/* Sidebar toggle */}
+					<Burger
+						opened={mobileOpened}
+						onClick={toggleMobile}
+						hiddenFrom="sm"
+						size="sm"
+						aria-label="Toggle sidebar"
+					/>
+					<Burger
+						opened={desktopOpened}
+						onClick={toggleDesktop}
+						visibleFrom="sm"
+						size="sm"
+						aria-label="Toggle sidebar"
+					/>
+
 					<Group gap="lg">
 						{/* Notification bell */}
 						<Indicator color="red" size={8}>
