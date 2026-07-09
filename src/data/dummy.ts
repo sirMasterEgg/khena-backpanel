@@ -1139,14 +1139,27 @@ export type Supplier = {
 	notes?: string;
 };
 
+export type PurchaseOrderItem = {
+	productId: number;
+	name: string; // snapshot nama produk saat ditambahkan
+	sku: string; // snapshot SKU
+	qty: number;
+	unitCost: number; // Rupiah mentah, per unit
+};
+
 export type PurchaseOrder = {
 	id: number;
 	code: string; // kolom "PO", mis. "PO-0001"
 	supplierId: number; // relasi ke Supplier.id
-	date: string; // ISO date, mis. "2026-07-01"
-	items: number; // jumlah item (kolom "Items")
-	total: number; // angka mentah Rupiah (kolom "Total")
+	date: string; // ISO date, mis. "2026-07-01" (= "Order date")
+	items: number; // DIHITUNG dari lineItems (total qty) — dipertahankan utk tabel & stats
+	total: number; // DIHITUNG dari lineItems (sum line total) — dipertahankan utk tabel & stats
 	status: PurchaseOrderStatus;
+	// --- field baru ---
+	lineItems?: PurchaseOrderItem[]; // opsional agar data dummy lama tetap valid
+	expectedDate?: string; // ISO date, "Expected"
+	notes?: string;
+	receivedAt?: string; // ISO date; diisi saat status menjadi "received"
 };
 
 // Sebagian supplier sengaja dibiarkan tidak lengkap (tanpa contactPerson/phone/email)
@@ -1215,6 +1228,23 @@ export const dummyPurchaseOrders: PurchaseOrder[] = [
 		items: 8,
 		total: 9_200_000,
 		status: "received",
+		lineItems: [
+			{
+				productId: 2,
+				name: "Dining Table",
+				sku: "TABLE-001",
+				qty: 5,
+				unitCost: 700,
+			},
+			{
+				productId: 6,
+				name: "Coffee Table",
+				sku: "TABLE-002",
+				qty: 3,
+				unitCost: 200,
+			},
+		],
+		receivedAt: "2026-06-18",
 	},
 	{
 		id: 4,
@@ -1224,6 +1254,23 @@ export const dummyPurchaseOrders: PurchaseOrder[] = [
 		items: 50,
 		total: 22_000_000,
 		status: "draft",
+		expectedDate: "2026-07-20",
+		lineItems: [
+			{
+				productId: 1,
+				name: "Modern Sofa Set",
+				sku: "SOFA-001",
+				qty: 10,
+				unitCost: 1500,
+			},
+			{
+				productId: 8,
+				name: "Recliner Chair",
+				sku: "RECLINER-001",
+				qty: 40,
+				unitCost: 450,
+			},
+		],
 	},
 	{
 		id: 5,

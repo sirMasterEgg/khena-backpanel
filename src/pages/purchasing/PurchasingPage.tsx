@@ -26,14 +26,17 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
+	dummyProducts,
 	dummyPurchaseOrders,
 	dummySuppliers,
+	type Product,
 	type PurchaseOrder,
 	type Supplier,
 } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { formatCurrency, formatDate } from "./format";
 import {
+	nextPoCode,
 	openAddPurchaseOrderModal,
 	openEditPurchaseOrderModal,
 } from "./PurchaseOrderModal";
@@ -56,6 +59,8 @@ export function PurchasingPage() {
 	const [orders, setOrders] = useState<PurchaseOrder[]>(() => [
 		...dummyPurchaseOrders,
 	]);
+	// Stok produk ditampung di state supaya "Receive & add stock" memicu render.
+	const [products, setProducts] = useState<Product[]>(() => [...dummyProducts]);
 
 	const stats = useMemo(() => {
 		const onOrder = orders.filter((o) => ON_ORDER_STATUSES.includes(o.status));
@@ -100,23 +105,56 @@ export function PurchasingPage() {
 
 	// ----- Handler Purchase Order -----
 
+	/** Simpan PO: update kalau sudah ada, insert kalau baru. */
+	const upsertOrder = (order: PurchaseOrder) => {
+		setOrders((prev) =>
+			prev.some((o) => o.id === order.id)
+				? prev.map((o) => (o.id === order.id ? order : o))
+				: [order, ...prev],
+		);
+	};
+
+	/** Terima PO: tambah stok tiap produk sesuai qty, simpan PO, tampilkan toast. */
+	const handleReceiveOrder = (order: PurchaseOrder) => {
+		setProducts((prev) =>
+			prev.map((p) => {
+				const line = order.lineItems?.find((it) => it.productId === p.id);
+				return line ? { ...p, stock: p.stock + line.qty } : p;
+			}),
+		);
+		upsertOrder(order);
+		notify.success(
+			`${order.code} received — stock updated`,
+			"Purchase order received",
+		);
+	};
+
 	const handleNewOrder = () => {
-		openAddPurchaseOrderModal(suppliers, (order) => {
-			setOrders((prev) => [order, ...prev]);
-			notify.success(`${order.code} created`, "Purchase order created");
-		});
+		const code = nextPoCode(orders);
+		openAddPurchaseOrderModal(
+			code,
+			suppliers,
+			products,
+			(order) => {
+				setOrders((prev) => [order, ...prev]);
+				notify.success(`${order.code} created`, "Purchase order created");
+			},
+			handleReceiveOrder,
+		);
 	};
 
 	const handleEditOrder = (order: PurchaseOrder) => {
 		openEditPurchaseOrderModal(
 			order,
 			suppliers,
+			products,
 			(updated) => {
 				setOrders((prev) =>
 					prev.map((o) => (o.id === updated.id ? updated : o)),
 				);
 				notify.success(`${updated.code} updated`, "Purchase order updated");
 			},
+			handleReceiveOrder,
 			(target) => {
 				setOrders((prev) => prev.filter((o) => o.id !== target.id));
 				notify.success(`${target.code} deleted`, "Purchase order deleted");
