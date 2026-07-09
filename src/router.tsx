@@ -10,6 +10,8 @@ import { CollectionDetail } from "@/pages/collections/CollectionDetail";
 import { CollectionEditor } from "@/pages/collections/CollectionEditor";
 import { CollectionsList } from "@/pages/collections/CollectionsList";
 import { ColorList } from "@/pages/color/ColorList";
+import { CustomerDetail } from "@/pages/customers/CustomerDetail";
+import { CustomersList } from "@/pages/customers/CustomersList";
 import { Dashboard } from "@/pages/Dashboard";
 import { MediaLibrary } from "@/pages/media/MediaLibrary";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
@@ -109,7 +111,11 @@ const routes: RouteObject[] = [
 			},
 			{
 				path: "/customers",
-				element: <PlaceholderPage title="Customers" />,
+				element: <CustomersList />,
+			},
+			{
+				path: "/customers/:id",
+				element: <CustomerDetail />,
 			},
 			{
 				path: "/discounts",

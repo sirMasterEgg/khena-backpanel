@@ -6,10 +6,18 @@ interface StatTileProps {
 	icon: ReactNode;
 	label: string;
 	value: string | number;
+	/** Teks kecil abu-abu di bawah value (opsional). */
+	subtitle?: string;
 	delta?: number;
 }
 
-export function StatTile({ icon, label, value, delta }: StatTileProps) {
+export function StatTile({
+	icon,
+	label,
+	value,
+	subtitle,
+	delta,
+}: StatTileProps) {
 	return (
 		<Card withBorder p="md">
 			<Group justify="space-between" mb="xs">
@@ -20,9 +28,14 @@ export function StatTile({ icon, label, value, delta }: StatTileProps) {
 					{icon}
 				</ThemeIcon>
 			</Group>
-			<Text size="xl" fw={700} mb="xs">
+			<Text size="xl" fw={700} mb={subtitle || delta !== undefined ? "xs" : 0}>
 				{value}
 			</Text>
+			{subtitle && (
+				<Text size="xs" c="dimmed">
+					{subtitle}
+				</Text>
+			)}
 			{delta !== undefined && (
 				<Group gap="xs">
 					<IconTrendingUp size={16} color="green" />
