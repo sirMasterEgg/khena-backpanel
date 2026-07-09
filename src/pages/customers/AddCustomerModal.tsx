@@ -11,32 +11,50 @@ function isValidEmail(email: string): boolean {
 interface AddCustomerFormProps {
 	onSubmit: (customer: Customer) => void;
 	onCancel: () => void;
+	/** Kalau diisi → mode edit: field terisi awal & field non-form dipertahankan. */
+	initial?: Customer;
+	/** Label tombol submit (default "Add customer"). */
+	submitLabel?: string;
 }
 
-/** Isi form modal "Add customer". State dikelola sendiri. */
-function AddCustomerForm({ onSubmit, onCancel }: AddCustomerFormProps) {
-	const [name, setName] = useState("");
-	const [email, setEmail] = useState("");
-	const [phone, setPhone] = useState("");
-	const [city, setCity] = useState("");
+/** Isi form modal "Add/Edit customer". State dikelola sendiri. */
+function AddCustomerForm({
+	onSubmit,
+	onCancel,
+	initial,
+	submitLabel = "Add customer",
+}: AddCustomerFormProps) {
+	const [name, setName] = useState(initial?.name ?? "");
+	const [email, setEmail] = useState(initial?.email ?? "");
+	const [phone, setPhone] = useState(initial?.phone ?? "");
+	const [city, setCity] = useState(initial?.city ?? "");
 
 	const canSubmit = name.trim().length > 0 && isValidEmail(email.trim());
 
 	const handleSubmit = () => {
 		if (!canSubmit) return;
-		const customer: Customer = {
-			id: Date.now(),
-			name: name.trim(),
-			email: email.trim(),
-			phone: phone.trim() || undefined,
-			city: city.trim() || undefined,
-			avatarColor: "teal",
-			ordersCount: 0,
-			lifetimeValue: 0,
-			lastOrderAt: null,
-			joinedAt: new Date().toISOString().slice(0, 10),
-			segment: "new",
-		};
+		const customer: Customer = initial
+			? {
+					// Pertahankan field yang tidak ada di form (id, ordersCount, dst.).
+					...initial,
+					name: name.trim(),
+					email: email.trim(),
+					phone: phone.trim() || undefined,
+					city: city.trim() || undefined,
+				}
+			: {
+					id: Date.now(),
+					name: name.trim(),
+					email: email.trim(),
+					phone: phone.trim() || undefined,
+					city: city.trim() || undefined,
+					avatarColor: "teal",
+					ordersCount: 0,
+					lifetimeValue: 0,
+					lastOrderAt: null,
+					joinedAt: new Date().toISOString().slice(0, 10),
+					segment: "new",
+				};
 		onSubmit(customer);
 	};
 
@@ -80,7 +98,7 @@ function AddCustomerForm({ onSubmit, onCancel }: AddCustomerFormProps) {
 					Cancel
 				</Button>
 				<Button onClick={handleSubmit} disabled={!canSubmit}>
-					Add customer
+					{submitLabel}
 				</Button>
 			</Group>
 		</Stack>
@@ -99,6 +117,31 @@ export function openAddCustomerModal(onSubmit: (customer: Customer) => void) {
 			<AddCustomerForm
 				onSubmit={(customer) => {
 					onSubmit(customer);
+					modals.close(id);
+				}}
+				onCancel={() => modals.close(id)}
+			/>
+		),
+	});
+}
+
+/**
+ * Buka modal "Edit customer" dengan form terisi awal dari `customer`.
+ * `onSubmit` menerima customer yang sudah digabung dengan perubahan form.
+ */
+export function openEditCustomerModal(
+	customer: Customer,
+	onSubmit: (updated: Customer) => void,
+) {
+	const id = modals.open({
+		title: "Edit customer",
+		centered: true,
+		children: (
+			<AddCustomerForm
+				initial={customer}
+				submitLabel="Save changes"
+				onSubmit={(updated) => {
+					onSubmit(updated);
 					modals.close(id);
 				}}
 				onCancel={() => modals.close(id)}

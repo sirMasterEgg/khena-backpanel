@@ -932,6 +932,7 @@ export type Customer = {
 	joinedAt: string; // ISO date
 	segment: CustomerSegment;
 	hasDataIssue?: boolean; // true → tampilkan flag di kolom nama
+	notes?: string; // catatan internal (kolom Notes)
 };
 
 // Catatan: "bulan ini" mengacu pada Juli 2026 (lihat joinedAt segmen "new").
