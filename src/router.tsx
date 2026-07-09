@@ -4,8 +4,16 @@ import {
 	RouterProvider,
 } from "react-router";
 import { AppLayout } from "@/components/AppLayout";
+import { CategoriesList } from "@/pages/categories/CategoriesList";
+import { CategoryEditor } from "@/pages/categories/CategoryEditor";
+import { CollectionDetail } from "@/pages/collections/CollectionDetail";
+import { CollectionEditor } from "@/pages/collections/CollectionEditor";
+import { CollectionsList } from "@/pages/collections/CollectionsList";
+import { ColorList } from "@/pages/color/ColorList";
 import { Dashboard } from "@/pages/Dashboard";
+import { MediaLibrary } from "@/pages/media/MediaLibrary";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
+import { ProductDetail } from "@/pages/products/ProductDetail";
 import { ProductEditor } from "@/pages/products/ProductEditor";
 import { ProductsList } from "@/pages/products/ProductsList";
 import { SignIn } from "@/pages/SignIn";
@@ -32,6 +40,10 @@ const routes: RouteObject[] = [
 				element: <ProductEditor />,
 			},
 			{
+				path: "/products/:id",
+				element: <ProductDetail />,
+			},
+			{
 				path: "/products/:id/edit",
 				element: <ProductEditor />,
 			},
@@ -41,11 +53,31 @@ const routes: RouteObject[] = [
 			},
 			{
 				path: "/collections",
-				element: <PlaceholderPage title="Collections" />,
+				element: <CollectionsList />,
+			},
+			{
+				path: "/collections/new",
+				element: <CollectionEditor />,
+			},
+			{
+				path: "/collections/:id",
+				element: <CollectionDetail />,
+			},
+			{
+				path: "/collections/:id/edit",
+				element: <CollectionEditor />,
 			},
 			{
 				path: "/categories",
-				element: <PlaceholderPage title="Categories" />,
+				element: <CategoriesList />,
+			},
+			{
+				path: "/categories/new",
+				element: <CategoryEditor />,
+			},
+			{
+				path: "/categories/:id/edit",
+				element: <CategoryEditor />,
 			},
 			{
 				path: "/jobs",
@@ -61,11 +93,11 @@ const routes: RouteObject[] = [
 			},
 			{
 				path: "/media",
-				element: <PlaceholderPage title="Media Library" />,
+				element: <MediaLibrary />,
 			},
 			{
 				path: "/color",
-				element: <PlaceholderPage title="Color" />,
+				element: <ColorList />,
 			},
 			{
 				path: "/orders",

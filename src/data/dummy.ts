@@ -1,43 +1,308 @@
-export const dummyProducts = [
+export type ProductVariant = {
+	id: number;
+	colorFinish: string;
+	sku: string;
+	visibility: "visible" | "hidden";
+	price: number;
+	cost: number;
+	discount: number;
+	comparePrice: number;
+	marketplacePrice: number;
+	stock: number;
+	images: string[];
+};
+
+export type ProductCareCategory =
+	| "high-end-panels"
+	| "fabric-boucle"
+	| "wood-accents"
+	| "stone-marble";
+
+export type Product = {
+	id: number;
+	name: string;
+	sku: string;
+	collection: string;
+	category: string;
+	status: "published" | "draft" | "scheduled" | "archived";
+	description?: string;
+	lowStockAlert?: number;
+	price: number;
+	cost: number;
+	stock: number;
+	updatedAt: string;
+	image: string;
+	variants?: ProductVariant[];
+	materialInfo?: string;
+	careCategories?: ProductCareCategory[];
+	dimension?: {
+		image?: string;
+		width?: number;
+		depth?: number;
+		height?: number;
+		weight?: number;
+	};
+	boxDimension?: {
+		image?: string;
+		width?: number;
+		depth?: number;
+		height?: number;
+		weight?: number;
+	};
+	media?: string[];
+};
+
+export const dummyProducts: Product[] = [
 	{
 		id: 1,
 		name: "Modern Sofa Set",
 		sku: "SOFA-001",
+		collection: "Modern Living",
 		category: "Seating",
 		price: 2500,
+		cost: 1500,
 		stock: 15,
 		status: "published",
 		image: "https://placehold.co/80x80?text=Sofa",
+		updatedAt: "2026-06-19",
+		description: "Elegant modern sofa set with premium fabric upholstery",
+		lowStockAlert: 3,
+		variants: [
+			{
+				id: 1,
+				colorFinish: "Black",
+				sku: "SOFA-001-BLK",
+				visibility: "visible",
+				price: 2500,
+				cost: 1500,
+				discount: 10,
+				comparePrice: 2778,
+				marketplacePrice: 2450,
+				stock: 8,
+				images: ["https://placehold.co/200x200?text=Sofa+Black"],
+			},
+			{
+				id: 2,
+				colorFinish: "Beige",
+				sku: "SOFA-001-BEI",
+				visibility: "visible",
+				price: 2500,
+				cost: 1500,
+				discount: 0,
+				comparePrice: 2500,
+				marketplacePrice: 2500,
+				stock: 7,
+				images: ["https://placehold.co/200x200?text=Sofa+Beige"],
+			},
+		],
+		materialInfo: "High-quality fabric with wooden frame, stainless steel legs",
+		careCategories: ["fabric-boucle"],
+		media: [
+			"https://placehold.co/400x400?text=Sofa+1",
+			"https://placehold.co/400x400?text=Sofa+2",
+		],
 	},
 	{
 		id: 2,
 		name: "Dining Table",
 		sku: "TABLE-001",
+		collection: "Modern Living",
 		category: "Tables",
 		price: 1200,
+		cost: 700,
 		stock: 3,
 		status: "published",
 		image: "https://placehold.co/80x80?text=Table",
+		updatedAt: "2026-06-18",
+		description: "Solid wood dining table, seats up to 8 people",
+		lowStockAlert: 2,
+		variants: [
+			{
+				id: 3,
+				colorFinish: "Natural Wood",
+				sku: "TABLE-001-NAT",
+				visibility: "visible",
+				price: 1200,
+				cost: 700,
+				discount: 5,
+				comparePrice: 1263,
+				marketplacePrice: 1180,
+				stock: 3,
+				images: ["https://placehold.co/200x200?text=Table+Natural"],
+			},
+		],
+		materialInfo: "Oak wood frame with tempered glass top, wood accents",
+		careCategories: ["wood-accents", "stone-marble"],
+		media: ["https://placehold.co/400x400?text=Dining+Table"],
 	},
 	{
 		id: 3,
 		name: "Office Chair",
 		sku: "CHAIR-001",
+		collection: "Minimalist",
 		category: "Seating",
 		price: 450,
+		cost: 250,
 		stock: 0,
 		status: "draft",
 		image: "https://placehold.co/80x80?text=Chair",
+		updatedAt: "2026-06-17",
 	},
 	{
 		id: 4,
 		name: "Bookshelf",
 		sku: "SHELF-001",
+		collection: "Classic",
 		category: "Storage",
 		price: 320,
+		cost: 180,
 		stock: 8,
 		status: "scheduled",
 		image: "https://placehold.co/80x80?text=Shelf",
+		updatedAt: "2026-06-16",
+	},
+	{
+		id: 5,
+		name: "Floor Lamp",
+		sku: "LAMP-001",
+		collection: "Modern Living",
+		category: "Lighting",
+		price: 180,
+		cost: 90,
+		stock: 25,
+		status: "published",
+		image: "https://placehold.co/80x80?text=Lamp",
+		updatedAt: "2026-06-19",
+	},
+	{
+		id: 6,
+		name: "Coffee Table",
+		sku: "TABLE-002",
+		collection: "Minimalist",
+		category: "Tables",
+		price: 350,
+		cost: 200,
+		stock: 12,
+		status: "published",
+		image: "https://placehold.co/80x80?text=CoffeeTable",
+		updatedAt: "2026-06-15",
+	},
+	{
+		id: 7,
+		name: "Wall Cabinet",
+		sku: "CABINET-001",
+		collection: "Classic",
+		category: "Storage",
+		price: 550,
+		cost: 320,
+		stock: 0,
+		status: "published",
+		image: "https://placehold.co/80x80?text=Cabinet",
+		updatedAt: "2026-06-14",
+	},
+	{
+		id: 8,
+		name: "Recliner Chair",
+		sku: "RECLINER-001",
+		collection: "Modern Living",
+		category: "Seating",
+		price: 800,
+		cost: 450,
+		stock: 5,
+		status: "draft",
+		image: "https://placehold.co/80x80?text=Recliner",
+		updatedAt: "2026-06-13",
+	},
+	{
+		id: 9,
+		name: "Pendant Light",
+		sku: "PENDANT-001",
+		collection: "Minimalist",
+		category: "Lighting",
+		price: 220,
+		cost: 110,
+		stock: 18,
+		status: "scheduled",
+		image: "https://placehold.co/80x80?text=Pendant",
+		updatedAt: "2026-06-12",
+	},
+	{
+		id: 10,
+		name: "Dining Chairs Set",
+		sku: "CHAIRS-001",
+		collection: "Classic",
+		category: "Seating",
+		price: 600,
+		cost: 350,
+		stock: 8,
+		status: "published",
+		image: "https://placehold.co/80x80?text=DiningChairs",
+		updatedAt: "2026-06-11",
+	},
+	{
+		id: 11,
+		name: "Console Table",
+		sku: "CONSOLE-001",
+		collection: "Modern Living",
+		category: "Tables",
+		price: 420,
+		cost: 240,
+		stock: 0,
+		status: "archived",
+		image: "https://placehold.co/80x80?text=Console",
+		updatedAt: "2026-06-10",
+	},
+	{
+		id: 12,
+		name: "Storage Bench",
+		sku: "BENCH-001",
+		collection: "Minimalist",
+		category: "Storage",
+		price: 480,
+		cost: 270,
+		stock: 3,
+		status: "draft",
+		image: "https://placehold.co/80x80?text=Bench",
+		updatedAt: "2026-06-09",
+	},
+	{
+		id: 13,
+		name: "Table Lamp",
+		sku: "LAMP-002",
+		collection: "Classic",
+		category: "Lighting",
+		price: 150,
+		cost: 75,
+		stock: 20,
+		status: "published",
+		image: "https://placehold.co/80x80?text=TableLamp",
+		updatedAt: "2026-06-08",
+	},
+	{
+		id: 14,
+		name: "Armchair",
+		sku: "ARMCHAIR-001",
+		collection: "Modern Living",
+		category: "Seating",
+		price: 700,
+		cost: 400,
+		stock: 7,
+		status: "published",
+		image: "https://placehold.co/80x80?text=Armchair",
+		updatedAt: "2026-06-07",
+	},
+	{
+		id: 15,
+		name: "Side Table",
+		sku: "SIDE-001",
+		collection: "Minimalist",
+		category: "Tables",
+		price: 280,
+		cost: 160,
+		stock: 0,
+		status: "draft",
+		image: "https://placehold.co/80x80?text=SideTable",
+		updatedAt: "2026-06-06",
 	},
 ];
 
@@ -89,22 +354,563 @@ export const dummyContacts = [
 	},
 ];
 
-export const dummyCollections = [
-	{ id: 1, name: "Modern Living", count: 24 },
-	{ id: 2, name: "Minimalist", count: 18 },
-	{ id: 3, name: "Classic", count: 12 },
+export type Collection = {
+	id: number;
+	name: string;
+	slug: string;
+	productCount: number;
+	status: "published" | "draft";
+	updatedAt: string;
+	description?: string;
+	coverImage?: string;
+	heroImage?: string;
+	productIds?: number[];
+};
+
+export const dummyCollections: Collection[] = [
+	{
+		id: 1,
+		name: "Modern Living",
+		slug: "modern-living",
+		productCount: 24,
+		status: "published",
+		updatedAt: "2026-06-18",
+		description: "Furniture modern untuk hunian masa kini.",
+		coverImage: "https://placehold.co/600x400?text=Modern+Living",
+		heroImage: "https://placehold.co/1200x400?text=Modern+Living",
+		productIds: [1, 2, 5],
+	},
+	{
+		id: 2,
+		name: "Minimalist",
+		slug: "minimalist",
+		productCount: 18,
+		status: "published",
+		updatedAt: "2026-06-16",
+		description: "Design minimalis yang sederhana dan elegan.",
+		coverImage: "https://placehold.co/600x400?text=Minimalist",
+		heroImage: "https://placehold.co/1200x400?text=Minimalist",
+		productIds: [1, 2, 5],
+	},
+	{
+		id: 3,
+		name: "Classic",
+		slug: "classic",
+		productCount: 12,
+		status: "draft",
+		updatedAt: "2026-06-20",
+		description: "Koleksi klasik yang timeless.",
+		coverImage: "https://placehold.co/600x400?text=Classic",
+		heroImage: "https://placehold.co/1200x400?text=Classic",
+		productIds: [1, 2, 5],
+	},
+	{
+		id: 4,
+		name: "Contemporary",
+		slug: "contemporary",
+		productCount: 16,
+		status: "published",
+		updatedAt: "2026-05-18",
+		description: "Desain kontemporer yang modern.",
+		coverImage: "https://placehold.co/600x400?text=Contemporary",
+		heroImage: "https://placehold.co/1200x400?text=Contemporary",
+		productIds: [2, 3, 6],
+	},
+	{
+		id: 5,
+		name: "Vintage",
+		slug: "vintage",
+		productCount: 9,
+		status: "published",
+		updatedAt: "2026-05-16",
+		description: "Gaya vintage dengan sentuhan retro.",
+		coverImage: "https://placehold.co/600x400?text=Vintage",
+		heroImage: "https://placehold.co/1200x400?text=Vintage",
+		productIds: [2, 3, 6],
+	},
+	{
+		id: 6,
+		name: "Scandinavian",
+		slug: "scandinavian",
+		productCount: 14,
+		status: "draft",
+		updatedAt: "2026-05-20",
+		description: "Desain Skandinavia yang minimalis.",
+		coverImage: "https://placehold.co/600x400?text=Scandinavian",
+		heroImage: "https://placehold.co/1200x400?text=Scandinavian",
+		productIds: [2, 3, 6],
+	},
+	{
+		id: 7,
+		name: "Industrial",
+		slug: "industrial",
+		productCount: 11,
+		status: "published",
+		updatedAt: "2026-04-18",
+		description: "Gaya industrial yang kuat.",
+		coverImage: "https://placehold.co/600x400?text=Industrial",
+		heroImage: "https://placehold.co/1200x400?text=Industrial",
+		productIds: [3, 4, 7],
+	},
+	{
+		id: 8,
+		name: "Mediterranean",
+		slug: "mediterranean",
+		productCount: 8,
+		status: "published",
+		updatedAt: "2026-04-16",
+		description: "Sentuhan Mediterania yang hangat.",
+		coverImage: "https://placehold.co/600x400?text=Mediterranean",
+		heroImage: "https://placehold.co/1200x400?text=Mediterranean",
+		productIds: [3, 4, 7],
+	},
+	{
+		id: 9,
+		name: "Bohemian",
+		slug: "bohemian",
+		productCount: 13,
+		status: "draft",
+		updatedAt: "2026-04-20",
+		description: "Gaya bohemian yang unik dan kreatif.",
+		coverImage: "https://placehold.co/600x400?text=Bohemian",
+		heroImage: "https://placehold.co/1200x400?text=Bohemian",
+		productIds: [3, 4, 7],
+	},
+	{
+		id: 10,
+		name: "Art Deco",
+		slug: "art-deco",
+		productCount: 7,
+		status: "published",
+		updatedAt: "2026-03-18",
+		description: "Gaya Art Deco yang elegan.",
+		coverImage: "https://placehold.co/600x400?text=Art+Deco",
+		heroImage: "https://placehold.co/1200x400?text=Art+Deco",
+		productIds: [4, 5, 8],
+	},
+	{
+		id: 11,
+		name: "Rustic",
+		slug: "rustic",
+		productCount: 19,
+		status: "published",
+		updatedAt: "2026-03-16",
+		description: "Gaya rustic yang alami.",
+		coverImage: "https://placehold.co/600x400?text=Rustic",
+		heroImage: "https://placehold.co/1200x400?text=Rustic",
+		productIds: [4, 5, 8],
+	},
+	{
+		id: 12,
+		name: "Japanese Zen",
+		slug: "japanese-zen",
+		productCount: 10,
+		status: "draft",
+		updatedAt: "2026-03-20",
+		description: "Desain Jepang yang tenang.",
+		coverImage: "https://placehold.co/600x400?text=Japanese+Zen",
+		heroImage: "https://placehold.co/1200x400?text=Japanese+Zen",
+		productIds: [4, 5, 8],
+	},
+	{
+		id: 13,
+		name: "Coastal",
+		slug: "coastal",
+		productCount: 15,
+		status: "published",
+		updatedAt: "2026-02-18",
+		description: "Gaya pantai yang santai.",
+		coverImage: "https://placehold.co/600x400?text=Coastal",
+		heroImage: "https://placehold.co/1200x400?text=Coastal",
+		productIds: [5, 6, 9],
+	},
+	{
+		id: 14,
+		name: "Mid-Century Modern",
+		slug: "mid-century-modern",
+		productCount: 21,
+		status: "published",
+		updatedAt: "2026-02-16",
+		description: "Desain mid-century yang ikonik.",
+		coverImage: "https://placehold.co/600x400?text=Mid-Century+Modern",
+		heroImage: "https://placehold.co/1200x400?text=Mid-Century+Modern",
+		productIds: [5, 6, 9],
+	},
+	{
+		id: 15,
+		name: "Tropical",
+		slug: "tropical",
+		productCount: 6,
+		status: "draft",
+		updatedAt: "2026-02-20",
+		description: "Gaya tropis yang segar.",
+		coverImage: "https://placehold.co/600x400?text=Tropical",
+		heroImage: "https://placehold.co/1200x400?text=Tropical",
+		productIds: [5, 6, 9],
+	},
 ];
 
-export const dummyCategories = [
-	{ id: 1, name: "Seating", products: 45 },
-	{ id: 2, name: "Tables", products: 32 },
-	{ id: 3, name: "Storage", products: 28 },
-	{ id: 4, name: "Lighting", products: 19 },
+export type Category = {
+	id: number;
+	name: string;
+	roomType: string;
+	displayOrder: number;
+	products: number;
+	status: "published" | "draft";
+	updatedAt: string;
+};
+
+export const dummyRoomTypes: string[] = [
+	"Living Room",
+	"Bedroom",
+	"Dining Room",
+	"Office",
 ];
 
-export const dummyColors = [
+export const dummyCategories: Category[] = [
+	{
+		id: 1,
+		name: "Seating",
+		roomType: "Living Room",
+		displayOrder: 1,
+		products: 45,
+		status: "published",
+		updatedAt: "2026-06-18",
+	},
+	{
+		id: 2,
+		name: "Tables",
+		roomType: "Dining Room",
+		displayOrder: 2,
+		products: 32,
+		status: "published",
+		updatedAt: "2026-06-17",
+	},
+	{
+		id: 3,
+		name: "Storage",
+		roomType: "Bedroom",
+		displayOrder: 1,
+		products: 28,
+		status: "draft",
+		updatedAt: "2026-06-16",
+	},
+	{
+		id: 4,
+		name: "Lighting",
+		roomType: "Living Room",
+		displayOrder: 2,
+		products: 19,
+		status: "published",
+		updatedAt: "2026-06-15",
+	},
+	{
+		id: 5,
+		name: "Desks",
+		roomType: "Office",
+		displayOrder: 1,
+		products: 12,
+		status: "draft",
+		updatedAt: "2026-06-14",
+	},
+	{
+		id: 6,
+		name: "Wardrobes",
+		roomType: "Bedroom",
+		displayOrder: 2,
+		products: 8,
+		status: "published",
+		updatedAt: "2026-06-13",
+	},
+];
+
+export type Color = {
+	id: number;
+	name: string;
+	hex?: string;
+	photo?: string;
+	notes?: string;
+};
+
+export const dummyMedia: string[] = [
+	"https://placehold.co/200x200/C19A6B/ffffff?text=Oak",
+	"https://placehold.co/200x200/8B5A2B/ffffff?text=Walnut",
+	"https://placehold.co/200x200/E8E8E8/333333?text=Marble",
+	"https://placehold.co/200x200/B5A642/ffffff?text=Brass",
+	"https://placehold.co/200x200/D2B48C/333333?text=Tan",
+	"https://placehold.co/200x200/2F4F4F/ffffff?text=Slate",
+	"https://placehold.co/200x200/F5DEB3/333333?text=Linen",
+	"https://placehold.co/200x200/4A4A4A/ffffff?text=Charcoal",
+];
+
+export type MaterialType = {
+	id: number;
+	name: string;
+	locked?: boolean;
+	colors: Color[];
+};
+
+export const dummyColors: Color[] = [
 	{ id: 1, name: "Black", hex: "#000000" },
 	{ id: 2, name: "White", hex: "#FFFFFF" },
 	{ id: 3, name: "Navy", hex: "#001F3F" },
 	{ id: 4, name: "Beige", hex: "#F5DEB3" },
+];
+
+export const dummyMaterialTypes: MaterialType[] = [
+	{
+		id: 1,
+		name: "Brand",
+		locked: true,
+		colors: [
+			{ id: 1, name: "Khena Black", hex: "#1A1A1A" },
+			{ id: 2, name: "Khena White", hex: "#F5F5F5" },
+		],
+	},
+	{ id: 2, name: "Wood", colors: [{ id: 10, name: "Oak", hex: "#C19A6B" }] },
+	{ id: 3, name: "Fabric", colors: [] },
+	{
+		id: 4,
+		name: "Stone",
+		colors: [{ id: 20, name: "Marble", hex: "#E8E8E8" }],
+	},
+	{ id: 5, name: "Metal", colors: [{ id: 30, name: "Brass", hex: "#B5A642" }] },
+	{ id: 6, name: "Leather", colors: [{ id: 40, name: "Tan", hex: "#D2B48C" }] },
+];
+
+// ----- Media Library -----
+
+export type MediaFileType = "image" | "video";
+
+export type MediaFile = {
+	id: number;
+	name: string;
+	url: string;
+	type: MediaFileType;
+	size: number; // dalam byte
+	width?: number;
+	height?: number;
+	categoryId: number;
+	folderId: number | null; // null = berada di akar kategori
+	altText?: string;
+	uploadedAt: string;
+};
+
+export type MediaFolder = {
+	id: number;
+	name: string;
+	categoryId: number;
+};
+
+export type MediaCategory = {
+	id: number;
+	name: string;
+};
+
+export const dummyMediaCategories: MediaCategory[] = [
+	{ id: 1, name: "Products" },
+	{ id: 2, name: "Collections" },
+	{ id: 3, name: "Banners" },
+	{ id: 4, name: "Misc" },
+];
+
+export const dummyMediaFolders: MediaFolder[] = [
+	{ id: 1, name: "Sofa", categoryId: 1 },
+	{ id: 2, name: "Tables", categoryId: 1 },
+	{ id: 3, name: "Lighting", categoryId: 1 },
+	{ id: 4, name: "Modern Living", categoryId: 2 },
+	{ id: 5, name: "Minimalist", categoryId: 2 },
+];
+
+export const dummyMediaFiles: MediaFile[] = [
+	// Products › Sofa
+	{
+		id: 1,
+		name: "sofa-hero.jpg",
+		url: "https://placehold.co/600x400/C19A6B/ffffff?text=Sofa+Hero",
+		type: "image",
+		size: 1_240_000,
+		width: 600,
+		height: 400,
+		categoryId: 1,
+		folderId: 1,
+		altText: "Modern sofa set in living room",
+		uploadedAt: "2026-06-20",
+	},
+	{
+		id: 2,
+		name: "sofa-detail.jpg",
+		url: "https://placehold.co/600x400/8B5A2B/ffffff?text=Sofa+Detail",
+		type: "image",
+		size: 860_000,
+		width: 600,
+		height: 400,
+		categoryId: 1,
+		folderId: 1,
+		uploadedAt: "2026-06-19",
+	},
+	{
+		id: 3,
+		name: "sofa-360.mp4",
+		url: "https://placehold.co/600x400/4A4A4A/ffffff?text=Sofa+360",
+		type: "video",
+		size: 8_400_000,
+		width: 1280,
+		height: 720,
+		categoryId: 1,
+		folderId: 1,
+		uploadedAt: "2026-06-18",
+	},
+	// Products › Tables
+	{
+		id: 4,
+		name: "dining-table.jpg",
+		url: "https://placehold.co/600x400/D2B48C/333333?text=Dining+Table",
+		type: "image",
+		size: 1_020_000,
+		width: 600,
+		height: 400,
+		categoryId: 1,
+		folderId: 2,
+		uploadedAt: "2026-06-17",
+	},
+	{
+		id: 5,
+		name: "coffee-table.jpg",
+		url: "https://placehold.co/600x400/E8E8E8/333333?text=Coffee+Table",
+		type: "image",
+		size: 740_000,
+		width: 600,
+		height: 400,
+		categoryId: 1,
+		folderId: 2,
+		uploadedAt: "2026-06-16",
+	},
+	// Products › Lighting
+	{
+		id: 6,
+		name: "floor-lamp.jpg",
+		url: "https://placehold.co/600x400/B5A642/ffffff?text=Floor+Lamp",
+		type: "image",
+		size: 520_000,
+		width: 600,
+		height: 400,
+		categoryId: 1,
+		folderId: 3,
+		uploadedAt: "2026-06-15",
+	},
+	// Products › akar kategori (tanpa folder)
+	{
+		id: 7,
+		name: "catalogue-cover.jpg",
+		url: "https://placehold.co/600x400/2F4F4F/ffffff?text=Catalogue",
+		type: "image",
+		size: 1_480_000,
+		width: 600,
+		height: 400,
+		categoryId: 1,
+		folderId: null,
+		uploadedAt: "2026-06-21",
+	},
+	{
+		id: 8,
+		name: "promo-clip.mp4",
+		url: "https://placehold.co/600x400/1A1A1A/ffffff?text=Promo+Clip",
+		type: "video",
+		size: 12_300_000,
+		width: 1920,
+		height: 1080,
+		categoryId: 1,
+		folderId: null,
+		uploadedAt: "2026-06-22",
+	},
+	// Collections › Modern Living
+	{
+		id: 9,
+		name: "modern-living-hero.jpg",
+		url: "https://placehold.co/600x400/C19A6B/ffffff?text=Modern+Living",
+		type: "image",
+		size: 1_650_000,
+		width: 600,
+		height: 400,
+		categoryId: 2,
+		folderId: 4,
+		uploadedAt: "2026-06-14",
+	},
+	{
+		id: 10,
+		name: "modern-living-walkthrough.mp4",
+		url: "https://placehold.co/600x400/8B5A2B/ffffff?text=Walkthrough",
+		type: "video",
+		size: 21_800_000,
+		width: 1920,
+		height: 1080,
+		categoryId: 2,
+		folderId: 4,
+		uploadedAt: "2026-06-13",
+	},
+	// Collections › Minimalist
+	{
+		id: 11,
+		name: "minimalist-hero.jpg",
+		url: "https://placehold.co/600x400/F5DEB3/333333?text=Minimalist",
+		type: "image",
+		size: 980_000,
+		width: 600,
+		height: 400,
+		categoryId: 2,
+		folderId: 5,
+		uploadedAt: "2026-06-12",
+	},
+	// Collections › akar kategori
+	{
+		id: 12,
+		name: "collections-banner.jpg",
+		url: "https://placehold.co/600x400/4A4A4A/ffffff?text=Collections",
+		type: "image",
+		size: 1_120_000,
+		width: 600,
+		height: 400,
+		categoryId: 2,
+		folderId: null,
+		uploadedAt: "2026-06-11",
+	},
+	// Banners › akar kategori (tanpa folder sama sekali)
+	{
+		id: 13,
+		name: "homepage-banner.jpg",
+		url: "https://placehold.co/600x400/2F4F4F/ffffff?text=Homepage",
+		type: "image",
+		size: 2_040_000,
+		width: 1920,
+		height: 600,
+		categoryId: 3,
+		folderId: null,
+		uploadedAt: "2026-06-10",
+	},
+	{
+		id: 14,
+		name: "sale-banner.jpg",
+		url: "https://placehold.co/600x400/B5A642/ffffff?text=Sale",
+		type: "image",
+		size: 1_360_000,
+		width: 1920,
+		height: 600,
+		categoryId: 3,
+		folderId: null,
+		uploadedAt: "2026-06-09",
+	},
+	{
+		id: 15,
+		name: "promo-banner.mp4",
+		url: "https://placehold.co/600x400/1A1A1A/ffffff?text=Promo+Banner",
+		type: "video",
+		size: 9_600_000,
+		width: 1920,
+		height: 600,
+		categoryId: 3,
+		folderId: null,
+		uploadedAt: "2026-06-08",
+	},
+	// NB: kategori "Misc" (id 4) sengaja dibiarkan kosong untuk menguji empty state.
 ];
