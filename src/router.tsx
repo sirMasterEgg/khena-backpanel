@@ -18,6 +18,7 @@ import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { ProductDetail } from "@/pages/products/ProductDetail";
 import { ProductEditor } from "@/pages/products/ProductEditor";
 import { ProductsList } from "@/pages/products/ProductsList";
+import { PurchasingPage } from "@/pages/purchasing/PurchasingPage";
 import { SignIn } from "@/pages/SignIn";
 
 const routes: RouteObject[] = [
@@ -127,7 +128,7 @@ const routes: RouteObject[] = [
 			},
 			{
 				path: "/purchasing",
-				element: <PlaceholderPage title="Purchasing" />,
+				element: <PurchasingPage />,
 			},
 			{
 				path: "/marketplaces",
