@@ -914,3 +914,208 @@ export const dummyMediaFiles: MediaFile[] = [
 	},
 	// NB: kategori "Misc" (id 4) sengaja dibiarkan kosong untuk menguji empty state.
 ];
+
+// ----- Customers -----
+
+export type CustomerSegment = "vip" | "loyal" | "new" | "regular";
+
+export type Customer = {
+	id: number;
+	name: string;
+	email: string;
+	phone?: string;
+	city?: string;
+	avatarColor?: string; // warna avatar inisial (opsional)
+	ordersCount: number;
+	lifetimeValue: number; // dalam Rupiah, angka mentah (mis. 15000000)
+	lastOrderAt: string | null; // ISO date, null kalau belum pernah order
+	joinedAt: string; // ISO date
+	segment: CustomerSegment;
+	hasDataIssue?: boolean; // true → tampilkan flag di kolom nama
+};
+
+// Catatan: "bulan ini" mengacu pada Juli 2026 (lihat joinedAt segmen "new").
+export const dummyCustomers: Customer[] = [
+	{
+		id: 1,
+		name: "Andi Wijaya",
+		email: "andi.wijaya@gmail.com",
+		phone: "0812-3456-7890",
+		city: "Jakarta",
+		avatarColor: "grape",
+		ordersCount: 24,
+		lifetimeValue: 87_500_000,
+		lastOrderAt: "2026-07-02",
+		joinedAt: "2024-03-14",
+		segment: "vip",
+	},
+	{
+		id: 2,
+		name: "Siti Rahayu",
+		email: "siti.rahayu@gmail.com",
+		phone: "0813-9876-5432",
+		city: "Bandung",
+		avatarColor: "grape",
+		ordersCount: 19,
+		lifetimeValue: 64_200_000,
+		lastOrderAt: "2026-06-28",
+		joinedAt: "2024-05-02",
+		segment: "vip",
+	},
+	{
+		id: 3,
+		name: "Budi Santoso",
+		email: "budi.santoso@yahoo.com",
+		phone: "0821-1122-3344",
+		city: "Surabaya",
+		avatarColor: "blue",
+		ordersCount: 8,
+		lifetimeValue: 21_800_000,
+		lastOrderAt: "2026-06-15",
+		joinedAt: "2024-11-20",
+		segment: "loyal",
+	},
+	{
+		id: 4,
+		name: "Dewi Lestari",
+		email: "dewi.lestari@gmail.com",
+		phone: "0856-7788-9900",
+		city: "Yogyakarta",
+		avatarColor: "blue",
+		ordersCount: 6,
+		lifetimeValue: 18_400_000,
+		lastOrderAt: "2026-05-30",
+		joinedAt: "2025-01-08",
+		segment: "loyal",
+	},
+	{
+		id: 5,
+		name: "Eko Prasetyo",
+		email: "eko.prasetyo@gmail.com",
+		phone: "0878-2233-4455",
+		city: "Semarang",
+		avatarColor: "blue",
+		ordersCount: 5,
+		lifetimeValue: 14_900_000,
+		lastOrderAt: "2026-06-10",
+		joinedAt: "2025-02-17",
+		segment: "loyal",
+	},
+	{
+		id: 6,
+		name: "Fitri Handayani",
+		email: "fitri.h@gmail.com",
+		phone: "0811-5566-7788",
+		city: "Medan",
+		avatarColor: "teal",
+		ordersCount: 1,
+		lifetimeValue: 2_300_000,
+		lastOrderAt: "2026-07-05",
+		joinedAt: "2026-07-01",
+		segment: "new",
+	},
+	{
+		id: 7,
+		name: "Gilang Ramadhan",
+		email: "gilang.r@gmail.com",
+		city: "Jakarta",
+		avatarColor: "teal",
+		ordersCount: 0,
+		lifetimeValue: 0,
+		lastOrderAt: null,
+		joinedAt: "2026-07-06",
+		segment: "new",
+	},
+	{
+		id: 8,
+		name: "Hana Permata",
+		email: "hana.permata@gmail.com",
+		phone: "0857-9911-2233",
+		city: "Denpasar",
+		avatarColor: "teal",
+		ordersCount: 1,
+		lifetimeValue: 4_750_000,
+		lastOrderAt: "2026-07-08",
+		joinedAt: "2026-07-04",
+		segment: "new",
+	},
+	{
+		id: 9,
+		name: "Irfan Maulana",
+		email: "irfan.maulana@gmail.com",
+		phone: "0812-6677-8899",
+		city: "Bekasi",
+		avatarColor: "gray",
+		ordersCount: 3,
+		lifetimeValue: 7_600_000,
+		lastOrderAt: "2026-04-22",
+		joinedAt: "2025-08-11",
+		segment: "regular",
+	},
+	{
+		id: 10,
+		name: "Joko Susilo",
+		email: "",
+		phone: "0821-3344-5566",
+		city: "Malang",
+		avatarColor: "gray",
+		ordersCount: 2,
+		lifetimeValue: 5_100_000,
+		lastOrderAt: "2026-03-19",
+		joinedAt: "2025-09-27",
+		segment: "regular",
+		hasDataIssue: true, // email kosong
+	},
+	{
+		id: 11,
+		name: "Kartika Sari",
+		email: "kartika.sari@gmail.com",
+		city: "Palembang",
+		avatarColor: "gray",
+		ordersCount: 2,
+		lifetimeValue: 4_400_000,
+		lastOrderAt: null,
+		joinedAt: "2025-10-30",
+		segment: "regular",
+		hasDataIssue: true, // tidak ada nomor telepon & belum pernah checkout meski tercatat order
+	},
+	{
+		id: 12,
+		name: "Lukman Hakim",
+		email: "lukman.hakim@gmail.com",
+		phone: "0813-7788-1122",
+		city: "Makassar",
+		avatarColor: "gray",
+		ordersCount: 4,
+		lifetimeValue: 9_250_000,
+		lastOrderAt: "2026-05-12",
+		joinedAt: "2025-06-05",
+		segment: "regular",
+	},
+	{
+		id: 13,
+		name: "Maya Anggraini",
+		email: "maya.anggraini@gmail.com",
+		phone: "0857-2211-3344",
+		city: "Bandung",
+		avatarColor: "grape",
+		ordersCount: 15,
+		lifetimeValue: 52_700_000,
+		lastOrderAt: "2026-07-01",
+		joinedAt: "2024-07-19",
+		segment: "vip",
+	},
+	{
+		id: 14,
+		name: "Nanda Pratama",
+		email: "nanda.pratama@gmail.com",
+		phone: "0878-4455-6677",
+		city: "Bogor",
+		avatarColor: "blue",
+		ordersCount: 7,
+		lifetimeValue: 16_300_000,
+		lastOrderAt: "2026-06-20",
+		joinedAt: "2025-03-03",
+		segment: "loyal",
+	},
+];
