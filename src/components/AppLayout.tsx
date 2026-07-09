@@ -3,7 +3,6 @@ import {
 	AppShell,
 	Avatar,
 	Badge,
-	Burger,
 	Divider,
 	Group,
 	Indicator,
@@ -19,6 +18,8 @@ import {
 	IconBox,
 	IconBriefcase,
 	IconChevronDown,
+	IconChevronLeft,
+	IconChevronRight,
 	IconFileText,
 	IconFolderOpen,
 	IconHome,
@@ -203,20 +204,34 @@ export function AppLayout() {
 			<AppShell.Header p="md" display="flex" style={{ alignItems: "center" }}>
 				<Group justify="space-between" style={{ flex: 1 }}>
 					{/* Sidebar toggle */}
-					<Burger
-						opened={mobileOpened}
+					<ActionIcon
+						variant="subtle"
+						color="gray"
+						size="lg"
 						onClick={toggleMobile}
 						hiddenFrom="sm"
-						size="sm"
 						aria-label="Toggle sidebar"
-					/>
-					<Burger
-						opened={desktopOpened}
+					>
+						{mobileOpened ? (
+							<IconChevronLeft size={20} />
+						) : (
+							<IconChevronRight size={20} />
+						)}
+					</ActionIcon>
+					<ActionIcon
+						variant="subtle"
+						color="gray"
+						size="lg"
 						onClick={toggleDesktop}
 						visibleFrom="sm"
-						size="sm"
 						aria-label="Toggle sidebar"
-					/>
+					>
+						{desktopOpened ? (
+							<IconChevronLeft size={20} />
+						) : (
+							<IconChevronRight size={20} />
+						)}
+					</ActionIcon>
 
 					<Group gap="lg">
 						{/* Notification bell */}
