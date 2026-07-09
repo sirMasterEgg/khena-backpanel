@@ -1120,3 +1120,145 @@ export const dummyCustomers: Customer[] = [
 		segment: "loyal",
 	},
 ];
+
+// ----- Purchasing -----
+
+export type PurchaseOrderStatus =
+	| "draft"
+	| "ordered"
+	| "partial"
+	| "received"
+	| "cancelled";
+
+export type Supplier = {
+	id: number;
+	name: string; // "Supplier name"
+	contactPerson?: string; // "Contact person"
+	phone?: string;
+	email?: string;
+	notes?: string;
+};
+
+export type PurchaseOrder = {
+	id: number;
+	code: string; // kolom "PO", mis. "PO-0001"
+	supplierId: number; // relasi ke Supplier.id
+	date: string; // ISO date, mis. "2026-07-01"
+	items: number; // jumlah item (kolom "Items")
+	total: number; // angka mentah Rupiah (kolom "Total")
+	status: PurchaseOrderStatus;
+};
+
+// Sebagian supplier sengaja dibiarkan tidak lengkap (tanpa contactPerson/phone/email)
+// untuk menguji tampilan "—" di tabel.
+export const dummySuppliers: Supplier[] = [
+	{
+		id: 1,
+		name: "Jati Makmur Furniture",
+		contactPerson: "Bambang Sutrisno",
+		phone: "0812-2233-4455",
+		email: "sales@jatimakmur.co.id",
+		notes: "Pemasok kayu jati solid, lead time 2 minggu.",
+	},
+	{
+		id: 2,
+		name: "Rotan Nusantara",
+		contactPerson: "Dewi Anggraini",
+		phone: "0813-5566-7788",
+		email: "order@rotannusantara.com",
+	},
+	{
+		id: 3,
+		name: "Sinar Logam Industri",
+		contactPerson: "Hendra Gunawan",
+		phone: "0821-9988-7766",
+	},
+	{
+		id: 4,
+		name: "Kaca Prima Mandiri",
+		email: "cs@kacaprima.co.id",
+	},
+	{
+		id: 5,
+		name: "Busa & Kain Sejahtera",
+		contactPerson: "Rina Marlina",
+		phone: "0857-1212-3434",
+		email: "rina@busakainsejahtera.com",
+		notes: "Minimum order 50 meter kain.",
+	},
+];
+
+export const dummyPurchaseOrders: PurchaseOrder[] = [
+	{
+		id: 1,
+		code: "PO-0001",
+		supplierId: 1,
+		date: "2026-07-01",
+		items: 12,
+		total: 48_500_000,
+		status: "ordered",
+	},
+	{
+		id: 2,
+		code: "PO-0002",
+		supplierId: 2,
+		date: "2026-06-24",
+		items: 30,
+		total: 15_750_000,
+		status: "partial",
+	},
+	{
+		id: 3,
+		code: "PO-0003",
+		supplierId: 3,
+		date: "2026-06-18",
+		items: 8,
+		total: 9_200_000,
+		status: "received",
+	},
+	{
+		id: 4,
+		code: "PO-0004",
+		supplierId: 5,
+		date: "2026-07-05",
+		items: 50,
+		total: 22_000_000,
+		status: "draft",
+	},
+	{
+		id: 5,
+		code: "PO-0005",
+		supplierId: 4,
+		date: "2026-05-30",
+		items: 6,
+		total: 6_400_000,
+		status: "cancelled",
+	},
+	{
+		id: 6,
+		code: "PO-0006",
+		supplierId: 1,
+		date: "2026-06-10",
+		items: 18,
+		total: 61_300_000,
+		status: "received",
+	},
+	{
+		id: 7,
+		code: "PO-0007",
+		supplierId: 2,
+		date: "2026-07-07",
+		items: 24,
+		total: 13_900_000,
+		status: "ordered",
+	},
+	{
+		id: 8,
+		code: "PO-0008",
+		supplierId: 5,
+		date: "2026-06-02",
+		items: 40,
+		total: 18_600_000,
+		status: "partial",
+	},
+];
