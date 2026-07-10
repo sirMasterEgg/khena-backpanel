@@ -15,6 +15,7 @@ import { CustomersList } from "@/pages/customers/CustomersList";
 import { Dashboard } from "@/pages/Dashboard";
 import { MediaLibrary } from "@/pages/media/MediaLibrary";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
+import { PointOfSalePage } from "@/pages/pos/PointOfSalePage";
 import { ProductDetail } from "@/pages/products/ProductDetail";
 import { ProductEditor } from "@/pages/products/ProductEditor";
 import { ProductsList } from "@/pages/products/ProductsList";
@@ -52,7 +53,7 @@ const routes: RouteObject[] = [
 			},
 			{
 				path: "/pos",
-				element: <PlaceholderPage title="Point of Sale" />,
+				element: <PointOfSalePage />,
 			},
 			{
 				path: "/collections",
