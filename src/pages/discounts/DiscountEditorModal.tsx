@@ -6,6 +6,7 @@ import {
 	Stack,
 	TextInput,
 } from "@mantine/core";
+import { DateInput } from "@mantine/dates";
 import { modals } from "@mantine/modals";
 import { useState } from "react";
 import type { Discount, DiscountScope, DiscountType } from "@/data/dummy";
@@ -146,20 +147,22 @@ function DiscountForm({
 				/>
 			</Group>
 			<Group grow align="flex-start">
-				<TextInput
+				<DateInput
 					label="Start date"
-					type="date"
+					placeholder="Pick start date"
+					valueFormat="DD MMM YYYY"
 					required
-					value={startDate}
-					onChange={(e) => setStartDate(e.currentTarget.value)}
+					value={startDate || null}
+					onChange={(val) => setStartDate(val ?? "")}
 				/>
-				<TextInput
+				<DateInput
 					label="End date"
-					type="date"
+					placeholder="Pick end date"
+					valueFormat="DD MMM YYYY"
 					required
 					error={datesOk || endDate.length === 0 ? null : "End before start"}
-					value={endDate}
-					onChange={(e) => setEndDate(e.currentTarget.value)}
+					value={endDate || null}
+					onChange={(val) => setEndDate(val ?? "")}
 				/>
 			</Group>
 			<NumberInput
