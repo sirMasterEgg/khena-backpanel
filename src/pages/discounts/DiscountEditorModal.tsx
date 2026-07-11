@@ -1,4 +1,5 @@
 import {
+	Box,
 	Button,
 	Group,
 	NumberInput,
@@ -9,70 +10,100 @@ import {
 import { DateInput } from "@mantine/dates";
 import { modals } from "@mantine/modals";
 import { useState } from "react";
-import type { Discount, DiscountScope, DiscountType } from "@/data/dummy";
-import { computeStatus } from "./format";
+import {
+	type Discount,
+	type DiscountScope,
+	type DiscountStatus,
+	type DiscountType,
+	dummyCollections,
+} from "@/data/dummy";
 
 const TYPE_OPTIONS: { value: DiscountType; label: string }[] = [
-	{ value: "percentage", label: "Percentage" },
-	{ value: "fixed", label: "Fixed amount" },
+	{ value: "percentage", label: "Percentage off" },
+	{ value: "fixed", label: "Fixed amount off" },
 	{ value: "free_shipping", label: "Free shipping" },
 ];
 
-const SCOPE_OPTIONS: { value: DiscountScope; label: string }[] = [
-	{ value: "all", label: "All products" },
-	{ value: "collection", label: "Collection" },
-	{ value: "category", label: "Category" },
-	{ value: "product", label: "Product" },
+const STATUS_OPTIONS: { value: DiscountStatus; label: string }[] = [
+	{ value: "active", label: "Active" },
+	{ value: "scheduled", label: "Scheduled" },
+	{ value: "expired", label: "Expired" },
 ];
+
+/**
+ * Opsi "Applies to": beberapa opsi statis + daftar collection dinamis.
+ * Tiap opsi menyimpan `scope` + `label` supaya bisa mengisi kedua field
+ * `scope` & `scopeLabel` di tipe `Discount` saat submit. `value` dibikin unik
+ * untuk dipakai `<Select/>`.
+ */
+const appliesToOptions: {
+	value: string;
+	scope: DiscountScope;
+	label: string;
+}[] = [
+	{ value: "all", scope: "all", label: "All products" },
+	{ value: "vip", scope: "all", label: "VIP customers" },
+	{ value: "newsletter", scope: "all", label: "Newsletter subscribers" },
+	{ value: "orders-10m", scope: "all", label: "Orders > Rp 10.000.000" },
+	...dummyCollections.map((c) => ({
+		value: `collection-${c.id}`,
+		scope: "collection" as DiscountScope,
+		label: c.name,
+	})),
+];
+
+/** Cari value opsi "Applies to" awal dari `scopeLabel` (fallback "all"). */
+function initialAppliesTo(initial?: Discount): string {
+	if (!initial) return "all";
+	const match = appliesToOptions.find((o) => o.label === initial.scopeLabel);
+	return match?.value ?? "all";
+}
 
 interface DiscountFormProps {
 	onSubmit: (discount: Discount) => void;
 	onCancel: () => void;
-	/** Kalau diisi → mode edit: field terisi awal & tombol Delete muncul. */
+	/** Kalau diisi → mode edit: field terisi awal. */
 	initial?: Discount;
-	/** Dipanggil saat tombol Delete ditekan (hanya di mode edit). */
-	onDelete?: (discount: Discount) => void;
-	/** Label tombol submit (default "Save discount"). */
+	/** Label tombol submit (default "Create discount"). */
 	submitLabel?: string;
 }
 
-/** Isi form modal "Add/Edit discount". State dikelola sendiri. */
+/** Isi form modal "New/Edit Discount". State dikelola sendiri. */
 function DiscountForm({
 	onSubmit,
 	onCancel,
 	initial,
-	onDelete,
-	submitLabel = "Save discount",
+	submitLabel = "Create discount",
 }: DiscountFormProps) {
 	const [code, setCode] = useState(initial?.code ?? "");
 	const [type, setType] = useState<DiscountType>(initial?.type ?? "percentage");
 	const [value, setValue] = useState<number | string>(initial?.value ?? 0);
-	const [scope, setScope] = useState<DiscountScope>(initial?.scope ?? "all");
-	const [scopeLabel, setScopeLabel] = useState(initial?.scopeLabel ?? "");
+	const [appliesTo, setAppliesTo] = useState<string>(initialAppliesTo(initial));
 	const [startDate, setStartDate] = useState(initial?.startDate ?? "");
 	const [endDate, setEndDate] = useState(initial?.endDate ?? "");
 	const [usageLimit, setUsageLimit] = useState<number | string>(
 		initial?.usageLimit ?? "",
 	);
+	const [status, setStatus] = useState<DiscountStatus>(
+		initial?.status ?? "active",
+	);
 
-	const numericValue = typeof value === "number" ? value : Number(value);
-	// free_shipping tidak butuh value; tipe lain wajib value > 0.
-	const valueOk = type === "free_shipping" || numericValue > 0;
-	// endDate harus >= startDate (kalau keduanya terisi).
-	const datesOk =
-		startDate.length > 0 && endDate.length > 0 && endDate >= startDate;
-	const canSubmit = code.trim().length > 0 && valueOk && datesOk;
+	// Cukup: code & endDate terisi.
+	const canSubmit = code.trim().length > 0 && endDate.length > 0;
 
 	const handleSubmit = () => {
 		if (!canSubmit) return;
+		const numericValue = typeof value === "number" ? value : Number(value);
 		const limit =
 			typeof usageLimit === "number"
 				? usageLimit
 				: usageLimit.trim().length > 0
 					? Number(usageLimit)
 					: undefined;
-		// Status dihitung otomatis dari rentang tanggal, tidak diinput manual.
-		const status = computeStatus(startDate, endDate);
+		// Terjemahkan opsi "Applies to" ke scope + scopeLabel.
+		const applies =
+			appliesToOptions.find((o) => o.value === appliesTo) ??
+			appliesToOptions[0];
 		const discount: Discount = initial
 			? {
 					// Pertahankan field yang tidak ada di form (id, used).
@@ -80,8 +111,8 @@ function DiscountForm({
 					code: code.trim().toUpperCase(),
 					type,
 					value: type === "free_shipping" ? 0 : numericValue,
-					scope,
-					scopeLabel: scopeLabel.trim() || undefined,
+					scope: applies.scope,
+					scopeLabel: applies.label,
 					startDate,
 					endDate,
 					usageLimit: limit,
@@ -92,8 +123,8 @@ function DiscountForm({
 					code: code.trim().toUpperCase(),
 					type,
 					value: type === "free_shipping" ? 0 : numericValue,
-					scope,
-					scopeLabel: scopeLabel.trim() || undefined,
+					scope: applies.scope,
+					scopeLabel: applies.label,
 					startDate,
 					endDate,
 					used: 0,
@@ -105,14 +136,28 @@ function DiscountForm({
 
 	return (
 		<Stack gap="md">
-			<TextInput
-				label="Code"
-				placeholder="e.g. SUMMER10"
-				required
-				value={code}
-				onChange={(e) => setCode(e.currentTarget.value.toUpperCase())}
-				styles={{ input: { fontFamily: "monospace" } }}
-			/>
+			{/* Field kode dibungkus kotak highlight supaya menonjol. */}
+			<Box
+				p="md"
+				style={{
+					background: "var(--mantine-color-blue-light)",
+					border: "1px solid var(--mantine-color-blue-light-hover)",
+					borderRadius: "var(--mantine-radius-md)",
+				}}
+			>
+				<TextInput
+					label="Discount code"
+					required
+					placeholder="e.g. WELCOME10"
+					description="Pelanggan memasukkan kode ini saat checkout. Huruf besar & tanpa spasi."
+					value={code}
+					onChange={(e) =>
+						setCode(e.currentTarget.value.toUpperCase().replace(/\s+/g, ""))
+					}
+					styles={{ input: { fontFamily: "monospace" } }}
+				/>
+			</Box>
+
 			<Group grow align="flex-start">
 				<Select
 					label="Type"
@@ -121,7 +166,9 @@ function DiscountForm({
 					onChange={(val) => setType((val as DiscountType) ?? "percentage")}
 					allowDeselect={false}
 				/>
-				{type !== "free_shipping" && (
+				{type === "free_shipping" ? (
+					<TextInput label="Value" value="Free shipping" disabled />
+				) : (
 					<NumberInput
 						label={type === "percentage" ? "Value (%)" : "Value (Rp)"}
 						placeholder={type === "percentage" ? "10" : "50000"}
@@ -131,27 +178,20 @@ function DiscountForm({
 					/>
 				)}
 			</Group>
-			<Group grow align="flex-start">
-				<Select
-					label="Scope"
-					data={SCOPE_OPTIONS}
-					value={scope}
-					onChange={(val) => setScope((val as DiscountScope) ?? "all")}
-					allowDeselect={false}
-				/>
-				<TextInput
-					label="Scope label"
-					placeholder="e.g. Modern Living"
-					value={scopeLabel}
-					onChange={(e) => setScopeLabel(e.currentTarget.value)}
-				/>
-			</Group>
+
+			<Select
+				label="Applies to"
+				data={appliesToOptions.map((o) => ({ value: o.value, label: o.label }))}
+				value={appliesTo}
+				onChange={(val) => setAppliesTo(val ?? "all")}
+				allowDeselect={false}
+			/>
+
 			<Group grow align="flex-start">
 				<DateInput
 					label="Start date"
 					placeholder="Pick start date"
 					valueFormat="DD MMM YYYY"
-					required
 					value={startDate || null}
 					onChange={(val) => setStartDate(val ?? "")}
 				/>
@@ -160,31 +200,32 @@ function DiscountForm({
 					placeholder="Pick end date"
 					valueFormat="DD MMM YYYY"
 					required
-					error={datesOk || endDate.length === 0 ? null : "End before start"}
 					value={endDate || null}
 					onChange={(val) => setEndDate(val ?? "")}
 				/>
 			</Group>
-			<NumberInput
-				label="Usage limit"
-				description="Kosongkan untuk tak terbatas"
-				placeholder="Unlimited"
-				min={0}
-				value={usageLimit}
-				onChange={setUsageLimit}
-			/>
+
+			<Group grow align="flex-start">
+				<NumberInput
+					label="Usage limit"
+					description="Kosongkan untuk tanpa batas"
+					// Taruh deskripsi di bawah input supaya field sejajar dengan Status.
+					inputWrapperOrder={["label", "input", "description"]}
+					placeholder="No limit"
+					min={0}
+					value={usageLimit}
+					onChange={setUsageLimit}
+				/>
+				<Select
+					label="Status"
+					data={STATUS_OPTIONS}
+					value={status}
+					onChange={(val) => setStatus((val as DiscountStatus) ?? "active")}
+					allowDeselect={false}
+				/>
+			</Group>
 
 			<Group justify="flex-end" gap="sm">
-				{initial && onDelete && (
-					<Button
-						color="red"
-						variant="light"
-						mr="auto"
-						onClick={() => onDelete(initial)}
-					>
-						Delete
-					</Button>
-				)}
 				<Button variant="default" onClick={onCancel}>
 					Cancel
 				</Button>
@@ -197,15 +238,16 @@ function DiscountForm({
 }
 
 /**
- * Buka modal "Add discount" lewat modals manager (`@mantine/modals`).
+ * Buka modal "New Discount" lewat modals manager (`@mantine/modals`).
  * `onSubmit` dipanggil dengan discount baru sebelum modal ditutup.
  */
 export function openAddDiscountModal(onSubmit: (discount: Discount) => void) {
 	const id = modals.open({
-		title: "Add discount",
+		title: "New Discount",
 		centered: true,
 		children: (
 			<DiscountForm
+				submitLabel="Create discount"
 				onSubmit={(discount) => {
 					onSubmit(discount);
 					modals.close(id);
@@ -217,35 +259,25 @@ export function openAddDiscountModal(onSubmit: (discount: Discount) => void) {
 }
 
 /**
- * Buka modal "Edit discount" dengan form terisi awal dari `discount`.
- * `onSubmit` menerima discount yang sudah digabung dengan perubahan form,
- * `onDelete` (opsional) dipanggil saat discount dihapus.
+ * Buka modal "Edit Discount" dengan form terisi awal dari `discount`.
+ * `onSubmit` menerima discount yang sudah digabung dengan perubahan form.
  */
 export function openEditDiscountModal(
 	discount: Discount,
 	onSubmit: (updated: Discount) => void,
-	onDelete?: (discount: Discount) => void,
 ) {
 	const id = modals.open({
-		title: "Edit discount",
+		title: "Edit Discount",
 		centered: true,
 		children: (
 			<DiscountForm
 				initial={discount}
-				submitLabel="Save discount"
+				submitLabel="Save changes"
 				onSubmit={(updated) => {
 					onSubmit(updated);
 					modals.close(id);
 				}}
 				onCancel={() => modals.close(id)}
-				onDelete={
-					onDelete
-						? (target) => {
-								onDelete(target);
-								modals.close(id);
-							}
-						: undefined
-				}
 			/>
 		),
 	});

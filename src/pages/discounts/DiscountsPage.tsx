@@ -109,19 +109,12 @@ export function DiscountsPage() {
 		});
 
 	const handleEdit = (d: Discount) =>
-		openEditDiscountModal(
-			d,
-			(updated) => {
-				setDiscounts((prev) =>
-					prev.map((x) => (x.id === updated.id ? updated : x)),
-				);
-				notify.success(`${updated.code} updated`, "Discount updated");
-			},
-			(target) => {
-				setDiscounts((prev) => prev.filter((x) => x.id !== target.id));
-				notify.success(`${target.code} deleted`, "Discount deleted");
-			},
-		);
+		openEditDiscountModal(d, (updated) => {
+			setDiscounts((prev) =>
+				prev.map((x) => (x.id === updated.id ? updated : x)),
+			);
+			notify.success(`${updated.code} updated`, "Discount updated");
+		});
 
 	const handleCopy = (d: Discount) => {
 		clipboard.copy(d.code);
