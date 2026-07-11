@@ -1309,3 +1309,129 @@ export const dummyPurchaseOrders: PurchaseOrder[] = [
 		status: "partial",
 	},
 ];
+
+// ----- Discounts -----
+
+export type DiscountType = "percentage" | "fixed" | "free_shipping";
+export type DiscountStatus = "active" | "scheduled" | "expired";
+export type DiscountScope = "all" | "collection" | "category" | "product";
+
+export type Discount = {
+	id: number;
+	code: string; // "SUMMER10" — ditampilkan monospace
+	type: DiscountType;
+	value: number; // percentage: 10 (=10%), fixed: 50000 (Rp), free_shipping: 0
+	scope: DiscountScope;
+	scopeLabel?: string; // teks cakupan, mis. "Modern Living" / "All products"
+	startDate: string; // ISO, mis. "2026-07-01"
+	endDate: string; // ISO, mis. "2026-07-31"
+	used: number; // jumlah pemakaian
+	usageLimit?: number; // batas limit; kalau kosong → tak terbatas
+	status: DiscountStatus;
+};
+
+// Tanggal dibuat relatif terhadap "hari ini" (~2026-07-11) supaya tiap status
+// (active/scheduled/expired) dan indikator "expiring soon" ikut teruji.
+export const dummyDiscounts: Discount[] = [
+	{
+		id: 1,
+		code: "SUMMER10",
+		type: "percentage",
+		value: 10,
+		scope: "all",
+		scopeLabel: "All products",
+		startDate: "2026-07-01",
+		endDate: "2026-07-31",
+		used: 42,
+		usageLimit: 100,
+		status: "active",
+	},
+	{
+		id: 2,
+		code: "WELCOME50K",
+		type: "fixed",
+		value: 50_000,
+		scope: "all",
+		scopeLabel: "All products",
+		startDate: "2026-06-15",
+		endDate: "2026-07-15",
+		used: 128,
+		status: "active",
+	},
+	{
+		id: 3,
+		code: "FREESHIPJUL",
+		type: "free_shipping",
+		value: 0,
+		scope: "all",
+		scopeLabel: "All products",
+		startDate: "2026-07-05",
+		endDate: "2026-07-14",
+		used: 310,
+		usageLimit: 500,
+		status: "active",
+	},
+	{
+		id: 4,
+		code: "MODERN25",
+		type: "percentage",
+		value: 25,
+		scope: "collection",
+		scopeLabel: "Modern Living",
+		startDate: "2026-08-01",
+		endDate: "2026-08-07",
+		used: 0,
+		usageLimit: 200,
+		status: "scheduled",
+	},
+	{
+		id: 5,
+		code: "BEDROOMSHIP",
+		type: "free_shipping",
+		value: 0,
+		scope: "collection",
+		scopeLabel: "Bedroom Sets",
+		startDate: "2026-07-20",
+		endDate: "2026-07-27",
+		used: 0,
+		status: "scheduled",
+	},
+	{
+		id: 6,
+		code: "NEWYEAR100K",
+		type: "fixed",
+		value: 100_000,
+		scope: "category",
+		scopeLabel: "Dining",
+		startDate: "2025-12-25",
+		endDate: "2026-01-05",
+		used: 89,
+		usageLimit: 150,
+		status: "expired",
+	},
+	{
+		id: 7,
+		code: "CLEARANCE15",
+		type: "percentage",
+		value: 15,
+		scope: "product",
+		scopeLabel: "Recliner Chair",
+		startDate: "2026-05-01",
+		endDate: "2026-05-31",
+		used: 54,
+		usageLimit: 60,
+		status: "expired",
+	},
+	{
+		id: 8,
+		code: "LOYAL20",
+		type: "percentage",
+		value: 20,
+		scope: "all",
+		scopeLabel: "All products",
+		startDate: "2026-07-05",
+		endDate: "2026-09-30",
+		used: 12,
+		status: "active",
+	},
+];

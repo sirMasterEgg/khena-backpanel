@@ -13,6 +13,7 @@ import { ColorList } from "@/pages/color/ColorList";
 import { CustomerDetail } from "@/pages/customers/CustomerDetail";
 import { CustomersList } from "@/pages/customers/CustomersList";
 import { Dashboard } from "@/pages/Dashboard";
+import { DiscountsPage } from "@/pages/discounts/DiscountsPage";
 import { MediaLibrary } from "@/pages/media/MediaLibrary";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { PointOfSalePage } from "@/pages/pos/PointOfSalePage";
@@ -121,7 +122,7 @@ const routes: RouteObject[] = [
 			},
 			{
 				path: "/discounts",
-				element: <PlaceholderPage title="Discounts" />,
+				element: <DiscountsPage />,
 			},
 			{
 				path: "/stocks",
