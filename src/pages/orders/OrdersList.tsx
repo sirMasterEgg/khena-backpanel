@@ -23,7 +23,6 @@ import {
 	IconClock,
 	IconCoin,
 	IconDownload,
-	IconPlus,
 	IconReceipt,
 	IconSearch,
 } from "@tabler/icons-react";
@@ -36,7 +35,6 @@ import { canViewPrices } from "@/config/permissions";
 import { dummyOrders } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { CustomerAvatar } from "@/pages/customers/CustomerAvatar";
-import { openCreateOrderModal } from "./CreateOrderModal";
 import { formatCurrency, formatDate } from "./format";
 import { OrderRowActions } from "./OrderRowActions";
 import type { Order, OrderStatus } from "./orderTypes";
@@ -174,13 +172,6 @@ export function OrdersList() {
 		notify.success(`#${id} marked as ${status}`, "Status updated");
 	};
 
-	const handleCreateOrder = (order: Order) => {
-		setOrders((prev) => [order, ...prev]);
-		setTab("all");
-		setPage(1);
-		notify.success(`${order.id} created`, "Order created");
-	};
-
 	const handleRefund = (id: string) => {
 		setOrders((prev) =>
 			prev.map((o) => (o.id === id ? { ...o, status: "cancelled" } : o)),
@@ -211,21 +202,13 @@ export function OrdersList() {
 				title="Orders"
 				subtitle="Track and fulfil your customer orders"
 				actions={
-					<Group gap="sm">
-						<Button
-							variant="default"
-							leftSection={<IconDownload size={16} />}
-							onClick={handleExport}
-						>
-							Export
-						</Button>
-						<Button
-							leftSection={<IconPlus size={16} />}
-							onClick={() => openCreateOrderModal(handleCreateOrder)}
-						>
-							Create Order
-						</Button>
-					</Group>
+					<Button
+						variant="default"
+						leftSection={<IconDownload size={16} />}
+						onClick={handleExport}
+					>
+						Export
+					</Button>
 				}
 			/>
 
@@ -423,17 +406,6 @@ export function OrdersList() {
 													color="var(--mantine-color-gray-5)"
 												/>
 												<Text c="dimmed">No orders found</Text>
-												{orders.length === 0 && (
-													<Button
-														variant="light"
-														leftSection={<IconPlus size={16} />}
-														onClick={() =>
-															openCreateOrderModal(handleCreateOrder)
-														}
-													>
-														Create Order
-													</Button>
-												)}
 											</Stack>
 										</Center>
 									</Table.Td>
