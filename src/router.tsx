@@ -16,6 +16,7 @@ import { Dashboard } from "@/pages/Dashboard";
 import { DeliveriesPage } from "@/pages/deliveries/DeliveriesPage";
 import { DiscountsPage } from "@/pages/discounts/DiscountsPage";
 import { MediaLibrary } from "@/pages/media/MediaLibrary";
+import { OrdersList } from "@/pages/orders/OrdersList";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { PointOfSalePage } from "@/pages/pos/PointOfSalePage";
 import { ProductDetail } from "@/pages/products/ProductDetail";
@@ -107,7 +108,7 @@ const routes: RouteObject[] = [
 			},
 			{
 				path: "/orders",
-				element: <PlaceholderPage title="Orders" />,
+				element: <OrdersList />,
 			},
 			{
 				path: "/deliveries",

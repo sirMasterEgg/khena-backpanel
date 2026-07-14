@@ -1,3 +1,5 @@
+import type { Order } from "@/pages/orders/orderTypes";
+
 export type ProductVariant = {
 	id: number;
 	colorFinish: string;
@@ -306,30 +308,277 @@ export const dummyProducts: Product[] = [
 	},
 ];
 
-export const dummyOrders = [
+export const dummyOrders: Order[] = [
 	{
-		id: "ORD-001",
-		customer: "John Doe",
-		items: 3,
-		total: 2450,
+		id: "ORD-1042",
+		customerName: "John Doe",
+		customerAvatarColor: "teal",
+		items: [
+			{
+				productName: "Modern Sofa",
+				thumbnail: "https://placehold.co/40x40?text=Sofa",
+				qty: 1,
+			},
+			{
+				productName: "Coffee Table",
+				thumbnail: "https://placehold.co/40x40?text=Table",
+				qty: 2,
+			},
+		],
+		date: "2026-07-12",
+		total: 12450000,
 		status: "processing",
-		date: "2026-06-18",
 	},
 	{
-		id: "ORD-002",
-		customer: "Jane Smith",
-		items: 1,
-		total: 1200,
+		id: "ORD-1041",
+		customerName: "Jane Smith",
+		customerAvatarColor: "grape",
+		items: [
+			{
+				productName: "Dining Chair",
+				thumbnail: "https://placehold.co/40x40?text=Chair",
+				qty: 4,
+			},
+		],
+		date: "2026-07-11",
+		total: 3200000,
 		status: "shipped",
-		date: "2026-06-17",
 	},
 	{
-		id: "ORD-003",
-		customer: "Mike Johnson",
-		items: 2,
-		total: 750,
+		id: "ORD-1040",
+		customerName: "Mike Johnson",
+		customerAvatarColor: "blue",
+		items: [
+			{
+				productName: "Bookshelf",
+				thumbnail: "https://placehold.co/40x40?text=Shelf",
+				qty: 1,
+			},
+			{
+				productName: "Floor Lamp",
+				thumbnail: "https://placehold.co/40x40?text=Lamp",
+				qty: 1,
+			},
+			{
+				productName: "Rug",
+				thumbnail: "https://placehold.co/40x40?text=Rug",
+				qty: 1,
+			},
+		],
+		date: "2026-07-10",
+		total: 5750000,
 		status: "pending",
-		date: "2026-06-16",
+		hasDataIssue: true,
+	},
+	{
+		id: "ORD-1039",
+		customerName: "Sarah Williams",
+		customerAvatarColor: "pink",
+		items: [
+			{
+				productName: "Office Desk",
+				thumbnail: "https://placehold.co/40x40?text=Desk",
+				qty: 1,
+			},
+		],
+		date: "2026-07-09",
+		total: 4100000,
+		status: "completed",
+	},
+	{
+		id: "ORD-1038",
+		customerName: "David Brown",
+		customerAvatarColor: "orange",
+		items: [
+			{
+				productName: "Armchair",
+				thumbnail: "https://placehold.co/40x40?text=Armchair",
+				qty: 2,
+			},
+			{
+				productName: "Side Table",
+				thumbnail: "https://placehold.co/40x40?text=SideTable",
+				qty: 1,
+			},
+		],
+		date: "2026-07-08",
+		total: 6800000,
+		status: "cancelled",
+	},
+	{
+		id: "ORD-1037",
+		customerName: "Emily Davis",
+		customerAvatarColor: "cyan",
+		items: [
+			{
+				productName: "Wardrobe",
+				thumbnail: "https://placehold.co/40x40?text=Wardrobe",
+				qty: 1,
+			},
+		],
+		date: "2026-07-07",
+		total: 9250000,
+		status: "processing",
+	},
+	{
+		id: "ORD-1036",
+		customerName: "Chris Martin",
+		customerAvatarColor: "indigo",
+		items: [
+			{
+				productName: "Bed Frame",
+				thumbnail: "https://placehold.co/40x40?text=Bed",
+				qty: 1,
+			},
+			{
+				productName: "Nightstand",
+				thumbnail: "https://placehold.co/40x40?text=Night",
+				qty: 2,
+			},
+		],
+		date: "2026-07-06",
+		total: 11200000,
+		status: "shipped",
+	},
+	{
+		id: "ORD-1035",
+		customerName: "Anna Taylor",
+		customerAvatarColor: "green",
+		items: [
+			{
+				productName: "TV Cabinet",
+				thumbnail: "https://placehold.co/40x40?text=TV",
+				qty: 1,
+			},
+		],
+		date: "2026-07-05",
+		total: 3900000,
+		status: "pending",
+	},
+	{
+		id: "ORD-1034",
+		customerName: "Robert Wilson",
+		customerAvatarColor: "red",
+		items: [
+			{
+				productName: "Dining Table",
+				thumbnail: "https://placehold.co/40x40?text=Dining",
+				qty: 1,
+			},
+			{
+				productName: "Dining Chair",
+				thumbnail: "https://placehold.co/40x40?text=Chair",
+				qty: 6,
+			},
+		],
+		date: "2026-07-04",
+		total: 14500000,
+		status: "completed",
+	},
+	{
+		id: "ORD-1033",
+		customerName: "Laura Garcia",
+		customerAvatarColor: "violet",
+		items: [
+			{
+				productName: "Ottoman",
+				thumbnail: "https://placehold.co/40x40?text=Ottoman",
+				qty: 2,
+			},
+		],
+		date: "2026-07-03",
+		total: 1850000,
+		status: "processing",
+	},
+	{
+		id: "ORD-1032",
+		customerName: "James Anderson",
+		customerAvatarColor: "lime",
+		items: [
+			{
+				productName: "Bar Stool",
+				thumbnail: "https://placehold.co/40x40?text=Stool",
+				qty: 3,
+			},
+			{
+				productName: "Kitchen Island",
+				thumbnail: "https://placehold.co/40x40?text=Island",
+				qty: 1,
+			},
+		],
+		date: "2026-07-02",
+		total: 7300000,
+		status: "shipped",
+	},
+	{
+		id: "ORD-1031",
+		customerName: "Patricia Moore",
+		customerAvatarColor: "teal",
+		items: [
+			{
+				productName: "Accent Chair",
+				thumbnail: "https://placehold.co/40x40?text=Accent",
+				qty: 1,
+			},
+		],
+		date: "2026-07-01",
+		total: 2750000,
+		status: "pending",
+	},
+	{
+		id: "ORD-1030",
+		customerName: "Daniel Lee",
+		customerAvatarColor: "yellow",
+		items: [
+			{
+				productName: "Console Table",
+				thumbnail: "https://placehold.co/40x40?text=Console",
+				qty: 1,
+			},
+			{
+				productName: "Wall Mirror",
+				thumbnail: "https://placehold.co/40x40?text=Mirror",
+				qty: 2,
+			},
+		],
+		date: "2026-06-30",
+		total: 4600000,
+		status: "completed",
+	},
+	{
+		id: "ORD-1029",
+		customerName: "Jennifer White",
+		customerAvatarColor: "grape",
+		items: [
+			{
+				productName: "Recliner",
+				thumbnail: "https://placehold.co/40x40?text=Recliner",
+				qty: 1,
+			},
+		],
+		date: "2026-06-29",
+		total: 8100000,
+		status: "cancelled",
+	},
+	{
+		id: "ORD-1028",
+		customerName: "Thomas Harris",
+		customerAvatarColor: "blue",
+		items: [
+			{
+				productName: "Sideboard",
+				thumbnail: "https://placehold.co/40x40?text=Sideboard",
+				qty: 1,
+			},
+			{
+				productName: "Dining Bench",
+				thumbnail: "https://placehold.co/40x40?text=Bench",
+				qty: 1,
+			},
+		],
+		date: "2026-06-28",
+		total: 5400000,
+		status: "shipped",
 	},
 ];
 
