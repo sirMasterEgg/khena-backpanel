@@ -1435,3 +1435,131 @@ export const dummyDiscounts: Discount[] = [
 		status: "active",
 	},
 ];
+
+// ----- Deliveries -----
+
+export type DeliveryStatus = "scheduled" | "delivered";
+
+export type Delivery = {
+	id: string; // id unik, mis. "DLV-001"
+	orderId: string; // nomor order terkait, mis. "ORD-1042"
+	customerName: string; // nama customer (dicetak tebal di baris)
+	city: string; // kota tujuan
+	date: string; // ISO date pengiriman terjadwal, mis. "2026-07-09"
+	timeSlot?: string; // opsional, mis. "09:00–12:00"
+	status: DeliveryStatus;
+};
+
+// Tanggal berpusat di minggu 6–12 Juli 2026 (Sen–Min), mengacu ke "hari ini"
+// project ~2026-07-11. Ada beberapa scheduled di masa lalu supaya kartu Overdue
+// muncul, serta hari kosong untuk menguji tampilan "—".
+export const dummyDeliveries: Delivery[] = [
+	// Terlambat (scheduled tapi tanggal sudah lewat) → masuk Overdue.
+	{
+		id: "DLV-001",
+		orderId: "ORD-1039",
+		customerName: "Andi Wijaya",
+		city: "Jakarta",
+		date: "2026-07-03",
+		timeSlot: "09:00–12:00",
+		status: "scheduled",
+	},
+	{
+		id: "DLV-002",
+		orderId: "ORD-1041",
+		customerName: "Siti Rahayu",
+		city: "Bandung",
+		date: "2026-07-05",
+		status: "scheduled",
+	},
+	// Minggu berjalan (6–12 Juli 2026), campur scheduled & delivered.
+	{
+		id: "DLV-003",
+		orderId: "ORD-1042",
+		customerName: "Budi Santoso",
+		city: "Surabaya",
+		date: "2026-07-06",
+		timeSlot: "13:00–15:00",
+		status: "delivered",
+	},
+	{
+		id: "DLV-004",
+		orderId: "ORD-1045",
+		customerName: "Dewi Lestari",
+		city: "Jakarta",
+		date: "2026-07-06",
+		timeSlot: "15:00–18:00",
+		status: "scheduled",
+	},
+	{
+		id: "DLV-005",
+		orderId: "ORD-1048",
+		customerName: "Eko Prasetyo",
+		city: "Bandung",
+		date: "2026-07-08",
+		timeSlot: "09:00–12:00",
+		status: "delivered",
+	},
+	{
+		id: "DLV-006",
+		orderId: "ORD-1050",
+		customerName: "Fitri Handayani",
+		city: "Semarang",
+		date: "2026-07-09",
+		status: "scheduled",
+	},
+	{
+		id: "DLV-007",
+		orderId: "ORD-1052",
+		customerName: "Gunawan Halim",
+		city: "Surabaya",
+		date: "2026-07-09",
+		timeSlot: "13:00–16:00",
+		status: "scheduled",
+	},
+	{
+		id: "DLV-008",
+		orderId: "ORD-1055",
+		customerName: "Hana Permata",
+		city: "Jakarta",
+		date: "2026-07-10",
+		timeSlot: "10:00–12:00",
+		status: "scheduled",
+	},
+	{
+		id: "DLV-009",
+		orderId: "ORD-1058",
+		customerName: "Indra Kusuma",
+		city: "Yogyakarta",
+		date: "2026-07-12",
+		timeSlot: "09:00–11:00",
+		status: "scheduled",
+	},
+	// Minggu berikutnya (untuk navigasi ›).
+	{
+		id: "DLV-010",
+		orderId: "ORD-1061",
+		customerName: "Joko Susilo",
+		city: "Bandung",
+		date: "2026-07-14",
+		timeSlot: "14:00–17:00",
+		status: "scheduled",
+	},
+	{
+		id: "DLV-011",
+		orderId: "ORD-1063",
+		customerName: "Kartika Sari",
+		city: "Surabaya",
+		date: "2026-07-16",
+		status: "scheduled",
+	},
+	{
+		id: "DLV-012",
+		orderId: "ORD-1066",
+		customerName: "Lukman Hakim",
+		city: "Jakarta",
+		date: "2026-07-17",
+		timeSlot: "08:00–10:00",
+		status: "scheduled",
+	},
+];
