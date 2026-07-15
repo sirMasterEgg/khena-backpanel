@@ -77,6 +77,7 @@ export function AppLayout() {
 			items: [
 				{ label: "Dashboard", icon: IconHome, path: "/" },
 				{ label: "Point of Sale", icon: IconShoppingCart, path: "/pos" },
+				{ label: "Order Sales", icon: IconReceipt, path: "/order-sales" },
 			],
 		},
 		{

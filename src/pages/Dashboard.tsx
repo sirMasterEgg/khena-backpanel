@@ -200,7 +200,7 @@ export function Dashboard() {
 											{order.id}
 										</Text>
 									</Table.Td>
-									<Table.Td>{order.customer}</Table.Td>
+									<Table.Td>{order.customerName}</Table.Td>
 									<Table.Td>
 										<StatusBadge
 											status={

@@ -299,7 +299,6 @@ export function CustomersList() {
 							<Table.Tr>
 								<Table.Th>Customer</Table.Th>
 								<Table.Th>Email</Table.Th>
-								<Table.Th>City</Table.Th>
 								<Table.Th>Orders</Table.Th>
 								<Table.Th>Lifetime Value</Table.Th>
 								<Table.Th>Last order</Table.Th>
@@ -338,7 +337,6 @@ export function CustomersList() {
 											</Group>
 										</Table.Td>
 										<Table.Td>{customer.email || "—"}</Table.Td>
-										<Table.Td>{customer.city || "—"}</Table.Td>
 										<Table.Td>{customer.ordersCount}</Table.Td>
 										<Table.Td>
 											<Text fw={700}>
@@ -358,7 +356,7 @@ export function CustomersList() {
 								))
 							) : (
 								<Table.Tr>
-									<Table.Td colSpan={8}>
+									<Table.Td colSpan={7}>
 										<Center py="xl">
 											<Stack align="center" gap="sm">
 												<IconUsers

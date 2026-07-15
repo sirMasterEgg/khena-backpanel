@@ -2,11 +2,7 @@ import { Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { useState } from "react";
 import type { Customer } from "@/data/dummy";
-
-/** Validasi format email sederhana. */
-function isValidEmail(email: string): boolean {
-	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
+import { isValidEmail, isValidPhone } from "@/lib/validation";
 
 interface AddCustomerFormProps {
 	onSubmit: (customer: Customer) => void;
@@ -27,9 +23,19 @@ function AddCustomerForm({
 	const [name, setName] = useState(initial?.name ?? "");
 	const [email, setEmail] = useState(initial?.email ?? "");
 	const [phone, setPhone] = useState(initial?.phone ?? "");
-	const [city, setCity] = useState(initial?.city ?? "");
 
-	const canSubmit = name.trim().length > 0 && isValidEmail(email.trim());
+	// Phone opsional, tapi kalau diisi harus format nomor HP yang valid.
+	const phoneError =
+		phone.trim().length > 0 && !isValidPhone(phone.trim())
+			? "Masukkan nomor HP yang valid"
+			: null;
+	const emailError =
+		email.trim().length > 0 && !isValidEmail(email.trim())
+			? "Masukkan email yang valid"
+			: null;
+
+	const canSubmit =
+		name.trim().length > 0 && isValidEmail(email.trim()) && !phoneError;
 
 	const handleSubmit = () => {
 		if (!canSubmit) return;
@@ -40,14 +46,12 @@ function AddCustomerForm({
 					name: name.trim(),
 					email: email.trim(),
 					phone: phone.trim() || undefined,
-					city: city.trim() || undefined,
 				}
 			: {
 					id: Date.now(),
 					name: name.trim(),
 					email: email.trim(),
 					phone: phone.trim() || undefined,
-					city: city.trim() || undefined,
 					avatarColor: "teal",
 					ordersCount: 0,
 					lifetimeValue: 0,
@@ -74,21 +78,16 @@ function AddCustomerForm({
 				type="email"
 				value={email}
 				onChange={(e) => setEmail(e.currentTarget.value)}
+				error={emailError}
 			/>
-			<Group grow align="flex-start">
-				<TextInput
-					label="Phone"
-					placeholder="0812-3456-7890"
-					value={phone}
-					onChange={(e) => setPhone(e.currentTarget.value)}
-				/>
-				<TextInput
-					label="City"
-					placeholder="Jakarta"
-					value={city}
-					onChange={(e) => setCity(e.currentTarget.value)}
-				/>
-			</Group>
+			<TextInput
+				label="Phone"
+				placeholder="0812-3456-7890"
+				inputMode="tel"
+				value={phone}
+				onChange={(e) => setPhone(e.currentTarget.value)}
+				error={phoneError}
+			/>
 			<Text size="xs" c="dimmed">
 				We'll use this to contact the customer about their orders.
 			</Text>

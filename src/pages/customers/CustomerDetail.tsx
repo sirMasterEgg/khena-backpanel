@@ -241,7 +241,6 @@ export function CustomerDetail() {
 							<Stack gap="md">
 								<ContactField label="Email" value={customer.email} />
 								<ContactField label="Phone" value={customer.phone ?? ""} />
-								<ContactField label="Location" value={customer.city ?? ""} />
 							</Stack>
 						</Card>
 

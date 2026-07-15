@@ -16,6 +16,9 @@ import { Dashboard } from "@/pages/Dashboard";
 import { DeliveriesPage } from "@/pages/deliveries/DeliveriesPage";
 import { DiscountsPage } from "@/pages/discounts/DiscountsPage";
 import { MediaLibrary } from "@/pages/media/MediaLibrary";
+import { OrderDetail } from "@/pages/orders/OrderDetail";
+import { OrderSales } from "@/pages/orders/OrderSales";
+import { OrdersList } from "@/pages/orders/OrdersList";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { PointOfSalePage } from "@/pages/pos/PointOfSalePage";
 import { ProductDetail } from "@/pages/products/ProductDetail";
@@ -56,6 +59,10 @@ const routes: RouteObject[] = [
 			{
 				path: "/pos",
 				element: <PointOfSalePage />,
+			},
+			{
+				path: "/order-sales",
+				element: <OrderSales />,
 			},
 			{
 				path: "/collections",
@@ -107,7 +114,11 @@ const routes: RouteObject[] = [
 			},
 			{
 				path: "/orders",
-				element: <PlaceholderPage title="Orders" />,
+				element: <OrdersList />,
+			},
+			{
+				path: "/orders/:id",
+				element: <OrderDetail />,
 			},
 			{
 				path: "/deliveries",
