@@ -178,10 +178,7 @@ export function OrdersList() {
 		);
 	};
 
-	const handleView = (id: string) => {
-		// Halaman detail order belum ada (di luar scope issue ini).
-		notify.info(`Detail for #${id} belum tersedia`, "Order details");
-	};
+	const handleView = (id: string) => navigate(`/orders/${id}`);
 
 	const handleExport = () => {
 		notify.info("Export belum tersedia", "Export");
