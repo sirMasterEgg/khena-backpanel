@@ -1,5 +1,6 @@
 import {
 	Alert,
+	Autocomplete,
 	Button,
 	Card,
 	Grid,
@@ -14,6 +15,7 @@ import { IconAlertCircle, IconCircleCheck } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import { notify } from "@/components/notify";
 import type { Product } from "@/data/dummy";
+import { STOCK_REASONS } from "./stockData";
 import type { ApplyResult, StockAction, StockSource } from "./stockTypes";
 
 interface SingleSkuAdjustCardProps {
@@ -36,6 +38,12 @@ export function SingleSkuAdjustCard({
 	const [reason, setReason] = useState("");
 	// Arah (+/−) ditentukan tombol toggle, bukan lagi dari reason.
 	const [action, setAction] = useState<StockAction>("in");
+
+	// Saran reason mengikuti arah toggle; tetap bisa diisi bebas.
+	const reasonSuggestions = useMemo(
+		() => STOCK_REASONS.filter((r) => r.action === action).map((r) => r.label),
+		[action],
+	);
 
 	// Pencocokan SKU case-insensitive, trim spasi.
 	const trimmedSku = sku.trim();
@@ -173,11 +181,12 @@ export function SingleSkuAdjustCard({
 						</Alert>
 					))}
 
-				<TextInput
+				<Autocomplete
 					label="Reason"
 					placeholder="e.g. Received shipment"
+					data={reasonSuggestions}
 					value={reason}
-					onChange={(e) => setReason(e.currentTarget.value)}
+					onChange={setReason}
 				/>
 
 				<Group justify="flex-end">
