@@ -1,3 +1,4 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	Button,
 	Card,
@@ -13,10 +14,12 @@ import {
 } from "@mantine/core";
 import { IconPlus, IconX } from "@tabler/icons-react";
 import { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router";
 import { PageHeader } from "@/components/PageHeader";
 import { dummyCategories, dummyRoomTypes } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { type CategoryFormData, categorySchema } from "./categorySchema";
 
 export function CategoryEditor() {
 	const navigate = useNavigate();
@@ -29,24 +32,27 @@ export function CategoryEditor() {
 
 	usePageTitle(isEdit ? "Edit Category" : "Add Category");
 
-	const [name, setName] = useState(existing?.name ?? "");
-	const [roomType, setRoomType] = useState<string | null>(
-		existing?.roomType ?? null,
-	);
-	const [isAddingRoomType, setIsAddingRoomType] = useState(false);
-	const [displayOrder, setDisplayOrder] = useState<number | string>(
-		existing?.displayOrder ?? 0,
-	);
-	const [status, setStatus] = useState<string>(existing?.status ?? "draft");
+	const {
+		control,
+		register,
+		handleSubmit,
+		setValue,
+		formState: { errors },
+	} = useForm<CategoryFormData>({
+		resolver: zodResolver(categorySchema),
+		defaultValues: {
+			name: existing?.name ?? "",
+			roomType: existing?.roomType ?? "",
+			displayOrder: existing?.displayOrder ?? 0,
+			status: existing?.status ?? "draft",
+		},
+	});
 
-	const handleSave = () => {
-		console.log("Save category:", {
-			id,
-			name,
-			roomType,
-			displayOrder,
-			status,
-		});
+	// Mode "tambah room type baru" hanya mengubah tampilan input, bukan nilai form.
+	const [isAddingRoomType, setIsAddingRoomType] = useState(false);
+
+	const onSubmit = (data: CategoryFormData) => {
+		console.log("Save category:", { id, ...data });
 		navigate("/categories");
 	};
 
@@ -60,7 +66,7 @@ export function CategoryEditor() {
 						<Button variant="default" onClick={() => navigate("/categories")}>
 							Cancel
 						</Button>
-						<Button onClick={handleSave}>Save</Button>
+						<Button onClick={handleSubmit(onSubmit)}>Save</Button>
 					</Group>
 				}
 			/>
@@ -76,8 +82,8 @@ export function CategoryEditor() {
 								label="Category name"
 								description="This name must exactly match the Category field on products."
 								placeholder="e.g., Seating"
-								value={name}
-								onChange={(e) => setName(e.currentTarget.value)}
+								{...register("name")}
+								error={errors.name?.message}
 							/>
 
 							<Stack gap="xs">
@@ -90,22 +96,32 @@ export function CategoryEditor() {
 									</Text>
 								</div>
 								<Group gap="sm" align="flex-end">
-									{isAddingRoomType ? (
-										<TextInput
-											placeholder="New room type name"
-											value={roomType ?? ""}
-											onChange={(e) => setRoomType(e.currentTarget.value)}
-											style={{ flex: 1 }}
-										/>
-									) : (
-										<Select
-											placeholder="Select room type"
-											data={dummyRoomTypes}
-											value={roomType}
-											onChange={setRoomType}
-											style={{ flex: 1 }}
-										/>
-									)}
+									<Controller
+										name="roomType"
+										control={control}
+										render={({ field }) =>
+											isAddingRoomType ? (
+												<TextInput
+													placeholder="New room type name"
+													value={field.value ?? ""}
+													onChange={(e) =>
+														field.onChange(e.currentTarget.value)
+													}
+													style={{ flex: 1 }}
+													error={errors.roomType?.message}
+												/>
+											) : (
+												<Select
+													placeholder="Select room type"
+													data={dummyRoomTypes}
+													value={field.value || null}
+													onChange={(v) => field.onChange(v ?? "")}
+													style={{ flex: 1 }}
+													error={errors.roomType?.message}
+												/>
+											)
+										}
+									/>
 									<Button
 										variant="subtle"
 										size="sm"
@@ -119,10 +135,10 @@ export function CategoryEditor() {
 										onClick={() => {
 											if (isAddingRoomType) {
 												setIsAddingRoomType(false);
-												setRoomType(existing?.roomType ?? null);
+												setValue("roomType", existing?.roomType ?? "");
 											} else {
 												setIsAddingRoomType(true);
-												setRoomType("");
+												setValue("roomType", "");
 											}
 										}}
 									>
@@ -131,13 +147,22 @@ export function CategoryEditor() {
 								</Group>
 							</Stack>
 
-							<NumberInput
-								label="Display order"
-								description="Lower numbers appear first within the same room group."
-								placeholder="0"
-								min={0}
-								value={displayOrder}
-								onChange={setDisplayOrder}
+							<Controller
+								name="displayOrder"
+								control={control}
+								render={({ field }) => (
+									<NumberInput
+										label="Display order"
+										description="Lower numbers appear first within the same room group."
+										placeholder="0"
+										min={0}
+										value={field.value}
+										onChange={(val) =>
+											field.onChange(typeof val === "number" ? val : 0)
+										}
+										error={errors.displayOrder?.message}
+									/>
+								)}
 							/>
 						</Stack>
 					</Card>
@@ -149,20 +174,26 @@ export function CategoryEditor() {
 					<Card withBorder>
 						<Stack gap="md">
 							<Text fw={600}>Status</Text>
-							<Radio.Group value={status} onChange={setStatus}>
-								<Stack gap="sm">
-									<Radio
-										value="published"
-										label="Published"
-										description="Visible in the SHOP menu on the website"
-									/>
-									<Radio
-										value="draft"
-										label="Draft"
-										description="Hidden from the website until published"
-									/>
-								</Stack>
-							</Radio.Group>
+							<Controller
+								name="status"
+								control={control}
+								render={({ field }) => (
+									<Radio.Group value={field.value} onChange={field.onChange}>
+										<Stack gap="sm">
+											<Radio
+												value="published"
+												label="Published"
+												description="Visible in the SHOP menu on the website"
+											/>
+											<Radio
+												value="draft"
+												label="Draft"
+												description="Hidden from the website until published"
+											/>
+										</Stack>
+									</Radio.Group>
+								)}
+							/>
 						</Stack>
 					</Card>
 				</Grid.Col>
