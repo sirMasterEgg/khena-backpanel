@@ -210,8 +210,7 @@ export function StocksPage() {
 						icon={<IconStack2 size={20} />}
 						label="Total Inventory"
 						value={stats.totalInventory}
-						subtitle={`across ${products.length} SKUs`}
-						delta={4}
+						subtitle={`across all products`}
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
