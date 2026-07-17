@@ -6,6 +6,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { queryClient } from "@/config/queryClient";
 import { Router } from "@/router";
 import "@mantine/core/styles.css";
+import "@mantine/charts/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
 import "@tabler/icons-react";
