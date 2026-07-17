@@ -4,8 +4,7 @@ import {
 	Card,
 	Grid,
 	Group,
-	NumberInput,
-	Select,
+	Input,
 	Stack,
 	Text,
 	TextInput,
@@ -15,20 +14,7 @@ import { IconAlertCircle, IconCircleCheck } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import { notify } from "@/components/notify";
 import type { Product } from "@/data/dummy";
-import { STOCK_REASON_GROUPS, STOCK_REASONS } from "./stockData";
 import type { ApplyResult, StockAction, StockSource } from "./stockTypes";
-
-// Selaraskan tanda nilai dengan arah reason: "out" → negatif, "in" → positif.
-function applySign(
-	value: number | string,
-	action: StockAction | null,
-): number | string {
-	if (value === "" || action === null) return value;
-	const num = typeof value === "number" ? value : Number(value);
-	if (Number.isNaN(num)) return value;
-	const magnitude = Math.abs(num);
-	return action === "out" ? -magnitude : magnitude;
-}
 
 interface SingleSkuAdjustCardProps {
 	products: Product[];
@@ -46,27 +32,10 @@ export function SingleSkuAdjustCard({
 	onApply,
 }: SingleSkuAdjustCardProps) {
 	const [sku, setSku] = useState("");
-	const [change, setChange] = useState<number | string>("");
-	const [reason, setReason] = useState<string | null>(null);
-
-	// Arah (+/−) diturunkan dari reason terpilih.
-	const reasonAction: StockAction | null = reason
-		? (STOCK_REASONS.find((r) => r.value === reason)?.action ?? null)
-		: null;
-
-	// Ganti reason → sinkronkan tanda nilai change yang sudah diketik.
-	const handleReasonChange = (val: string | null) => {
-		setReason(val);
-		const action = val
-			? (STOCK_REASONS.find((r) => r.value === val)?.action ?? null)
-			: null;
-		setChange((prev) => applySign(prev, action));
-	};
-
-	// Ketik change → paksa tanda mengikuti reason (bila sudah dipilih).
-	const handleChangeInput = (val: number | string) => {
-		setChange(applySign(val, reasonAction));
-	};
+	const [change, setChange] = useState("");
+	const [reason, setReason] = useState("");
+	// Arah (+/−) ditentukan tombol toggle, bukan lagi dari reason.
+	const [action, setAction] = useState<StockAction>("in");
 
 	// Pencocokan SKU case-insensitive, trim spasi.
 	const trimmedSku = sku.trim();
@@ -77,27 +46,27 @@ export function SingleSkuAdjustCard({
 	}, [products, trimmedSku]);
 
 	const handleApply = () => {
-		const changeValue = typeof change === "number" ? change : Number(change);
+		const qty = Number(change.trim());
 
 		if (!matched) {
 			notify.error("No product with that SKU yet");
 			return;
 		}
-		if (!changeValue || changeValue === 0) {
-			notify.error("Change must not be zero");
+		if (!change.trim() || Number.isNaN(qty) || qty <= 0) {
+			notify.error("Enter a valid quantity (a positive number)");
 			return;
 		}
-		if (!reason) {
-			notify.error("Please select a reason");
+		if (!reason.trim()) {
+			notify.error("Please enter a reason");
 			return;
 		}
 
-		const reasonLabel =
-			STOCK_REASONS.find((r) => r.value === reason)?.label ?? reason;
+		// Toggle in/out menentukan tanda perubahan.
+		const signedChange = action === "out" ? -qty : qty;
 		const result = onApply(
 			matched.sku,
-			changeValue,
-			reasonLabel,
+			signedChange,
+			reason.trim(),
 			"manual",
 			"You",
 		);
@@ -117,7 +86,8 @@ export function SingleSkuAdjustCard({
 		);
 		setSku("");
 		setChange("");
-		setReason(null);
+		setReason("");
+		setAction("in");
 	};
 
 	return (
@@ -130,6 +100,28 @@ export function SingleSkuAdjustCard({
 					</Text>
 				</Stack>
 
+				{/* Toggle arah: Stock in (+) / Stock out (−). */}
+				<Input.Wrapper label="Direction">
+					<div>
+						<Button.Group>
+							<Button
+								variant={action === "in" ? "filled" : "default"}
+								color="green"
+								onClick={() => setAction("in")}
+							>
+								Stock in (+)
+							</Button>
+							<Button
+								variant={action === "out" ? "filled" : "default"}
+								color="red"
+								onClick={() => setAction("out")}
+							>
+								Stock out (−)
+							</Button>
+						</Button.Group>
+					</div>
+				</Input.Wrapper>
+
 				<Grid>
 					<Grid.Col span={{ base: 12, xs: 6 }}>
 						<TextInput
@@ -140,19 +132,17 @@ export function SingleSkuAdjustCard({
 						/>
 					</Grid.Col>
 					<Grid.Col span={{ base: 12, xs: 6 }}>
-						<NumberInput
-							label="Change (+/−)"
+						<TextInput
+							label="Change"
 							placeholder="e.g. 3"
-							description={
-								reasonAction === "out"
-									? "Reason reduces stock (−)"
-									: reasonAction === "in"
-										? "Reason adds stock (+)"
-										: "Pick a reason to set direction"
+							inputMode="numeric"
+							leftSection={
+								<Text size="sm" c={action === "out" ? "red" : "green"}>
+									{action === "out" ? "−" : "+"}
+								</Text>
 							}
 							value={change}
-							onChange={handleChangeInput}
-							allowNegative
+							onChange={(e) => setChange(e.currentTarget.value)}
 						/>
 					</Grid.Col>
 				</Grid>
@@ -183,13 +173,11 @@ export function SingleSkuAdjustCard({
 						</Alert>
 					))}
 
-				<Select
+				<TextInput
 					label="Reason"
-					placeholder="Select a reason"
-					data={STOCK_REASON_GROUPS}
+					placeholder="e.g. Received shipment"
 					value={reason}
-					onChange={handleReasonChange}
-					searchable
+					onChange={(e) => setReason(e.currentTarget.value)}
 				/>
 
 				<Group justify="flex-end">
