@@ -16,7 +16,19 @@ import { useMemo, useState } from "react";
 import { notify } from "@/components/notify";
 import type { Product } from "@/data/dummy";
 import { STOCK_REASON_GROUPS, STOCK_REASONS } from "./stockData";
-import type { ApplyResult, StockSource } from "./stockTypes";
+import type { ApplyResult, StockAction, StockSource } from "./stockTypes";
+
+// Selaraskan tanda nilai dengan arah reason: "out" → negatif, "in" → positif.
+function applySign(
+	value: number | string,
+	action: StockAction | null,
+): number | string {
+	if (value === "" || action === null) return value;
+	const num = typeof value === "number" ? value : Number(value);
+	if (Number.isNaN(num)) return value;
+	const magnitude = Math.abs(num);
+	return action === "out" ? -magnitude : magnitude;
+}
 
 interface SingleSkuAdjustCardProps {
 	products: Product[];
@@ -36,6 +48,25 @@ export function SingleSkuAdjustCard({
 	const [sku, setSku] = useState("");
 	const [change, setChange] = useState<number | string>("");
 	const [reason, setReason] = useState<string | null>(null);
+
+	// Arah (+/−) diturunkan dari reason terpilih.
+	const reasonAction: StockAction | null = reason
+		? (STOCK_REASONS.find((r) => r.value === reason)?.action ?? null)
+		: null;
+
+	// Ganti reason → sinkronkan tanda nilai change yang sudah diketik.
+	const handleReasonChange = (val: string | null) => {
+		setReason(val);
+		const action = val
+			? (STOCK_REASONS.find((r) => r.value === val)?.action ?? null)
+			: null;
+		setChange((prev) => applySign(prev, action));
+	};
+
+	// Ketik change → paksa tanda mengikuti reason (bila sudah dipilih).
+	const handleChangeInput = (val: number | string) => {
+		setChange(applySign(val, reasonAction));
+	};
 
 	// Pencocokan SKU case-insensitive, trim spasi.
 	const trimmedSku = sku.trim();
@@ -111,9 +142,16 @@ export function SingleSkuAdjustCard({
 					<Grid.Col span={{ base: 12, xs: 6 }}>
 						<NumberInput
 							label="Change (+/−)"
-							placeholder="e.g. -3"
+							placeholder="e.g. 3"
+							description={
+								reasonAction === "out"
+									? "Reason reduces stock (−)"
+									: reasonAction === "in"
+										? "Reason adds stock (+)"
+										: "Pick a reason to set direction"
+							}
 							value={change}
-							onChange={setChange}
+							onChange={handleChangeInput}
 							allowNegative
 						/>
 					</Grid.Col>
@@ -150,7 +188,7 @@ export function SingleSkuAdjustCard({
 					placeholder="Select a reason"
 					data={STOCK_REASON_GROUPS}
 					value={reason}
-					onChange={setReason}
+					onChange={handleReasonChange}
 					searchable
 				/>
 
