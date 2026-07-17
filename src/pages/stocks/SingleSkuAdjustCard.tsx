@@ -1,3 +1,4 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	Alert,
 	Autocomplete,
@@ -12,11 +13,16 @@ import {
 	Title,
 } from "@mantine/core";
 import { IconAlertCircle, IconCircleCheck } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { Controller, useForm } from "react-hook-form";
 import { notify } from "@/components/notify";
 import type { Product } from "@/data/dummy";
+import {
+	makeSingleSkuAdjustSchema,
+	type SingleSkuAdjustFormData,
+} from "./singleSkuAdjustSchema";
 import { STOCK_REASONS } from "./stockData";
-import type { ApplyResult, StockAction, StockSource } from "./stockTypes";
+import type { ApplyResult, StockSource } from "./stockTypes";
 
 interface SingleSkuAdjustCardProps {
 	products: Product[];
@@ -33,11 +39,29 @@ export function SingleSkuAdjustCard({
 	products,
 	onApply,
 }: SingleSkuAdjustCardProps) {
-	const [sku, setSku] = useState("");
-	const [change, setChange] = useState("");
-	const [reason, setReason] = useState("");
+	const schema = useMemo(() => makeSingleSkuAdjustSchema(products), [products]);
+
+	const {
+		register,
+		control,
+		handleSubmit,
+		reset,
+		watch,
+		setValue,
+		formState: { errors },
+	} = useForm<SingleSkuAdjustFormData>({
+		resolver: zodResolver(schema),
+		defaultValues: {
+			sku: "",
+			change: "",
+			reason: "",
+			action: "in",
+		},
+	});
+
 	// Arah (+/−) ditentukan tombol toggle, bukan lagi dari reason.
-	const [action, setAction] = useState<StockAction>("in");
+	const action = watch("action");
+	const skuValue = watch("sku");
 
 	// Saran reason mengikuti arah toggle; tetap bisa diisi bebas.
 	const reasonSuggestions = useMemo(
@@ -45,36 +69,28 @@ export function SingleSkuAdjustCard({
 		[action],
 	);
 
-	// Pencocokan SKU case-insensitive, trim spasi.
-	const trimmedSku = sku.trim();
+	// Pencocokan SKU case-insensitive, trim spasi (untuk baris status).
+	const trimmedSku = skuValue.trim();
 	const matched = useMemo(() => {
 		if (!trimmedSku) return null;
 		const q = trimmedSku.toLowerCase();
 		return products.find((p) => p.sku.toLowerCase() === q) ?? null;
 	}, [products, trimmedSku]);
 
-	const handleApply = () => {
-		const qty = Number(change.trim());
+	const onSubmit = (data: SingleSkuAdjustFormData) => {
+		const matchedProduct = products.find(
+			(p) => p.sku.toLowerCase() === data.sku.trim().toLowerCase(),
+		);
+		// Schema sudah menjamin ada kecocokan, ini hanya penjaga tipe.
+		if (!matchedProduct) return;
 
-		if (!matched) {
-			notify.error("No product with that SKU yet");
-			return;
-		}
-		if (!change.trim() || Number.isNaN(qty) || qty <= 0) {
-			notify.error("Enter a valid quantity (a positive number)");
-			return;
-		}
-		if (!reason.trim()) {
-			notify.error("Please enter a reason");
-			return;
-		}
-
+		const qty = Number(data.change.trim());
 		// Toggle in/out menentukan tanda perubahan.
-		const signedChange = action === "out" ? -qty : qty;
+		const signedChange = data.action === "out" ? -qty : qty;
 		const result = onApply(
-			matched.sku,
+			matchedProduct.sku,
 			signedChange,
-			reason.trim(),
+			data.reason.trim(),
 			"manual",
 			"You",
 		);
@@ -89,13 +105,10 @@ export function SingleSkuAdjustCard({
 		}
 
 		notify.success(
-			`${matched.name} · ${result.newStock} in stock`,
+			`${matchedProduct.name} · ${result.newStock} in stock`,
 			"Stock updated",
 		);
-		setSku("");
-		setChange("");
-		setReason("");
-		setAction("in");
+		reset({ sku: "", change: "", reason: "", action: "in" });
 	};
 
 	return (
@@ -113,16 +126,18 @@ export function SingleSkuAdjustCard({
 					<div>
 						<Button.Group>
 							<Button
+								type="button"
 								variant={action === "in" ? "filled" : "default"}
 								color="green"
-								onClick={() => setAction("in")}
+								onClick={() => setValue("action", "in")}
 							>
 								Stock in (+)
 							</Button>
 							<Button
+								type="button"
 								variant={action === "out" ? "filled" : "default"}
 								color="red"
-								onClick={() => setAction("out")}
+								onClick={() => setValue("action", "out")}
 							>
 								Stock out (−)
 							</Button>
@@ -135,8 +150,8 @@ export function SingleSkuAdjustCard({
 						<TextInput
 							label="SKU"
 							placeholder="e.g. SOFA-001"
-							value={sku}
-							onChange={(e) => setSku(e.currentTarget.value)}
+							{...register("sku")}
+							error={errors.sku?.message}
 						/>
 					</Grid.Col>
 					<Grid.Col span={{ base: 12, xs: 6 }}>
@@ -149,8 +164,8 @@ export function SingleSkuAdjustCard({
 									{action === "out" ? "−" : "+"}
 								</Text>
 							}
-							value={change}
-							onChange={(e) => setChange(e.currentTarget.value)}
+							{...register("change")}
+							error={errors.change?.message}
 						/>
 					</Grid.Col>
 				</Grid>
@@ -181,16 +196,23 @@ export function SingleSkuAdjustCard({
 						</Alert>
 					))}
 
-				<Autocomplete
-					label="Reason"
-					placeholder="e.g. Received shipment"
-					data={reasonSuggestions}
-					value={reason}
-					onChange={setReason}
+				<Controller
+					name="reason"
+					control={control}
+					render={({ field }) => (
+						<Autocomplete
+							label="Reason"
+							placeholder="e.g. Received shipment"
+							data={reasonSuggestions}
+							value={field.value}
+							onChange={field.onChange}
+							error={errors.reason?.message}
+						/>
+					)}
 				/>
 
 				<Group justify="flex-end">
-					<Button onClick={handleApply}>Apply update</Button>
+					<Button onClick={handleSubmit(onSubmit)}>Apply update</Button>
 				</Group>
 			</Stack>
 		</Card>

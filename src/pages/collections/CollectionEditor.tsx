@@ -1,3 +1,4 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	ActionIcon,
 	Button,
@@ -18,10 +19,12 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router";
 import { PageHeader } from "@/components/PageHeader";
 import { dummyCollections, dummyProducts } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { type CollectionFormData, collectionSchema } from "./collectionSchema";
 
 export function CollectionEditor() {
 	const navigate = useNavigate();
@@ -34,15 +37,26 @@ export function CollectionEditor() {
 
 	usePageTitle(isEdit ? "Edit Collection" : "Add Collection");
 
-	const [name, setName] = useState(existing?.name ?? "");
-	const [slug, setSlug] = useState(existing?.slug ?? "");
-	const [status, setStatus] = useState<string | null>(
-		existing?.status ?? "draft",
-	);
-	const [productIds, setProductIds] = useState<number[]>(
-		existing?.productIds ?? [],
-	);
+	const {
+		control,
+		register,
+		handleSubmit,
+		watch,
+		setValue,
+		formState: { errors },
+	} = useForm<CollectionFormData>({
+		resolver: zodResolver(collectionSchema),
+		defaultValues: {
+			name: existing?.name ?? "",
+			slug: existing?.slug ?? "",
+			status: existing?.status ?? "draft",
+			productIds: existing?.productIds ?? [],
+		},
+	});
+
+	// Kotak pencarian produk = filter UI sesaat, tetap pakai useState.
 	const [productSearch, setProductSearch] = useState("");
+	const productIds = watch("productIds");
 
 	const suggestions =
 		productSearch.trim().length > 0
@@ -54,26 +68,27 @@ export function CollectionEditor() {
 			: [];
 
 	const addProduct = (productId: number) => {
-		setProductIds((prev) => [...prev, productId]);
+		setValue("productIds", [...productIds, productId]);
 		setProductSearch("");
 	};
 
 	const removeProduct = (productId: number) => {
-		setProductIds((prev) => prev.filter((pid) => pid !== productId));
+		setValue(
+			"productIds",
+			productIds.filter((pid) => pid !== productId),
+		);
 	};
 
 	const moveProduct = (index: number, direction: "up" | "down") => {
-		setProductIds((prev) => {
-			const target = direction === "up" ? index - 1 : index + 1;
-			if (target < 0 || target >= prev.length) return prev;
-			const next = [...prev];
-			[next[index], next[target]] = [next[target], next[index]];
-			return next;
-		});
+		const target = direction === "up" ? index - 1 : index + 1;
+		if (target < 0 || target >= productIds.length) return;
+		const next = [...productIds];
+		[next[index], next[target]] = [next[target], next[index]];
+		setValue("productIds", next);
 	};
 
-	const handleSave = () => {
-		console.log("Save collection:", { id, name, slug, status, productIds });
+	const onSubmit = (data: CollectionFormData) => {
+		console.log("Save collection:", { id, ...data });
 		navigate("/collections");
 	};
 
@@ -87,7 +102,7 @@ export function CollectionEditor() {
 						<Button variant="default" onClick={() => navigate("/collections")}>
 							Cancel
 						</Button>
-						<Button onClick={handleSave}>Save</Button>
+						<Button onClick={handleSubmit(onSubmit)}>Save</Button>
 					</Group>
 				}
 			/>
@@ -102,23 +117,30 @@ export function CollectionEditor() {
 							<TextInput
 								label="Name"
 								placeholder="Collection name"
-								value={name}
-								onChange={(e) => setName(e.currentTarget.value)}
+								{...register("name")}
+								error={errors.name?.message}
 							/>
 							<TextInput
 								label="Slug"
 								placeholder="collection-slug"
-								value={slug}
-								onChange={(e) => setSlug(e.currentTarget.value)}
+								{...register("slug")}
+								error={errors.slug?.message}
 							/>
-							<Select
-								label="Status"
-								data={[
-									{ value: "draft", label: "Draft" },
-									{ value: "published", label: "Published" },
-								]}
-								value={status}
-								onChange={setStatus}
+							<Controller
+								name="status"
+								control={control}
+								render={({ field }) => (
+									<Select
+										label="Status"
+										data={[
+											{ value: "draft", label: "Draft" },
+											{ value: "published", label: "Published" },
+										]}
+										value={field.value}
+										onChange={field.onChange}
+										error={errors.status?.message}
+									/>
+								)}
 							/>
 						</Stack>
 					</Card>
