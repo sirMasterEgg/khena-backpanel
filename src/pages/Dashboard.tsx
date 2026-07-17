@@ -12,7 +12,12 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { canViewProfit } from "@/config/permissions";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { getSummary, type Period } from "@/pages/dashboard/dashboardData";
+import {
+	type DateRange,
+	getSummary,
+	periodFromRange,
+	rangeForPeriod,
+} from "@/pages/dashboard/dashboardData";
 import { PendingTasksCard } from "@/pages/dashboard/PendingTasksCard";
 import { PeriodFilter } from "@/pages/dashboard/PeriodFilter";
 import { QuickActionsCard } from "@/pages/dashboard/QuickActionsCard";
@@ -24,7 +29,10 @@ import { formatIDR } from "@/utils/format";
 export function Dashboard() {
 	usePageTitle("Dashboard");
 
-	const [period, setPeriod] = useState<Period>("week");
+	const [dateRange, setDateRange] = useState<DateRange>(() =>
+		rangeForPeriod("week"),
+	);
+	const period = periodFromRange(dateRange);
 	const summary = getSummary(period);
 	const deltaLabel = "vs last period";
 
@@ -86,7 +94,7 @@ export function Dashboard() {
 			<PageHeader
 				title="Good morning, Knox"
 				subtitle="Here's what's happening with your store today."
-				actions={<PeriodFilter value={period} onChange={setPeriod} />}
+				actions={<PeriodFilter value={dateRange} onChange={setDateRange} />}
 			/>
 
 			{/* Baris 2: kartu statistik */}
@@ -113,7 +121,7 @@ export function Dashboard() {
 			{/* Baris 4: chart + recent orders */}
 			<Grid mb="md">
 				<Grid.Col span={{ base: 12, lg: 8 }}>
-					<SalesOverviewCard period={period} />
+					<SalesOverviewCard dateRange={dateRange} />
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, lg: 4 }}>
 					<RecentOrdersCard />

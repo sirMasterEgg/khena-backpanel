@@ -1,61 +1,31 @@
-import { Button, Menu } from "@mantine/core";
-import { IconCalendar, IconChevronDown } from "@tabler/icons-react";
-import dayjs from "dayjs";
-import type { Period } from "./dashboardData";
+import { DatePickerInput } from "@mantine/dates";
+import { IconCalendar } from "@tabler/icons-react";
+import { type DateRange, rangeForPeriod } from "./dashboardData";
 
-const periodOptions: { value: Period; label: string }[] = [
-	{ value: "week", label: "Week" },
-	{ value: "month", label: "Month" },
-	{ value: "quarter", label: "Quarter" },
-	{ value: "year", label: "Year" },
+/** Preset/suggestion di kalender: minggu, bulan, kuartal, tahun berjalan. */
+const presets: { value: [string, string]; label: string }[] = [
+	{ value: rangeForPeriod("week"), label: "This week" },
+	{ value: rangeForPeriod("month"), label: "This month" },
+	{ value: rangeForPeriod("year"), label: "This year" },
 ];
 
-/** Label periode aktif yang dihitung dari tanggal hari ini. */
-function periodLabel(period: Period): string {
-	const now = dayjs();
-	switch (period) {
-		case "week": {
-			const start = now.startOf("week");
-			const end = now.endOf("week");
-			return `${start.format("MMM D, YYYY")} - ${end.format("MMM D, YYYY")}`;
-		}
-		case "month":
-			return now.format("MMMM YYYY");
-		case "quarter":
-			return `Q${Math.floor(now.month() / 3) + 1} ${now.format("YYYY")}`;
-		case "year":
-			return now.format("YYYY");
-	}
-}
-
 interface PeriodFilterProps {
-	value: Period;
-	onChange: (period: Period) => void;
+	value: DateRange;
+	onChange: (value: DateRange) => void;
 }
 
 export function PeriodFilter({ value, onChange }: PeriodFilterProps) {
 	return (
-		<Menu position="bottom-end" width={180}>
-			<Menu.Target>
-				<Button
-					variant="default"
-					leftSection={<IconCalendar size={16} />}
-					rightSection={<IconChevronDown size={16} />}
-				>
-					{periodLabel(value)}
-				</Button>
-			</Menu.Target>
-			<Menu.Dropdown>
-				{periodOptions.map((opt) => (
-					<Menu.Item
-						key={opt.value}
-						onClick={() => onChange(opt.value)}
-						fw={opt.value === value ? 600 : undefined}
-					>
-						{opt.label}
-					</Menu.Item>
-				))}
-			</Menu.Dropdown>
-		</Menu>
+		<DatePickerInput
+			type="range"
+			value={value}
+			onChange={onChange}
+			presets={presets}
+			leftSection={<IconCalendar size={16} />}
+			valueFormat="MMM D, YYYY"
+			placeholder="Pick date range"
+			allowSingleDateInRange
+			w={280}
+		/>
 	);
 }
