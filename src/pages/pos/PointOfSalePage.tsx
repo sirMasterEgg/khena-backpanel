@@ -178,14 +178,6 @@ export function PointOfSalePage() {
 			<PageHeader
 				title="Point of Sale"
 				subtitle="Ring up a sale, pick a customer, and take payment"
-				actions={
-					<Button
-						variant="default"
-						onClick={() => notify.info("Stock take coming soon")}
-					>
-						Stock take
-					</Button>
-				}
 			/>
 
 			<Grid gap="md">
