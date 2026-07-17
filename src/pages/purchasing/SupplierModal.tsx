@@ -104,6 +104,7 @@ function SupplierForm({
 				<Group justify="flex-end" gap="sm">
 					{initial && onDelete && (
 						<Button
+							type="button"
 							color="red"
 							variant="light"
 							mr="auto"
@@ -112,7 +113,7 @@ function SupplierForm({
 							Delete
 						</Button>
 					)}
-					<Button variant="default" onClick={onCancel}>
+					<Button type="button" variant="default" onClick={onCancel}>
 						Cancel
 					</Button>
 					<Button type="submit">{submitLabel}</Button>

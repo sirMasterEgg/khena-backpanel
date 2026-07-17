@@ -88,7 +88,7 @@ function AddCustomerForm({
 				</Text>
 
 				<Group justify="flex-end" gap="sm">
-					<Button variant="default" onClick={onCancel}>
+					<Button type="button" variant="default" onClick={onCancel}>
 						Cancel
 					</Button>
 					<Button type="submit">{submitLabel}</Button>

@@ -56,7 +56,7 @@ export function NewFolderModal({
 						error={errors.name?.message}
 					/>
 					<Group justify="space-between">
-						<Button variant="default" onClick={onClose}>
+						<Button type="button" variant="default" onClick={onClose}>
 							Cancel
 						</Button>
 						<Button type="submit">Create folder</Button>
