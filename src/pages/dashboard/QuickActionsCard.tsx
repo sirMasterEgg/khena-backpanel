@@ -1,4 +1,10 @@
-import { Button, Card, Stack, Text } from "@mantine/core";
+import {
+	Button,
+	Card,
+	type MantineSpacing,
+	SimpleGrid,
+	Text,
+} from "@mantine/core";
 import { IconArrowRight } from "@tabler/icons-react";
 import { Link } from "react-router";
 
@@ -10,15 +16,19 @@ const actions: { label: string; to: string }[] = [
 	{ label: "Upload Media", to: "/media" },
 ];
 
-export function QuickActionsCard() {
+interface QuickActionsCardProps {
+	mb?: MantineSpacing;
+}
+
+export function QuickActionsCard({ mb }: QuickActionsCardProps) {
 	return (
-		<Card withBorder h="100%">
+		<Card withBorder mb={mb}>
 			<Card.Section inheritPadding py="md">
 				<Text fw={600}>Quick Action</Text>
 			</Card.Section>
 
 			<Card.Section inheritPadding pb="md">
-				<Stack gap="sm">
+				<SimpleGrid cols={{ base: 1, xs: 2, sm: 3, md: 5 }} spacing="sm">
 					{actions.map((action) => (
 						<Button
 							key={action.label}
@@ -32,7 +42,7 @@ export function QuickActionsCard() {
 							{action.label}
 						</Button>
 					))}
-				</Stack>
+				</SimpleGrid>
 			</Card.Section>
 		</Card>
 	);

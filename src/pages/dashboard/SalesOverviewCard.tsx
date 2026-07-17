@@ -1,7 +1,7 @@
 import { LineChart } from "@mantine/charts";
 import { Card, Group, Select, Text } from "@mantine/core";
 import { useState } from "react";
-import { formatIDR } from "@/utils/format";
+import { formatIDR, formatIDRCompact } from "@/utils/format";
 import { getSalesOverview, type Period } from "./dashboardData";
 
 const chartPeriodOptions: { value: Period; label: string }[] = [
@@ -45,6 +45,7 @@ export function SalesOverviewCard({ period }: SalesOverviewCardProps) {
 					dataKey="label"
 					series={[{ name: "value", label: "Sales", color: "blue.6" }]}
 					valueFormatter={(v) => formatIDR(v)}
+					yAxisProps={{ width: 72, tickFormatter: formatIDRCompact }}
 				/>
 			</Card.Section>
 		</Card>

@@ -107,16 +107,16 @@ export function Dashboard() {
 				))}
 			</Grid>
 
-			{/* Baris 3: tiga kolom */}
+			{/* Baris 3: Quick Action horizontal */}
+			<QuickActionsCard mb="md" />
+
+			{/* Baris 4: chart + recent orders */}
 			<Grid mb="md">
-				<Grid.Col span={{ base: 12, lg: 5 }}>
+				<Grid.Col span={{ base: 12, lg: 8 }}>
 					<SalesOverviewCard period={period} />
 				</Grid.Col>
-				<Grid.Col span={{ base: 12, md: 6, lg: 4 }}>
+				<Grid.Col span={{ base: 12, lg: 4 }}>
 					<RecentOrdersCard />
-				</Grid.Col>
-				<Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
-					<QuickActionsCard />
 				</Grid.Col>
 			</Grid>
 
