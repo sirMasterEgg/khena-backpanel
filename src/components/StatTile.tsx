@@ -1,5 +1,5 @@
 import { Card, Group, Text, ThemeIcon } from "@mantine/core";
-import { IconTrendingUp } from "@tabler/icons-react";
+import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
 interface StatTileProps {
@@ -9,6 +9,8 @@ interface StatTileProps {
 	/** Teks kecil abu-abu di bawah value (opsional). */
 	subtitle?: string;
 	delta?: number;
+	/** Teks pembanding di samping delta. Default "vs last period". */
+	deltaLabel?: string;
 }
 
 export function StatTile({
@@ -17,7 +19,11 @@ export function StatTile({
 	value,
 	subtitle,
 	delta,
+	deltaLabel = "vs last period",
 }: StatTileProps) {
+	const isPositive = delta !== undefined && delta >= 0;
+	const trendColor = isPositive ? "green" : "red";
+
 	return (
 		<Card withBorder p="md">
 			<Group justify="space-between" mb="xs">
@@ -38,9 +44,13 @@ export function StatTile({
 			)}
 			{delta !== undefined && (
 				<Group gap="xs">
-					<IconTrendingUp size={16} color="green" />
-					<Text size="sm" c="green" fw={500}>
-						+{delta}% vs last week
+					{isPositive ? (
+						<IconTrendingUp size={16} color="var(--mantine-color-green-6)" />
+					) : (
+						<IconTrendingDown size={16} color="var(--mantine-color-red-6)" />
+					)}
+					<Text size="sm" c={trendColor} fw={500}>
+						{isPositive ? `+${delta}%` : `${delta}%`} {deltaLabel}
 					</Text>
 				</Group>
 			)}
