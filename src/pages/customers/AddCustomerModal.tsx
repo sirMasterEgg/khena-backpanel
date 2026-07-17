@@ -1,8 +1,9 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import { useState } from "react";
+import { useForm } from "react-hook-form";
 import type { Customer } from "@/data/dummy";
-import { isValidEmail, isValidPhone } from "@/lib/validation";
+import { type CustomerFormData, customerSchema } from "./customerSchema";
 
 interface AddCustomerFormProps {
 	onSubmit: (customer: Customer) => void;
@@ -20,38 +21,33 @@ function AddCustomerForm({
 	initial,
 	submitLabel = "Add customer",
 }: AddCustomerFormProps) {
-	const [name, setName] = useState(initial?.name ?? "");
-	const [email, setEmail] = useState(initial?.email ?? "");
-	const [phone, setPhone] = useState(initial?.phone ?? "");
+	const {
+		register,
+		handleSubmit,
+		formState: { errors },
+	} = useForm<CustomerFormData>({
+		resolver: zodResolver(customerSchema),
+		defaultValues: {
+			name: initial?.name ?? "",
+			email: initial?.email ?? "",
+			phone: initial?.phone ?? "",
+		},
+	});
 
-	// Phone opsional, tapi kalau diisi harus format nomor HP yang valid.
-	const phoneError =
-		phone.trim().length > 0 && !isValidPhone(phone.trim())
-			? "Masukkan nomor HP yang valid"
-			: null;
-	const emailError =
-		email.trim().length > 0 && !isValidEmail(email.trim())
-			? "Masukkan email yang valid"
-			: null;
-
-	const canSubmit =
-		name.trim().length > 0 && isValidEmail(email.trim()) && !phoneError;
-
-	const handleSubmit = () => {
-		if (!canSubmit) return;
+	const submitForm = (data: CustomerFormData) => {
 		const customer: Customer = initial
 			? {
 					// Pertahankan field yang tidak ada di form (id, ordersCount, dst.).
 					...initial,
-					name: name.trim(),
-					email: email.trim(),
-					phone: phone.trim() || undefined,
+					name: data.name,
+					email: data.email,
+					phone: data.phone || undefined,
 				}
 			: {
 					id: Date.now(),
-					name: name.trim(),
-					email: email.trim(),
-					phone: phone.trim() || undefined,
+					name: data.name,
+					email: data.email,
+					phone: data.phone || undefined,
 					avatarColor: "teal",
 					ordersCount: 0,
 					lifetimeValue: 0,
@@ -63,44 +59,42 @@ function AddCustomerForm({
 	};
 
 	return (
-		<Stack gap="md">
-			<TextInput
-				label="Full name"
-				placeholder="e.g. Andi Wijaya"
-				required
-				value={name}
-				onChange={(e) => setName(e.currentTarget.value)}
-			/>
-			<TextInput
-				label="Email"
-				placeholder="e.g. andi@gmail.com"
-				required
-				type="email"
-				value={email}
-				onChange={(e) => setEmail(e.currentTarget.value)}
-				error={emailError}
-			/>
-			<TextInput
-				label="Phone"
-				placeholder="0812-3456-7890"
-				inputMode="tel"
-				value={phone}
-				onChange={(e) => setPhone(e.currentTarget.value)}
-				error={phoneError}
-			/>
-			<Text size="xs" c="dimmed">
-				We'll use this to contact the customer about their orders.
-			</Text>
+		<form onSubmit={handleSubmit(submitForm)}>
+			<Stack gap="md">
+				<TextInput
+					label="Full name"
+					placeholder="e.g. Andi Wijaya"
+					required
+					{...register("name")}
+					error={errors.name?.message}
+				/>
+				<TextInput
+					label="Email"
+					placeholder="e.g. andi@gmail.com"
+					required
+					type="email"
+					{...register("email")}
+					error={errors.email?.message}
+				/>
+				<TextInput
+					label="Phone"
+					placeholder="0812-3456-7890"
+					inputMode="tel"
+					{...register("phone")}
+					error={errors.phone?.message}
+				/>
+				<Text size="xs" c="dimmed">
+					We'll use this to contact the customer about their orders.
+				</Text>
 
-			<Group justify="flex-end" gap="sm">
-				<Button variant="default" onClick={onCancel}>
-					Cancel
-				</Button>
-				<Button onClick={handleSubmit} disabled={!canSubmit}>
-					{submitLabel}
-				</Button>
-			</Group>
-		</Stack>
+				<Group justify="flex-end" gap="sm">
+					<Button variant="default" onClick={onCancel}>
+						Cancel
+					</Button>
+					<Button type="submit">{submitLabel}</Button>
+				</Group>
+			</Stack>
+		</form>
 	);
 }
 

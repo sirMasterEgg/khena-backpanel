@@ -1,5 +1,8 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Group, Modal, Stack, TextInput } from "@mantine/core";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { type NewFolderFormData, newFolderSchema } from "./newFolderSchema";
 
 interface NewFolderModalProps {
 	opened: boolean;
@@ -15,18 +18,23 @@ export function NewFolderModal({
 	onClose,
 	onCreate,
 }: NewFolderModalProps) {
-	const [name, setName] = useState("");
+	const {
+		register,
+		handleSubmit,
+		reset,
+		formState: { errors },
+	} = useForm<NewFolderFormData>({
+		resolver: zodResolver(newFolderSchema),
+		defaultValues: { name: "" },
+	});
 
 	// Reset input setiap kali modal dibuka.
 	useEffect(() => {
-		if (opened) setName("");
-	}, [opened]);
+		if (opened) reset({ name: "" });
+	}, [opened, reset]);
 
-	const canSubmit = name.trim().length > 0;
-
-	const handleCreate = () => {
-		if (!canSubmit) return;
-		onCreate(name.trim());
+	const onSubmit = (data: NewFolderFormData) => {
+		onCreate(data.name);
 		onClose();
 	};
 
@@ -37,24 +45,24 @@ export function NewFolderModal({
 			title="Create a new folder"
 			centered
 		>
-			<Stack gap="md">
-				<TextInput
-					label="Folder name"
-					placeholder="e.g. Sofa"
-					description={`Folder akan dibuat di kategori "${categoryName}".`}
-					value={name}
-					onChange={(e) => setName(e.currentTarget.value)}
-					data-autofocus
-				/>
-				<Group justify="space-between">
-					<Button variant="default" onClick={onClose}>
-						Cancel
-					</Button>
-					<Button onClick={handleCreate} disabled={!canSubmit}>
-						Create folder
-					</Button>
-				</Group>
-			</Stack>
+			<form onSubmit={handleSubmit(onSubmit)}>
+				<Stack gap="md">
+					<TextInput
+						label="Folder name"
+						placeholder="e.g. Sofa"
+						description={`Folder akan dibuat di kategori "${categoryName}".`}
+						data-autofocus
+						{...register("name")}
+						error={errors.name?.message}
+					/>
+					<Group justify="space-between">
+						<Button variant="default" onClick={onClose}>
+							Cancel
+						</Button>
+						<Button type="submit">Create folder</Button>
+					</Group>
+				</Stack>
+			</form>
 		</Modal>
 	);
 }

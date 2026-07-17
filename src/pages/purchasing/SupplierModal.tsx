@@ -1,12 +1,9 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Group, Stack, Textarea, TextInput } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import { useState } from "react";
+import { useForm } from "react-hook-form";
 import type { Supplier } from "@/data/dummy";
-
-/** Validasi format email sederhana. */
-function isValidEmail(email: string): boolean {
-	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
+import { type SupplierFormData, supplierSchema } from "./supplierSchema";
 
 interface SupplierFormProps {
 	onSubmit: (supplier: Supplier) => void;
@@ -27,102 +24,101 @@ function SupplierForm({
 	onDelete,
 	submitLabel = "Save supplier",
 }: SupplierFormProps) {
-	const [name, setName] = useState(initial?.name ?? "");
-	const [contactPerson, setContactPerson] = useState(
-		initial?.contactPerson ?? "",
-	);
-	const [phone, setPhone] = useState(initial?.phone ?? "");
-	const [email, setEmail] = useState(initial?.email ?? "");
-	const [notes, setNotes] = useState(initial?.notes ?? "");
+	const {
+		register,
+		handleSubmit,
+		formState: { errors },
+	} = useForm<SupplierFormData>({
+		resolver: zodResolver(supplierSchema),
+		defaultValues: {
+			name: initial?.name ?? "",
+			contactPerson: initial?.contactPerson ?? "",
+			phone: initial?.phone ?? "",
+			email: initial?.email ?? "",
+			notes: initial?.notes ?? "",
+		},
+	});
 
-	// Nama wajib; kalau email diisi, formatnya harus valid.
-	const emailOk = email.trim().length === 0 || isValidEmail(email.trim());
-	const canSubmit = name.trim().length > 0 && emailOk;
-
-	const handleSubmit = () => {
-		if (!canSubmit) return;
+	const submitForm = (data: SupplierFormData) => {
 		const supplier: Supplier = initial
 			? {
 					// Pertahankan field yang tidak ada di form (id).
 					...initial,
-					name: name.trim(),
-					contactPerson: contactPerson.trim() || undefined,
-					phone: phone.trim() || undefined,
-					email: email.trim() || undefined,
-					notes: notes.trim() || undefined,
+					name: data.name,
+					contactPerson: data.contactPerson || undefined,
+					phone: data.phone || undefined,
+					email: data.email || undefined,
+					notes: data.notes || undefined,
 				}
 			: {
 					id: Date.now(),
-					name: name.trim(),
-					contactPerson: contactPerson.trim() || undefined,
-					phone: phone.trim() || undefined,
-					email: email.trim() || undefined,
-					notes: notes.trim() || undefined,
+					name: data.name,
+					contactPerson: data.contactPerson || undefined,
+					phone: data.phone || undefined,
+					email: data.email || undefined,
+					notes: data.notes || undefined,
 				};
 		onSubmit(supplier);
 	};
 
 	return (
-		<Stack gap="md">
-			<TextInput
-				label="Supplier name"
-				placeholder="e.g. Jati Makmur Furniture"
-				required
-				value={name}
-				onChange={(e) => setName(e.currentTarget.value)}
-			/>
-			<Group grow align="flex-start">
+		<form onSubmit={handleSubmit(submitForm)}>
+			<Stack gap="md">
 				<TextInput
-					label="Contact person"
-					placeholder="e.g. Bambang Sutrisno"
-					value={contactPerson}
-					onChange={(e) => setContactPerson(e.currentTarget.value)}
+					label="Supplier name"
+					placeholder="e.g. Jati Makmur Furniture"
+					required
+					{...register("name")}
+					error={errors.name?.message}
 				/>
+				<Group grow align="flex-start">
+					<TextInput
+						label="Contact person"
+						placeholder="e.g. Bambang Sutrisno"
+						{...register("contactPerson")}
+						error={errors.contactPerson?.message}
+					/>
+					<TextInput
+						label="Phone"
+						placeholder="0812-3456-7890"
+						{...register("phone")}
+						error={errors.phone?.message}
+					/>
+				</Group>
 				<TextInput
-					label="Phone"
-					placeholder="0812-3456-7890"
-					value={phone}
-					onChange={(e) => setPhone(e.currentTarget.value)}
+					label="Email"
+					placeholder="e.g. sales@supplier.com"
+					type="email"
+					{...register("email")}
+					error={errors.email?.message}
 				/>
-			</Group>
-			<TextInput
-				label="Email"
-				placeholder="e.g. sales@supplier.com"
-				type="email"
-				error={
-					email.trim().length > 0 && !emailOk ? "Invalid email format" : null
-				}
-				value={email}
-				onChange={(e) => setEmail(e.currentTarget.value)}
-			/>
-			<Textarea
-				label="Notes"
-				placeholder="Catatan internal (lead time, minimum order, dsb.)"
-				autosize
-				minRows={2}
-				value={notes}
-				onChange={(e) => setNotes(e.currentTarget.value)}
-			/>
+				<Textarea
+					label="Notes"
+					placeholder="Catatan internal (lead time, minimum order, dsb.)"
+					autosize
+					minRows={2}
+					{...register("notes")}
+					error={errors.notes?.message}
+				/>
 
-			<Group justify="flex-end" gap="sm">
-				{initial && onDelete && (
-					<Button
-						color="red"
-						variant="light"
-						mr="auto"
-						onClick={() => onDelete(initial)}
-					>
-						Delete
+				<Group justify="flex-end" gap="sm">
+					{initial && onDelete && (
+						<Button
+							color="red"
+							variant="light"
+							mr="auto"
+							onClick={() => onDelete(initial)}
+						>
+							Delete
+						</Button>
+					)}
+					<Button variant="default" onClick={onCancel}>
+						Cancel
 					</Button>
-				)}
-				<Button variant="default" onClick={onCancel}>
-					Cancel
-				</Button>
-				<Button onClick={handleSubmit} disabled={!canSubmit}>
-					{submitLabel}
-				</Button>
-			</Group>
-		</Stack>
+					<Button type="submit">{submitLabel}</Button>
+				</Group>
+			</Stack>
+		</form>
 	);
 }
 

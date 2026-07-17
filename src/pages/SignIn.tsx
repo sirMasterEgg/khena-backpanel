@@ -1,3 +1,4 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	Box,
 	Button,
@@ -13,12 +14,28 @@ import {
 	Title,
 } from "@mantine/core";
 import { IconBrandGoogle } from "@tabler/icons-react";
+import { Controller, useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
+import { type SignInFormData, signInSchema } from "./signInSchema";
 
 export function SignIn() {
 	const navigate = useNavigate();
 
-	const handleSignIn = () => {
+	const {
+		register,
+		control,
+		handleSubmit,
+		formState: { errors },
+	} = useForm<SignInFormData>({
+		resolver: zodResolver(signInSchema),
+		defaultValues: {
+			email: "",
+			password: "",
+			rememberMe: false,
+		},
+	});
+
+	const onSubmit = (_data: SignInFormData) => {
 		navigate("/");
 	};
 
@@ -53,40 +70,62 @@ export function SignIn() {
 								</Text>
 							</Stack>
 
-							<Stack gap="md">
-								<TextInput
-									label="Email Address"
-									placeholder="admin@khena.com"
-									type="email"
-								/>
-								<PasswordInput label="Password" placeholder="Enter password" />
+							<form onSubmit={handleSubmit(onSubmit)}>
+								<Stack gap="md">
+									<TextInput
+										label="Email Address"
+										placeholder="admin@khena.com"
+										type="email"
+										{...register("email")}
+										error={errors.email?.message}
+									/>
+									<PasswordInput
+										label="Password"
+										placeholder="Enter password"
+										{...register("password")}
+										error={errors.password?.message}
+									/>
 
-								<Group justify="space-between">
-									<Checkbox label="Remember me" />
-									<Text
-										size="sm"
-										c="blue"
-										style={{ cursor: "pointer" }}
-										fw={500}
+									<Group justify="space-between">
+										<Controller
+											name="rememberMe"
+											control={control}
+											render={({ field }) => (
+												<Checkbox
+													label="Remember me"
+													checked={field.value}
+													onChange={(e) =>
+														field.onChange(e.currentTarget.checked)
+													}
+												/>
+											)}
+										/>
+										<Text
+											size="sm"
+											c="blue"
+											style={{ cursor: "pointer" }}
+											fw={500}
+										>
+											Forgot password?
+										</Text>
+									</Group>
+
+									<Button type="submit" fullWidth>
+										Sign in
+									</Button>
+
+									<Divider label="or" />
+
+									<Button
+										type="button"
+										variant="default"
+										fullWidth
+										leftSection={<IconBrandGoogle size={18} />}
 									>
-										Forgot password?
-									</Text>
-								</Group>
-
-								<Button fullWidth onClick={handleSignIn}>
-									Sign in
-								</Button>
-
-								<Divider label="or" />
-
-								<Button
-									variant="default"
-									fullWidth
-									leftSection={<IconBrandGoogle size={18} />}
-								>
-									Sign in with Google
-								</Button>
-							</Stack>
+										Sign in with Google
+									</Button>
+								</Stack>
+							</form>
 
 							<Text size="xs" c="dimmed" ta="center">
 								Secure admin access. Only authorized users.
