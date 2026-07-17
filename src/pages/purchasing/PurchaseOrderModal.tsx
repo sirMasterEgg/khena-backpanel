@@ -1,3 +1,4 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	ActionIcon,
 	Alert,
@@ -15,6 +16,7 @@ import {
 import { modals } from "@mantine/modals";
 import { IconX } from "@tabler/icons-react";
 import { useState } from "react";
+import { Controller, useFieldArray, useForm } from "react-hook-form";
 import type {
 	Product,
 	PurchaseOrder,
@@ -23,6 +25,10 @@ import type {
 	Supplier,
 } from "@/data/dummy";
 import { formatCurrency, formatDate } from "./format";
+import {
+	type PurchaseOrderFormData,
+	purchaseOrderSchema,
+} from "./purchaseOrderSchema";
 
 // ----- Helper perhitungan -----
 
@@ -74,19 +80,23 @@ function PurchaseOrderForm({
 	onDelete,
 	onCancel,
 }: PurchaseOrderFormProps) {
-	const [supplierId, setSupplierId] = useState<string | null>(
-		initial ? String(initial.supplierId) : null,
-	);
-	const [date, setDate] = useState(
-		initial?.date ?? new Date().toISOString().slice(0, 10),
-	);
-	const [expected, setExpected] = useState(initial?.expectedDate ?? "");
-	const [items, setItems] = useState<PurchaseOrderItem[]>(
-		initial?.lineItems ?? [],
-	);
-	const [notes, setNotes] = useState(initial?.notes ?? "");
-	// Reset value Select setelah menambah produk (uncontrolled-ish via key).
+	const { control, register, watch, handleSubmit } =
+		useForm<PurchaseOrderFormData>({
+			resolver: zodResolver(purchaseOrderSchema),
+			defaultValues: {
+				supplierId: initial ? String(initial.supplierId) : null,
+				date: initial?.date ?? new Date().toISOString().slice(0, 10),
+				expected: initial?.expectedDate ?? "",
+				notes: initial?.notes ?? "",
+				items: initial?.lineItems ?? [],
+			},
+		});
+	const { fields, append, remove } = useFieldArray({ control, name: "items" });
+	// Reset value Select setelah menambah produk.
 	const [addValue, setAddValue] = useState<string | null>(null);
+
+	const items = watch("items");
+	const supplierId = watch("supplierId");
 
 	const isReceived = initial?.status === "received";
 	const total = orderTotal(items);
@@ -111,48 +121,32 @@ function PurchaseOrderForm({
 		if (!val) return;
 		const product = products.find((p) => p.id === Number(val));
 		if (!product) return;
-		setItems((prev) => [
-			...prev,
-			{
-				productId: product.id,
-				name: product.name,
-				sku: product.sku,
-				qty: 1,
-				unitCost: product.cost,
-			},
-		]);
+		append({
+			productId: product.id,
+			name: product.name,
+			sku: product.sku,
+			qty: 1,
+			unitCost: product.cost,
+		});
 		setAddValue(null); // reset dropdown
 	};
 
-	/** Ubah 1 field (qty / unitCost) pada item di index tertentu. */
-	const updateItem = (
-		index: number,
-		patch: Partial<Pick<PurchaseOrderItem, "qty" | "unitCost">>,
-	) => {
-		setItems((prev) =>
-			prev.map((it, i) => (i === index ? { ...it, ...patch } : it)),
-		);
-	};
-
-	const removeItem = (index: number) => {
-		setItems((prev) => prev.filter((_, i) => i !== index));
-	};
-
-	/** Rakit objek PurchaseOrder dari state dengan status tertentu. */
+	/** Rakit objek PurchaseOrder dari nilai form dengan status tertentu. */
 	const build = (
+		data: PurchaseOrderFormData,
 		status: PurchaseOrderStatus,
 		extra?: Partial<PurchaseOrder>,
 	): PurchaseOrder => ({
 		...(initial ?? {}),
 		id: initial?.id ?? Date.now(),
 		code,
-		supplierId: Number(supplierId), // null → 0 (tabel menampilkan "—")
-		date,
-		expectedDate: expected || undefined,
-		notes: notes.trim() || undefined,
-		lineItems: items,
-		items: totalQty(items), // recompute utk tabel & stats
-		total: orderTotal(items), // recompute utk tabel & stats
+		supplierId: Number(data.supplierId), // null → 0 (tabel menampilkan "—")
+		date: data.date,
+		expectedDate: data.expected || undefined,
+		notes: data.notes.trim() || undefined,
+		lineItems: data.items,
+		items: totalQty(data.items), // recompute utk tabel & stats
+		total: orderTotal(data.items), // recompute utk tabel & stats
 		status,
 		...extra,
 	});
@@ -167,27 +161,31 @@ function PurchaseOrderForm({
 			)}
 
 			<Group grow align="flex-start">
-				<Select
-					label="Supplier"
-					placeholder="Select supplier"
-					required
-					data={supplierOptions}
-					value={supplierId}
-					onChange={setSupplierId}
-					disabled={isReceived}
+				<Controller
+					name="supplierId"
+					control={control}
+					render={({ field }) => (
+						<Select
+							label="Supplier"
+							placeholder="Select supplier"
+							required
+							data={supplierOptions}
+							value={field.value}
+							onChange={field.onChange}
+							disabled={isReceived}
+						/>
+					)}
 				/>
 				<TextInput
 					label="Order date"
 					type="date"
-					value={date}
-					onChange={(e) => setDate(e.currentTarget.value)}
+					{...register("date")}
 					disabled={isReceived}
 				/>
 				<TextInput
 					label="Expected"
 					type="date"
-					value={expected}
-					onChange={(e) => setExpected(e.currentTarget.value)}
+					{...register("expected")}
 					disabled={isReceived}
 				/>
 			</Group>
@@ -205,7 +203,7 @@ function PurchaseOrderForm({
 						</Table.Tr>
 					</Table.Thead>
 					<Table.Tbody>
-						{items.length === 0 ? (
+						{fields.length === 0 ? (
 							<Table.Tr>
 								<Table.Td colSpan={5}>
 									<Text c="dimmed" size="sm">
@@ -214,56 +212,71 @@ function PurchaseOrderForm({
 								</Table.Td>
 							</Table.Tr>
 						) : (
-							items.map((it, index) => (
-								<Table.Tr key={it.productId}>
-									<Table.Td>
-										<Stack gap={0}>
-											<Text fw={500}>{it.name}</Text>
-											<Text size="xs" c="dimmed">
-												{it.sku}
-											</Text>
-										</Stack>
-									</Table.Td>
-									<Table.Td>
-										<NumberInput
-											min={1}
-											value={it.qty}
-											onChange={(val) =>
-												updateItem(index, { qty: Number(val) || 0 })
-											}
-											disabled={isReceived}
-										/>
-									</Table.Td>
-									<Table.Td>
-										<NumberInput
-											min={0}
-											thousandSeparator="."
-											decimalSeparator=","
-											prefix="Rp "
-											value={it.unitCost}
-											onChange={(val) =>
-												updateItem(index, { unitCost: Number(val) || 0 })
-											}
-											disabled={isReceived}
-										/>
-									</Table.Td>
-									<Table.Td>
-										<Text fw={700}>{formatCurrency(lineTotal(it))}</Text>
-									</Table.Td>
-									<Table.Td>
-										{!isReceived && (
-											<ActionIcon
-												variant="subtle"
-												color="gray"
-												onClick={() => removeItem(index)}
-												aria-label="Remove item"
-											>
-												<IconX size={16} />
-											</ActionIcon>
-										)}
-									</Table.Td>
-								</Table.Tr>
-							))
+							fields.map((field, index) => {
+								const it = items[index] ?? field;
+								return (
+									<Table.Tr key={field.id}>
+										<Table.Td>
+											<Stack gap={0}>
+												<Text fw={500}>{it.name}</Text>
+												<Text size="xs" c="dimmed">
+													{it.sku}
+												</Text>
+											</Stack>
+										</Table.Td>
+										<Table.Td>
+											<Controller
+												name={`items.${index}.qty`}
+												control={control}
+												render={({ field: f }) => (
+													<NumberInput
+														min={1}
+														value={f.value}
+														onChange={(val) =>
+															f.onChange(typeof val === "number" ? val : 1)
+														}
+														disabled={isReceived}
+													/>
+												)}
+											/>
+										</Table.Td>
+										<Table.Td>
+											<Controller
+												name={`items.${index}.unitCost`}
+												control={control}
+												render={({ field: f }) => (
+													<NumberInput
+														min={0}
+														thousandSeparator="."
+														decimalSeparator=","
+														prefix="Rp "
+														value={f.value}
+														onChange={(val) =>
+															f.onChange(typeof val === "number" ? val : 0)
+														}
+														disabled={isReceived}
+													/>
+												)}
+											/>
+										</Table.Td>
+										<Table.Td>
+											<Text fw={700}>{formatCurrency(lineTotal(it))}</Text>
+										</Table.Td>
+										<Table.Td>
+											{!isReceived && (
+												<ActionIcon
+													variant="subtle"
+													color="gray"
+													onClick={() => remove(index)}
+													aria-label="Remove item"
+												>
+													<IconX size={16} />
+												</ActionIcon>
+											)}
+										</Table.Td>
+									</Table.Tr>
+								);
+							})
 						)}
 					</Table.Tbody>
 				</Table>
@@ -299,8 +312,7 @@ function PurchaseOrderForm({
 				placeholder="Catatan pesanan (opsional)"
 				autosize
 				minRows={2}
-				value={notes}
-				onChange={(e) => setNotes(e.currentTarget.value)}
+				{...register("notes")}
 				disabled={isReceived}
 			/>
 
@@ -321,25 +333,28 @@ function PurchaseOrderForm({
 								Delete
 							</Button>
 						)}
-						<Button variant="default" onClick={() => onSubmit(build("draft"))}>
+						<Button
+							variant="default"
+							onClick={handleSubmit((data) => onSubmit(build(data, "draft")))}
+						>
 							Save draft
 						</Button>
 						<Button
 							variant="default"
 							disabled={!canOrder}
-							onClick={() => onSubmit(build("ordered"))}
+							onClick={handleSubmit((data) => onSubmit(build(data, "ordered")))}
 						>
 							Mark as ordered
 						</Button>
 						<Button
 							disabled={!canReceive}
-							onClick={() =>
+							onClick={handleSubmit((data) =>
 								onReceive(
-									build("received", {
+									build(data, "received", {
 										receivedAt: new Date().toISOString().slice(0, 10),
 									}),
-								)
-							}
+								),
+							)}
 						>
 							Receive &amp; add stock
 						</Button>
