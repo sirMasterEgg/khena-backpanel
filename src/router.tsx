@@ -13,6 +13,7 @@ import { ColorList } from "@/pages/color/ColorList";
 import { CustomerDetail } from "@/pages/customers/CustomerDetail";
 import { CustomersList } from "@/pages/customers/CustomersList";
 import { Dashboard } from "@/pages/Dashboard";
+import { PendingTasksPage } from "@/pages/dashboard/PendingTasksPage";
 import { DeliveriesPage } from "@/pages/deliveries/DeliveriesPage";
 import { DiscountsPage } from "@/pages/discounts/DiscountsPage";
 import { MediaLibrary } from "@/pages/media/MediaLibrary";
@@ -40,6 +41,10 @@ const routes: RouteObject[] = [
 			{
 				path: "/",
 				element: <Dashboard />,
+			},
+			{
+				path: "/pending-tasks",
+				element: <PendingTasksPage />,
 			},
 			{
 				path: "/products",

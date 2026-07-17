@@ -76,7 +76,7 @@ export function PendingTasksCard() {
 					<Text
 						component="button"
 						type="button"
-						onClick={() => navigate("/orders")}
+						onClick={() => navigate("/pending-tasks")}
 						c="blue"
 						size="sm"
 						fw={500}
