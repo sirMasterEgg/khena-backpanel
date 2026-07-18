@@ -35,10 +35,13 @@ import {
 	IconSettings,
 	IconShoppingCart,
 	IconTruck,
+	IconUser,
 	IconUsers,
 } from "@tabler/icons-react";
 import type { ComponentType, ForwardRefExoticComponent, SVGProps } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router";
+import { useAuthStore } from "@/features/auth/authStore";
+import { useLogout } from "@/features/auth/useLogout";
 import "./AppLayout.css";
 
 type IconType =
@@ -68,6 +71,13 @@ export function AppLayout() {
 	const location = useLocation();
 	const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
 	const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
+	const admin = useAuthStore((s) => s.admin);
+	const logoutMutation = useLogout();
+
+	const adminName = admin?.name ?? "Admin";
+	const adminEmail = admin?.email ?? "";
+	const adminRole = admin?.role ?? "-";
+	const adminInitial = adminName.charAt(0).toUpperCase();
 
 	const isActive = (path: string) => location.pathname === path;
 
@@ -249,14 +259,16 @@ export function AppLayout() {
 							<Menu.Target>
 								<Group gap="xs" style={{ cursor: "pointer" }}>
 									<Avatar size="sm" color="blue">
-										A
+										{adminInitial}
 									</Avatar>
 									<Stack gap={0}>
 										<Text size="sm" fw={500}>
-											Admin
+											{adminName}
 										</Text>
 										<Text size="xs" c="dimmed">
-											khena@kehna.com &bull; Owner
+											{adminEmail}
+											{adminEmail && " • "}
+											{adminRole}
 										</Text>
 									</Stack>
 
@@ -266,31 +278,32 @@ export function AppLayout() {
 							<Menu.Dropdown>
 								<Menu.Label>
 									<Text c="black" fw={500} size="sm">
-										Admin
+										{adminName}
 									</Text>
 									<Text size="xs" c="dimmed">
-										khena@kehna.com
+										{adminEmail}
 									</Text>
 									<Text c="black" fw={500} size="sm">
-										Admin
+										{adminRole}
 									</Text>
 								</Menu.Label>
 								<Menu.Divider />
 								<Menu.Item
-									leftSection={<IconLogout size={14} />}
+									leftSection={<IconUser size={14} />}
 									onClick={() => navigate("/sign-in")}
 								>
 									Profile
 								</Menu.Item>
 								<Menu.Item
-									leftSection={<IconLogout size={14} />}
-									onClick={() => navigate("/sign-in")}
+									leftSection={<IconUsers size={14} />}
+									onClick={() => navigate("/settings/users")}
 								>
 									Users and Roles
 								</Menu.Item>
 								<Menu.Item
 									leftSection={<IconLogout size={14} />}
-									onClick={() => navigate("/sign-in")}
+									onClick={() => logoutMutation.mutate()}
+									disabled={logoutMutation.isPending}
 								>
 									Logout
 								</Menu.Item>

@@ -9,12 +9,16 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
+import { isAxiosError } from "axios";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
+import { notify } from "@/components/notify";
+import { useLogin } from "@/features/auth/useLogin";
 import { type SignInFormData, signInSchema } from "./signInSchema";
 
 export function SignIn() {
 	const navigate = useNavigate();
+	const loginMutation = useLogin();
 
 	const {
 		register,
@@ -28,8 +32,21 @@ export function SignIn() {
 		},
 	});
 
-	const onSubmit = (_data: SignInFormData) => {
-		navigate("/");
+	const onSubmit = (data: SignInFormData) => {
+		loginMutation.mutate(data, {
+			onSuccess: () => navigate("/", { replace: true }),
+			onError: (err) => {
+				let pesan = "Terjadi kesalahan. Coba lagi nanti.";
+				if (isAxiosError(err)) {
+					const status = err.response?.status;
+					if (status === 400) pesan = "Email atau password salah.";
+					else if (status === 422) pesan = "Data yang dimasukkan tidak valid.";
+					else if (status === 403)
+						pesan = "Sesi keamanan kedaluwarsa, coba lagi.";
+				}
+				notify.error(pesan);
+			},
+		});
 	};
 
 	return (
@@ -75,7 +92,7 @@ export function SignIn() {
 								error={errors.password?.message}
 							/>
 
-							<Button type="submit" fullWidth>
+							<Button type="submit" fullWidth loading={loginMutation.isPending}>
 								Sign in
 							</Button>
 						</Stack>
