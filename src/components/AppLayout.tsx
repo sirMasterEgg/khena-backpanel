@@ -36,6 +36,7 @@ import {
 	IconShoppingCart,
 	IconTruck,
 	IconUser,
+	IconUserShield,
 	IconUsers,
 } from "@tabler/icons-react";
 import type { ComponentType, ForwardRefExoticComponent, SVGProps } from "react";
@@ -283,9 +284,13 @@ export function AppLayout() {
 									<Text size="xs" c="dimmed">
 										{adminEmail}
 									</Text>
-									<Text c="black" fw={500} size="sm">
+									<Badge
+										leftSection={<IconUserShield size={14} />}
+										variant="light"
+										mt={6}
+									>
 										{adminRole}
-									</Text>
+									</Badge>
 								</Menu.Label>
 								<Menu.Divider />
 								<Menu.Item
@@ -304,6 +309,7 @@ export function AppLayout() {
 									leftSection={<IconLogout size={14} />}
 									onClick={() => logoutMutation.mutate()}
 									disabled={logoutMutation.isPending}
+									color="red"
 								>
 									Logout
 								</Menu.Item>
