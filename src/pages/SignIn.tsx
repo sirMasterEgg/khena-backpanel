@@ -9,8 +9,13 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
+import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
+import { getCsrf, login } from "@/api/auth";
+import { getApiErrorMessage } from "@/api/client";
+import { notify } from "@/components/notify";
+import { useAuthStore } from "@/stores/authStore";
 import { type SignInFormData, signInSchema } from "./signInSchema";
 
 export function SignIn() {
@@ -28,8 +33,23 @@ export function SignIn() {
 		},
 	});
 
-	const onSubmit = (_data: SignInFormData) => {
-		navigate("/");
+	const mutation = useMutation({
+		mutationFn: async (data: SignInFormData) => {
+			// Bootstrap cookie preSession + csrfToken dulu, baru login.
+			await getCsrf();
+			return login({ email: data.email, password: data.password });
+		},
+		onSuccess: (result) => {
+			useAuthStore.getState().setAuth(result.accessToken, result.admin);
+			navigate("/");
+		},
+		onError: (error) => {
+			notify.error(getApiErrorMessage(error));
+		},
+	});
+
+	const onSubmit = (data: SignInFormData) => {
+		mutation.mutate(data);
 	};
 
 	return (
@@ -75,7 +95,12 @@ export function SignIn() {
 								error={errors.password?.message}
 							/>
 
-							<Button type="submit" fullWidth>
+							<Button
+								type="submit"
+								fullWidth
+								loading={mutation.isPending}
+								disabled={mutation.isPending}
+							>
 								Sign in
 							</Button>
 						</Stack>

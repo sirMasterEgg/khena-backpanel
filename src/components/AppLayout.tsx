@@ -35,10 +35,16 @@ import {
 	IconSettings,
 	IconShoppingCart,
 	IconTruck,
+	IconUser,
+	IconUserShield,
 	IconUsers,
 } from "@tabler/icons-react";
+import { useMutation } from "@tanstack/react-query";
 import type { ComponentType, ForwardRefExoticComponent, SVGProps } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router";
+import { logout } from "@/api/auth";
+import { queryClient } from "@/config/queryClient";
+import { useAuthStore } from "@/stores/authStore";
 import "./AppLayout.css";
 
 type IconType =
@@ -68,6 +74,18 @@ export function AppLayout() {
 	const location = useLocation();
 	const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
 	const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
+
+	const admin = useAuthStore((state) => state.admin);
+
+	const logoutMutation = useMutation({
+		mutationFn: logout,
+		// Logout idempotent: apa pun hasilnya, bersihkan sesi lokal & keluar.
+		onSettled: () => {
+			useAuthStore.getState().clearAuth();
+			queryClient.clear();
+			navigate("/sign-in");
+		},
+	});
 
 	const isActive = (path: string) => location.pathname === path;
 
@@ -249,14 +267,14 @@ export function AppLayout() {
 							<Menu.Target>
 								<Group gap="xs" style={{ cursor: "pointer" }}>
 									<Avatar size="sm" color="blue">
-										A
+										{admin?.name?.charAt(0).toUpperCase() ?? "A"}
 									</Avatar>
 									<Stack gap={0}>
 										<Text size="sm" fw={500}>
-											Admin
+											{admin?.name}
 										</Text>
 										<Text size="xs" c="dimmed">
-											khena@kehna.com &bull; Owner
+											{admin?.email} &bull; {admin?.role ?? "-"}
 										</Text>
 									</Stack>
 
@@ -266,31 +284,31 @@ export function AppLayout() {
 							<Menu.Dropdown>
 								<Menu.Label>
 									<Text c="black" fw={500} size="sm">
-										Admin
+										{admin?.name}
 									</Text>
 									<Text size="xs" c="dimmed">
-										khena@kehna.com
+										{admin?.email}
 									</Text>
-									<Text c="black" fw={500} size="sm">
-										Admin
-									</Text>
+									<Badge
+										leftSection={<IconUserShield size={14} />}
+										variant="light"
+										mt={6}
+									>
+										{admin?.role ?? "-"}
+									</Badge>
 								</Menu.Label>
 								<Menu.Divider />
-								<Menu.Item
-									leftSection={<IconLogout size={14} />}
-									onClick={() => navigate("/sign-in")}
-								>
+								<Menu.Item leftSection={<IconUser size={14} />}>
 									Profile
 								</Menu.Item>
-								<Menu.Item
-									leftSection={<IconLogout size={14} />}
-									onClick={() => navigate("/sign-in")}
-								>
+								<Menu.Item leftSection={<IconUsers size={14} />}>
 									Users and Roles
 								</Menu.Item>
 								<Menu.Item
 									leftSection={<IconLogout size={14} />}
-									onClick={() => navigate("/sign-in")}
+									onClick={() => logoutMutation.mutate()}
+									disabled={logoutMutation.isPending}
+									color="red"
 								>
 									Logout
 								</Menu.Item>
