@@ -15,7 +15,12 @@ export const shippingZones: ShippingZone[] = [
 		etaDays: "1-2 hari",
 		baseRate: 50_000,
 	},
-	{ name: "Jawa Barat", cities: ["Bandung"], etaDays: "2-3 hari", baseRate: 90_000 },
+	{
+		name: "Jawa Barat",
+		cities: ["Bandung"],
+		etaDays: "2-3 hari",
+		baseRate: 90_000,
+	},
 	{
 		name: "Jawa Tengah",
 		cities: ["Semarang", "Yogyakarta", "Solo"],
