@@ -7,6 +7,7 @@ import {
 	Container,
 	Grid,
 	Group,
+	Loader,
 	Menu,
 	Pagination,
 	Select,
@@ -14,6 +15,7 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import {
 	IconBox,
 	IconDots,
@@ -22,82 +24,166 @@ import {
 	IconSearch,
 	IconStack2,
 } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useNavigate } from "react-router";
+import {
+	type Category,
+	type CategorySortField,
+	type CategoryStatus,
+	deleteCategory,
+	getCategoryStats,
+	listCategories,
+	updateCategory,
+} from "@/api/categories";
+import { getApiErrorMessage } from "@/api/client";
+import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { StatusBadge } from "@/components/StatusBadge";
-import { dummyCategories, dummyRoomTypes } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useRoomTypeOptions } from "@/hooks/useRoomTypeOptions";
+
+const ITEMS_PER_PAGE = 10;
+
+/** Opsi sort di UI tidak sama dgn kolom sort API — petakan dulu. */
+function mapSortToApi(sortBy: string | null): CategorySortField {
+	switch (sortBy) {
+		case "name-az":
+			return "name";
+		case "order":
+			return "displayOrder";
+		default:
+			return "createdAt";
+	}
+}
+
+function mapOrderDirToApi(sortBy: string | null): "asc" | "desc" {
+	switch (sortBy) {
+		case "oldest":
+		case "name-az":
+		case "order":
+			return "asc";
+		default:
+			return "desc";
+	}
+}
+
+/** Ringkasan hasil operasi bulk (loop per-id, sebagian bisa gagal). */
+function notifyBulkResult(
+	results: PromiseSettledResult<unknown>[],
+	successVerb: string,
+) {
+	const failed = results.filter((r) => r.status === "rejected").length;
+	const succeeded = results.length - failed;
+
+	if (failed === 0) {
+		notify.success(`${succeeded} category ${successVerb}`);
+	} else if (succeeded === 0) {
+		notify.error(`Gagal ${successVerb} ${failed} category`);
+	} else {
+		notify.info(`${succeeded} ${successVerb}, ${failed} gagal`);
+	}
+}
 
 export function CategoriesList() {
 	usePageTitle("Categories");
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 
 	const [search, setSearch] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string | null>(null);
 	const [roomTypeFilter, setRoomTypeFilter] = useState<string | null>(null);
 	const [sortBy, setSortBy] = useState<string | null>(null);
 	const [page, setPage] = useState(1);
-	const [selectedIds, setSelectedIds] = useState<number[]>([]);
+	const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-	const stats = useMemo(() => {
-		return {
-			total: dummyCategories.length,
-			published: dummyCategories.filter((c) => c.status === "published").length,
-			draft: dummyCategories.filter((c) => c.status === "draft").length,
-			totalProducts: dummyCategories.reduce((sum, c) => sum + c.products, 0),
-		};
-	}, []);
+	const { options: roomTypeOptions, nameById: roomTypeNameById } =
+		useRoomTypeOptions();
 
-	const filteredCategories = useMemo(() => {
-		let result = [...dummyCategories];
+	const { data, isLoading, isError, error } = useQuery({
+		queryKey: [
+			"categories",
+			{ search, statusFilter, roomTypeFilter, sortBy, page },
+		],
+		queryFn: () =>
+			listCategories({
+				search: search || undefined,
+				status: (statusFilter as CategoryStatus | null) || undefined,
+				roomTypeId: roomTypeFilter || undefined,
+				sort: mapSortToApi(sortBy),
+				orderDir: mapOrderDirToApi(sortBy),
+				page,
+				limit: ITEMS_PER_PAGE,
+			}),
+		placeholderData: (prev) => prev,
+	});
 
-		if (statusFilter) {
-			result = result.filter((c) => c.status === statusFilter);
-		}
+	const categories = data?.data ?? [];
+	const totalPages = data?.meta.totalPages ?? 1;
 
-		if (roomTypeFilter) {
-			result = result.filter((c) => c.roomType === roomTypeFilter);
-		}
+	// Kartu statistik selalu angka keseluruhan — jangan hitung dari halaman aktif.
+	const { data: stats } = useQuery({
+		queryKey: ["categories", "stats"],
+		queryFn: getCategoryStats,
+	});
 
-		if (search) {
-			const searchLower = search.toLowerCase();
-			result = result.filter((c) => c.name.toLowerCase().includes(searchLower));
-		}
+	const clearSelection = () => setSelectedIds([]);
 
-		if (sortBy) {
-			switch (sortBy) {
-				case "newest":
-					result.sort(
-						(a, b) =>
-							new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-					);
-					break;
-				case "oldest":
-					result.sort(
-						(a, b) =>
-							new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime(),
-					);
-					break;
-				case "name-az":
-					result.sort((a, b) => a.name.localeCompare(b.name));
-					break;
-				case "order":
-					result.sort((a, b) => a.displayOrder - b.displayOrder);
-					break;
-			}
-		}
+	const invalidateCategories = () =>
+		queryClient.invalidateQueries({ queryKey: ["categories"] });
 
-		return result;
-	}, [search, statusFilter, roomTypeFilter, sortBy]);
+	const deleteMutation = useMutation({
+		mutationFn: (id: string) => deleteCategory(id),
+		onSuccess: () => {
+			notify.success("Category dihapus");
+			invalidateCategories();
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
 
-	const itemsPerPage = 10;
-	const paged = filteredCategories.slice(
-		(page - 1) * itemsPerPage,
-		page * itemsPerPage,
-	);
-	const totalPages = Math.ceil(filteredCategories.length / itemsPerPage);
+	// Tidak ada endpoint bulk di contract → loop per-id, invalidate sekali di akhir.
+	const bulkDeleteMutation = useMutation({
+		mutationFn: (ids: string[]) =>
+			Promise.allSettled(ids.map((id) => deleteCategory(id))),
+		onSuccess: (results) => {
+			notifyBulkResult(results, "dihapus");
+			invalidateCategories();
+			clearSelection();
+		},
+	});
+
+	const bulkStatusMutation = useMutation({
+		mutationFn: ({
+			items,
+			status,
+		}: {
+			items: Category[];
+			status: CategoryStatus;
+		}) =>
+			// PUT butuh body LENGKAP — bukan PATCH, field yang hilang ditolak 422.
+			Promise.allSettled(
+				items.map((c) =>
+					updateCategory(c.id, {
+						category: c.category,
+						order: c.order,
+						roomTypeId: c.roomTypeId,
+						status,
+					}),
+				),
+			),
+		onSuccess: (results, { status }) => {
+			notifyBulkResult(
+				results,
+				status === "published" ? "dipublish" : "dijadikan draft",
+			);
+			invalidateCategories();
+			clearSelection();
+		},
+	});
+
+	const isBulkPending =
+		bulkDeleteMutation.isPending || bulkStatusMutation.isPending;
 
 	const handleFilterChange = (callback: () => void) => {
 		setPage(1);
@@ -105,25 +191,54 @@ export function CategoriesList() {
 	};
 
 	const toggleSelectAll = () => {
-		if (selectedIds.length === paged.length) {
+		if (selectedIds.length === categories.length) {
 			setSelectedIds([]);
 		} else {
-			setSelectedIds(paged.map((c) => c.id));
+			setSelectedIds(categories.map((c) => c.id));
 		}
 	};
 
-	const toggleSelectCategory = (id: number) => {
+	const toggleSelectCategory = (id: string) => {
 		setSelectedIds((prev) =>
 			prev.includes(id) ? prev.filter((cid) => cid !== id) : [...prev, id],
 		);
 	};
 
-	const handleBulkAction = (action: "publish" | "draft" | "delete") => {
-		console.log(`Bulk "${action}" pada categories:`, selectedIds);
-		setSelectedIds([]);
+	const confirmDelete = (id: string, name: string) => {
+		modals.openConfirmModal({
+			title: "Delete category",
+			children: (
+				<Text size="sm">
+					Delete <strong>{name}</strong>? This action cannot be undone.
+				</Text>
+			),
+			labels: { confirm: "Delete", cancel: "Cancel" },
+			confirmProps: { color: "red" },
+			onConfirm: () => deleteMutation.mutate(id),
+		});
 	};
 
-	const clearSelection = () => setSelectedIds([]);
+	const confirmBulkDelete = () => {
+		modals.openConfirmModal({
+			title: "Delete categories",
+			children: (
+				<Text size="sm">
+					Delete <strong>{selectedIds.length}</strong> selected categor
+					{selectedIds.length === 1 ? "y" : "ies"}? This action cannot be
+					undone.
+				</Text>
+			),
+			labels: { confirm: "Delete", cancel: "Cancel" },
+			confirmProps: { color: "red" },
+			onConfirm: () => bulkDeleteMutation.mutate(selectedIds),
+		});
+	};
+
+	const handleBulkStatus = (status: CategoryStatus) => {
+		// Objek existing sudah di tangan dari hasil list — jangan fetch ulang per-id.
+		const items = categories.filter((c) => selectedIds.includes(c.id));
+		bulkStatusMutation.mutate({ items, status });
+	};
 
 	return (
 		<Container size="xl">
@@ -151,14 +266,17 @@ export function CategoriesList() {
 							<Button
 								size="xs"
 								variant="default"
-								onClick={() => handleBulkAction("publish")}
+								disabled={isBulkPending}
+								loading={bulkStatusMutation.isPending}
+								onClick={() => handleBulkStatus("published")}
 							>
 								Publish
 							</Button>
 							<Button
 								size="xs"
 								variant="default"
-								onClick={() => handleBulkAction("draft")}
+								disabled={isBulkPending}
+								onClick={() => handleBulkStatus("draft")}
 							>
 								Move to Draft
 							</Button>
@@ -166,7 +284,9 @@ export function CategoriesList() {
 								size="xs"
 								color="red"
 								variant="light"
-								onClick={() => handleBulkAction("delete")}
+								disabled={isBulkPending}
+								loading={bulkDeleteMutation.isPending}
+								onClick={confirmBulkDelete}
 							>
 								Delete
 							</Button>
@@ -184,28 +304,28 @@ export function CategoriesList() {
 					<StatTile
 						icon={<IconStack2 size={20} />}
 						label="Total Categories"
-						value={stats.total}
+						value={stats?.totalCategories ?? 0}
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconStack2 size={20} />}
 						label="Published"
-						value={stats.published}
+						value={stats?.publishedCategories ?? 0}
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconPencil size={20} />}
 						label="Draft"
-						value={stats.draft}
+						value={stats?.draftCategories ?? 0}
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconBox size={20} />}
-						label="Total Products"
-						value={stats.totalProducts}
+						label="Room Groups"
+						value={stats?.roomGroups ?? 0}
 					/>
 				</Grid.Col>
 			</Grid>
@@ -233,7 +353,7 @@ export function CategoriesList() {
 						{/* FILTER BARU: Room Type */}
 						<Select
 							placeholder="Room Type"
-							data={dummyRoomTypes}
+							data={roomTypeOptions}
 							value={roomTypeFilter}
 							onChange={(val) =>
 								handleFilterChange(() => setRoomTypeFilter(val))
@@ -252,7 +372,7 @@ export function CategoriesList() {
 							{ value: "order", label: "Display order" },
 						]}
 						value={sortBy}
-						onChange={setSortBy}
+						onChange={(val) => handleFilterChange(() => setSortBy(val))}
 						clearable
 					/>
 				</Group>
@@ -266,10 +386,12 @@ export function CategoriesList() {
 							<Table.Th style={{ width: 40 }}>
 								<Checkbox
 									checked={
-										selectedIds.length === paged.length && paged.length > 0
+										selectedIds.length === categories.length &&
+										categories.length > 0
 									}
 									indeterminate={
-										selectedIds.length > 0 && selectedIds.length < paged.length
+										selectedIds.length > 0 &&
+										selectedIds.length < categories.length
 									}
 									onChange={toggleSelectAll}
 								/>
@@ -282,8 +404,27 @@ export function CategoriesList() {
 						</Table.Tr>
 					</Table.Thead>
 					<Table.Tbody>
-						{paged.length > 0 ? (
-							paged.map((category, index) => (
+						{isLoading ? (
+							<Table.Tr>
+								<Table.Td colSpan={6} style={{ padding: "2rem" }}>
+									<Group justify="center">
+										<Loader size="sm" />
+									</Group>
+								</Table.Td>
+							</Table.Tr>
+						) : isError ? (
+							<Table.Tr>
+								<Table.Td
+									colSpan={6}
+									style={{ textAlign: "center", padding: "2rem" }}
+								>
+									<Text c="red" size="sm">
+										{getApiErrorMessage(error)}
+									</Text>
+								</Table.Td>
+							</Table.Tr>
+						) : categories.length > 0 ? (
+							categories.map((category, index) => (
 								<Table.Tr
 									key={category.id}
 									style={{ cursor: "pointer" }}
@@ -295,13 +436,13 @@ export function CategoriesList() {
 											onChange={() => toggleSelectCategory(category.id)}
 										/>
 									</Table.Td>
-									<Table.Td>{(page - 1) * itemsPerPage + index + 1}</Table.Td>
+									<Table.Td>{(page - 1) * ITEMS_PER_PAGE + index + 1}</Table.Td>
 									<Table.Td>
-										<span style={{ fontWeight: 500 }}>{category.name}</span>
+										<span style={{ fontWeight: 500 }}>{category.category}</span>
 									</Table.Td>
 									<Table.Td>
 										<Badge variant="outline" color="gray" radius="sm">
-											{category.roomType}
+											{roomTypeNameById.get(category.roomTypeId) ?? "—"}
 										</Badge>
 									</Table.Td>
 									<Table.Td>
@@ -324,7 +465,9 @@ export function CategoriesList() {
 												</Menu.Item>
 												<Menu.Item
 													color="red"
-													onClick={() => console.log(`Delete ${category.id}`)}
+													onClick={() =>
+														confirmDelete(category.id, category.category)
+													}
 												>
 													Delete
 												</Menu.Item>
