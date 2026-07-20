@@ -244,7 +244,15 @@ export function CategoryEditor() {
 										Groups this category under a heading in the SHOP hover menu.
 									</Text>
 								</div>
-								<Group gap="sm" align="flex-end">
+								{/*
+								  Saat <Select> menampilkan error, tingginya bertambah karena teks
+								  error di bawahnya. Dgn flex-end tombol ikut turun sejajar teks
+								  error; pakai flex-start supaya tombol tetap sejajar dgn input.
+								*/}
+								<Group
+									gap="sm"
+									align={errors.roomTypeId ? "flex-start" : "flex-end"}
+								>
 									{isAddingRoomType ? (
 										<>
 											<TextInput

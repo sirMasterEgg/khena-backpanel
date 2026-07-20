@@ -345,7 +345,10 @@ export function CategoriesList() {
 						/>
 						<Select
 							placeholder="Status"
-							data={["published", "draft"]}
+							data={[
+								{ label: "Published", value: "published" },
+								{ label: "Draft", value: "draft" },
+							]}
 							value={statusFilter}
 							onChange={(val) => handleFilterChange(() => setStatusFilter(val))}
 							clearable

@@ -24,3 +24,17 @@ export function formatIDRCompact(value: number): string {
 	}
 	return `Rp ${value}`;
 }
+
+export function titleCase(s: string): string {
+	const words = s.split(" ");
+	for (let i = 0; i < words.length; i++) {
+		words[i] =
+			words[i].charAt(0).toUpperCase() + words[i].slice(1).toLowerCase();
+	}
+	s = words.join(" ");
+	return s;
+}
+
+export function sentenceCase(s: string): string {
+	return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
