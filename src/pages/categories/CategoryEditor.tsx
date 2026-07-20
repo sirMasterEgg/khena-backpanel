@@ -14,19 +14,21 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
-import { IconPlus, IconX } from "@tabler/icons-react";
+import { modals } from "@mantine/modals";
+import { IconPlus, IconTrash, IconX } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { useNavigate, useParams } from "react-router";
 import {
 	type CategoryInput,
+	countCategoriesByRoomType,
 	createCategory,
 	getCategory,
 	updateCategory,
 } from "@/api/categories";
 import { getApiErrorMessage } from "@/api/client";
-import { createRoomType } from "@/api/roomTypes";
+import { createRoomType, deleteRoomType } from "@/api/roomTypes";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -117,6 +119,55 @@ export function CategoryEditor() {
 
 		createRoomTypeMutation.mutate(name);
 	};
+
+	// Room type yang sedang terpilih — dibaca dari field form, bukan state terpisah.
+	const selectedRoomTypeId = useWatch({ control, name: "roomTypeId" });
+	const selectedRoomTypeName =
+		roomTypeOptions.find((o) => o.value === selectedRoomTypeId)?.label ?? "";
+
+	const deleteRoomTypeMutation = useMutation({
+		mutationFn: (roomTypeId: string) => deleteRoomType(roomTypeId),
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: ["room-types"] });
+			// WAJIB: field form tidak boleh menyimpan uuid yang sudah dihapus,
+			// kalau tidak submit akan gagal dgn 400 room type not found.
+			setValue("roomTypeId", "", { shouldValidate: true });
+			notify.success("Room type dihapus");
+		},
+		onError: (error) => notify.error(getApiErrorMessage(error)),
+	});
+
+	// Pakai useMutation (bukan useQuery) karena dipicu aksi user, bukan render.
+	const checkUsageMutation = useMutation({
+		mutationFn: (roomTypeId: string) => countCategoriesByRoomType(roomTypeId),
+		onSuccess: (usageCount, roomTypeId) => {
+			if (usageCount > 0) {
+				notify.error(
+					`Room type ini masih dipakai oleh ${usageCount} category. ` +
+						`Ubah atau hapus category tersebut dulu sebelum menghapus room type ini.`,
+				);
+				return;
+			}
+
+			modals.openConfirmModal({
+				title: "Delete room type",
+				children: (
+					<Text size="sm">
+						Delete <strong>{selectedRoomTypeName}</strong>? This action cannot
+						be undone.
+					</Text>
+				),
+				labels: { confirm: "Delete", cancel: "Cancel" },
+				confirmProps: { color: "red" },
+				onConfirm: () => deleteRoomTypeMutation.mutate(roomTypeId),
+			});
+		},
+		// Gagal menghitung = status pemakaian tidak diketahui → jangan hapus.
+		onError: (error) => notify.error(getApiErrorMessage(error)),
+	});
+
+	const isRoomTypeBusy =
+		checkUsageMutation.isPending || deleteRoomTypeMutation.isPending;
 
 	const mutation = useMutation({
 		mutationFn: (body: CategoryInput) =>
@@ -261,6 +312,20 @@ export function CategoryEditor() {
 												onClick={() => setIsAddingRoomType(true)}
 											>
 												New Room Type
+											</Button>
+											<Button
+												type="button"
+												variant="subtle"
+												color="red"
+												size="sm"
+												leftSection={<IconTrash size={14} />}
+												onClick={() =>
+													checkUsageMutation.mutate(selectedRoomTypeId)
+												}
+												loading={isRoomTypeBusy}
+												disabled={!selectedRoomTypeId || isRoomTypeBusy}
+											>
+												Delete
 											</Button>
 										</>
 									)}

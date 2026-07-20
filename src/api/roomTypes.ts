@@ -22,3 +22,8 @@ export async function createRoomType(body: { roomType: string }) {
 	const res = await apiClient.post<ApiSuccess<RoomType>>("/room-types", body);
 	return res.data.data;
 }
+
+export async function deleteRoomType(id: string) {
+	const res = await apiClient.delete<ApiSuccess<"OK">>(`/room-types/${id}`);
+	return res.data.data;
+}

@@ -92,3 +92,17 @@ export async function deleteCategory(id: string) {
 	const res = await apiClient.delete<ApiSuccess<"OK">>(`/categories/${id}`);
 	return res.data.data;
 }
+
+/**
+ * Berapa banyak category yang masih memakai room type ini.
+ * Dipakai untuk memblokir penghapusan room type yang masih terpakai.
+ *
+ * TODO(konfirmasi): backend tidak mendokumentasikan error "masih dipakai" untuk
+ * DELETE /room-types/:id, jadi cek ini cuma guard UI — masih ada celah balapan
+ * kalau ada admin lain menambah category tepat setelah pengecekan.
+ */
+export async function countCategoriesByRoomType(roomTypeId: string) {
+	// limit: 1 karena yang dibutuhkan cuma angka meta.total, bukan isi datanya.
+	const res = await listCategories({ roomTypeId, limit: 1 });
+	return res.meta.total;
+}
