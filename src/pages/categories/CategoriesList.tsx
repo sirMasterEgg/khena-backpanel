@@ -15,6 +15,7 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { useDebouncedValue } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import {
 	IconBox,
@@ -45,6 +46,8 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useRoomTypeOptions } from "@/hooks/useRoomTypeOptions";
 
 const ITEMS_PER_PAGE = 10;
+/** Jeda sebelum ketikan di kolom search dikirim ke server. */
+const SEARCH_DEBOUNCE_MS = 400;
 
 /** Opsi sort di UI tidak sama dgn kolom sort API — petakan dulu. */
 function mapSortToApi(sortBy: string | null): CategorySortField {
@@ -91,7 +94,10 @@ export function CategoriesList() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 
+	// `search` = nilai input (langsung, biar ketikan responsif),
+	// `debouncedSearch` = yang dikirim ke server.
 	const [search, setSearch] = useState("");
+	const [debouncedSearch] = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
 	const [statusFilter, setStatusFilter] = useState<string | null>(null);
 	const [roomTypeFilter, setRoomTypeFilter] = useState<string | null>(null);
 	const [sortBy, setSortBy] = useState<string | null>(null);
@@ -104,11 +110,11 @@ export function CategoriesList() {
 	const { data, isLoading, isError, error } = useQuery({
 		queryKey: [
 			"categories",
-			{ search, statusFilter, roomTypeFilter, sortBy, page },
+			{ search: debouncedSearch, statusFilter, roomTypeFilter, sortBy, page },
 		],
 		queryFn: () =>
 			listCategories({
-				search: search || undefined,
+				search: debouncedSearch || undefined,
 				status: (statusFilter as CategoryStatus | null) || undefined,
 				roomTypeId: roomTypeFilter || undefined,
 				sort: mapSortToApi(sortBy),
