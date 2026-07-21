@@ -20,7 +20,6 @@ const ALT_TEXT_MAX_LENGTH = 1000;
 interface MediaDetailModalProps {
 	file: MediaFile | null;
 	folderPath: string;
-	savingAltText: boolean;
 	onClose: () => void;
 	onSaveAltText: (id: string, value: string) => void;
 	onCopyUrl: (url: string) => void;
@@ -41,57 +40,45 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 	);
 }
 
-/**
- * Editor alt text dengan state lokal — sengaja tidak mengirim request per
- * ketikan; penyimpanan hanya lewat tombol eksplisit.
- */
-function AltTextField({
-	savedValue,
-	saving,
-	onSave,
-}: {
-	savedValue: string;
-	saving: boolean;
-	onSave: (value: string) => void;
-}) {
-	const [value, setValue] = useState(savedValue);
-
-	return (
-		<>
-			<TextInput
-				label="Alt text"
-				placeholder="Describe this file"
-				maxLength={ALT_TEXT_MAX_LENGTH}
-				value={value}
-				onChange={(e) => setValue(e.currentTarget.value)}
-			/>
-			<Button
-				type="button"
-				variant="light"
-				disabled={value === savedValue}
-				loading={saving}
-				onClick={() => onSave(value)}
-			>
-				Save alt text
-			</Button>
-		</>
-	);
-}
-
 export function MediaDetailModal({
 	file,
 	folderPath,
-	savingAltText,
 	onClose,
 	onSaveAltText,
 	onCopyUrl,
 	onDownload,
 	onDelete,
 }: MediaDetailModalProps) {
+	// Alt text ditahan di state lokal supaya tidak ada request per ketikan;
+	// pengirimannya sekali saja saat modal ditutup.
+	const [altText, setAltText] = useState("");
+
+	// Identitas nilai yang sedang ditampilkan: ikut berubah saat pindah file
+	// maupun saat server mengembalikan alt text baru.
+	const savedAltText = file?.altText ?? "";
+	const fileKey = file ? `${file.id}:${savedAltText}` : null;
+	const [syncedKey, setSyncedKey] = useState<string | null>(null);
+
+	// Reset state saat props berubah — pola "adjusting state during render",
+	// lebih tepat daripada useEffect karena tidak menyebabkan render kedua.
+	if (fileKey !== syncedKey) {
+		setSyncedKey(fileKey);
+		setAltText(savedAltText);
+	}
+
+	const handleClose = () => {
+		// Simpan hanya kalau memang berubah, supaya menutup modal tanpa mengedit
+		// tidak menembakkan PATCH sama sekali.
+		if (file && altText !== savedAltText) {
+			onSaveAltText(file.id, altText);
+		}
+		onClose();
+	};
+
 	return (
 		<Modal
 			opened={file !== null}
-			onClose={onClose}
+			onClose={handleClose}
 			title={file?.name ?? "File details"}
 			size="lg"
 			centered
@@ -130,13 +117,13 @@ export function MediaDetailModal({
 									value={dayjs(file.createdAt).format("DD MMM YYYY HH:mm")}
 								/>
 								<DetailRow label="ID" value={file.id} />
-								{/* `key` memaksa state lokal di-reset saat pindah file atau
-								    saat server mengembalikan alt text baru. */}
-								<AltTextField
-									key={`${file.id}:${file.altText ?? ""}`}
-									savedValue={file.altText ?? ""}
-									saving={savingAltText}
-									onSave={(value) => onSaveAltText(file.id, value)}
+								<TextInput
+									label="Alt text"
+									placeholder="Describe this file"
+									description="Perubahan disimpan saat modal ditutup."
+									maxLength={ALT_TEXT_MAX_LENGTH}
+									value={altText}
+									onChange={(e) => setAltText(e.currentTarget.value)}
 								/>
 							</Stack>
 						</Grid.Col>

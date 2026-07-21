@@ -2,7 +2,6 @@ import {
 	Button,
 	Card,
 	Container,
-	Grid,
 	Group,
 	Loader,
 	Select,
@@ -30,6 +29,7 @@ import {
 	getMediaDownloadUrl,
 	getMediaPreviewUrl,
 	type MediaFile,
+	type MediaFileType,
 	type MediaFolder,
 	type MediaSortField,
 	patchMediaFile,
@@ -39,14 +39,15 @@ import {
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import type { FileTypeFilter } from "./FileTypePanel";
-import { FileTypePanel } from "./FileTypePanel";
 import { FolderCard } from "./FolderCard";
 import { MediaBreadcrumb } from "./MediaBreadcrumb";
 import { MediaCard } from "./MediaCard";
 import { MediaDetailModal } from "./MediaDetailModal";
 import { NewFolderModal } from "./NewFolderModal";
 import { RenameFolderModal } from "./RenameFolderModal";
+
+/** "all" = kirim query param `type` sama sekali tidak ada. */
+type FileTypeFilter = MediaFileType | "all";
 
 const SORT_OPTIONS = [
 	{ value: "newest", label: "Newest" },
@@ -357,86 +358,68 @@ export function MediaLibrary() {
 				</Group>
 			</Card>
 
-			{/* Dua kolom */}
-			<Grid gap="md">
-				{/* Kolom kiri: filter */}
-				<Grid.Col span={{ base: 12, md: 3 }}>
-					<Stack gap="md">
-						<Card withBorder>
-							<FileTypePanel
-								value={fileTypeFilter}
-								onChange={setFileTypeFilter}
-							/>
-						</Card>
-					</Stack>
-				</Grid.Col>
-
-				{/* Kolom kanan: konten */}
-				<Grid.Col span={{ base: 12, md: 9 }}>
-					{isLoading ? (
-						<Group justify="center" py="xl">
-							<Loader size="sm" />
-						</Group>
-					) : isError ? (
-						<Text c="red" size="sm" ta="center" py="xl">
-							{getApiErrorMessage(error)}
-						</Text>
-					) : (
-						<Stack gap="lg">
-							{/* Folders */}
-							{folders.length > 0 && (
-								<Stack gap="sm">
-									<Text fw={600}>Folders ({folders.length})</Text>
-									<SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
-										{folders.map((folder) => (
-											<FolderCard
-												key={folder.id}
-												folder={folder}
-												onOpen={() => setCurrentPath(folder.path)}
-												onRename={() => setRenameTarget(folder)}
-												onDelete={() => confirmDeleteFolder(folder)}
-											/>
-										))}
-									</SimpleGrid>
-								</Stack>
-							)}
-
-							{/* Files */}
-							{files.length === 0 ? (
-								<Stack align="center" gap="xs" py="xl">
-									<IconPhoto size={48} color="var(--mantine-color-gray-5)" />
-									<Text fw={500}>No files</Text>
-									<Text size="sm" c="dimmed">
-										Upload a file to get started.
-									</Text>
-								</Stack>
-							) : (
-								<Stack gap="sm">
-									<Text fw={600}>Files ({files.length})</Text>
-									<SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
-										{files.map((file) => (
-											<MediaCard
-												key={file.id}
-												file={file}
-												onOpenDetail={() => setDetailFileId(file.id)}
-												onCopyUrl={() => copyUrl(getMediaPreviewUrl(file))}
-												onDownload={() => downloadFile(file)}
-												onDelete={() => confirmDeleteFile(file.id, file.name)}
-											/>
-										))}
-									</SimpleGrid>
-								</Stack>
-							)}
+			{/* Konten */}
+			{isLoading ? (
+				<Group justify="center" py="xl">
+					<Loader size="sm" />
+				</Group>
+			) : isError ? (
+				<Text c="red" size="sm" ta="center" py="xl">
+					{getApiErrorMessage(error)}
+				</Text>
+			) : (
+				<Stack gap="lg">
+					{/* Folders */}
+					{folders.length > 0 && (
+						<Stack gap="sm">
+							<Text fw={600}>Folders ({folders.length})</Text>
+							<SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
+								{folders.map((folder) => (
+									<FolderCard
+										key={folder.id}
+										folder={folder}
+										onOpen={() => setCurrentPath(folder.path)}
+										onRename={() => setRenameTarget(folder)}
+										onDelete={() => confirmDeleteFolder(folder)}
+									/>
+								))}
+							</SimpleGrid>
 						</Stack>
 					)}
-				</Grid.Col>
-			</Grid>
+
+					{/* Files */}
+					{files.length === 0 ? (
+						<Stack align="center" gap="xs" py="xl">
+							<IconPhoto size={48} color="var(--mantine-color-gray-5)" />
+							<Text fw={500}>No files</Text>
+							<Text size="sm" c="dimmed">
+								Upload a file to get started.
+							</Text>
+						</Stack>
+					) : (
+						<Stack gap="sm">
+							<Text fw={600}>Files ({files.length})</Text>
+							<SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
+								{files.map((file) => (
+									<MediaCard
+										key={file.id}
+										file={file}
+										onOpenDetail={() => setDetailFileId(file.id)}
+										onCopyUrl={() => copyUrl(getMediaPreviewUrl(file))}
+										onDownload={() => downloadFile(file)}
+										onDelete={() => confirmDeleteFile(file.id, file.name)}
+									/>
+								))}
+							</SimpleGrid>
+						</Stack>
+					)}
+				</Stack>
+			)}
 
 			{/* Modals */}
 			<MediaDetailModal
 				file={detailFile}
 				folderPath={isSearching ? "—" : currentPath}
-				savingAltText={altTextMutation.isPending}
 				onClose={() => setDetailFileId(null)}
 				onSaveAltText={(id, altText) => altTextMutation.mutate({ id, altText })}
 				onCopyUrl={copyUrl}
