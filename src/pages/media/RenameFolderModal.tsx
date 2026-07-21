@@ -2,24 +2,23 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Group, Modal, Stack, TextInput } from "@mantine/core";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import type { MediaFolder } from "@/api/media";
 import { type NewFolderFormData, newFolderSchema } from "./newFolderSchema";
 
-interface NewFolderModalProps {
-	opened: boolean;
-	/** Path folder induk tempat folder baru dibuat, mis. "/produk". */
-	parentPath: string;
+interface RenameFolderModalProps {
+	/** Folder yang sedang di-rename; null = modal tertutup. */
+	folder: MediaFolder | null;
 	loading: boolean;
 	onClose: () => void;
-	onCreate: (name: string) => void;
+	onRename: (name: string) => void;
 }
 
-export function NewFolderModal({
-	opened,
-	parentPath,
+export function RenameFolderModal({
+	folder,
 	loading,
 	onClose,
-	onCreate,
-}: NewFolderModalProps) {
+	onRename,
+}: RenameFolderModalProps) {
 	const {
 		register,
 		handleSubmit,
@@ -30,20 +29,20 @@ export function NewFolderModal({
 		defaultValues: { name: "" },
 	});
 
-	// Reset input setiap kali modal dibuka.
+	// Isi ulang dgn nama folder yang dipilih setiap kali modal dibuka.
 	useEffect(() => {
-		if (opened) reset({ name: "" });
-	}, [opened, reset]);
+		if (folder) reset({ name: folder.name });
+	}, [folder, reset]);
 
 	const onSubmit = (data: NewFolderFormData) => {
-		onCreate(data.name);
+		onRename(data.name);
 	};
 
 	return (
 		<Modal
-			opened={opened}
+			opened={folder !== null}
 			onClose={onClose}
-			title="Create a new folder"
+			title="Rename folder"
 			centered
 		>
 			<form onSubmit={handleSubmit(onSubmit)}>
@@ -51,7 +50,6 @@ export function NewFolderModal({
 					<TextInput
 						label="Folder name"
 						placeholder="e.g. Sofa"
-						description={`Folder akan dibuat di "${parentPath}".`}
 						data-autofocus
 						{...register("name")}
 						error={errors.name?.message}
@@ -62,7 +60,7 @@ export function NewFolderModal({
 							Cancel
 						</Button>
 						<Button type="submit" loading={loading}>
-							Create folder
+							Save
 						</Button>
 					</Group>
 				</Stack>

@@ -4,34 +4,49 @@ import {
 	Container,
 	Grid,
 	Group,
+	Loader,
 	Select,
 	SimpleGrid,
 	Stack,
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { useDebouncedValue } from "@mantine/hooks";
+import { modals } from "@mantine/modals";
 import {
 	IconFolderPlus,
 	IconPhoto,
 	IconSearch,
 	IconUpload,
 } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
-import { PageHeader } from "@/components/PageHeader";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+import { getApiErrorMessage } from "@/api/client";
 import {
-	dummyMediaCategories,
-	dummyMediaFiles,
-	dummyMediaFolders,
+	browseMedia,
+	createFolder,
+	deleteFolder,
+	deleteMediaFile,
+	getMediaDownloadUrl,
+	getMediaPreviewUrl,
 	type MediaFile,
-} from "@/data/dummy";
+	type MediaFolder,
+	type MediaSortField,
+	patchMediaFile,
+	updateFolder,
+	uploadDirect,
+} from "@/api/media";
+import { notify } from "@/components/notify";
+import { PageHeader } from "@/components/PageHeader";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { CategoryPanel } from "./CategoryPanel";
 import type { FileTypeFilter } from "./FileTypePanel";
 import { FileTypePanel } from "./FileTypePanel";
 import { FolderCard } from "./FolderCard";
+import { MediaBreadcrumb } from "./MediaBreadcrumb";
 import { MediaCard } from "./MediaCard";
 import { MediaDetailModal } from "./MediaDetailModal";
 import { NewFolderModal } from "./NewFolderModal";
+import { RenameFolderModal } from "./RenameFolderModal";
 
 const SORT_OPTIONS = [
 	{ value: "newest", label: "Newest" },
@@ -39,162 +54,240 @@ const SORT_OPTIONS = [
 	{ value: "name-az", label: "Name A–Z" },
 ];
 
+/** Jeda sebelum ketikan di kolom search dikirim ke server. */
+const SEARCH_DEBOUNCE_MS = 400;
+
+/**
+ * Batas ukuran per file untuk POST /media/upload-direct.
+ * TODO(konfirmasi): angka ini dari keterangan PM, belum tertulis di
+ * contract.md — minta backend mendokumentasikannya beserta error code-nya.
+ */
+const MAX_DIRECT_UPLOAD_BYTES = 120 * 1024 * 1024;
+
+/** Opsi sort di UI tidak sama dgn kolom sort API — petakan dulu. */
+function mapSortToApi(sortBy: string): MediaSortField {
+	return sortBy === "name-az" ? "name" : "createdAt";
+}
+
+function mapOrderToApi(sortBy: string): "asc" | "desc" {
+	return sortBy === "oldest" || sortBy === "name-az" ? "asc" : "desc";
+}
+
+/** "/produk/sofa" -> "/produk"; "/produk" -> "/". */
+function parentPathOf(path: string) {
+	const segments = path.split("/").filter(Boolean);
+	segments.pop();
+	return `/${segments.join("/")}`;
+}
+
 export function MediaLibrary() {
 	usePageTitle("Media Library");
+	const queryClient = useQueryClient();
 
-	const categories = dummyMediaCategories;
+	const [currentPath, setCurrentPath] = useState("/");
 
-	const [files, setFiles] = useState<MediaFile[]>(dummyMediaFiles);
-	const [folders, setFolders] = useState(dummyMediaFolders);
-
+	// `search` = nilai input (langsung, biar ketikan responsif),
+	// `debouncedSearch` = yang dikirim ke server.
 	const [search, setSearch] = useState("");
-	const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
-	const [openFolderId, setOpenFolderId] = useState<number | null>(null);
+	const [debouncedSearch] = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
 	const [fileTypeFilter, setFileTypeFilter] = useState<FileTypeFilter>("all");
 	const [sortBy, setSortBy] = useState<string>("newest");
 
-	const [detailFile, setDetailFile] = useState<MediaFile | null>(null);
+	const [detailFileId, setDetailFileId] = useState<string | null>(null);
 	const [newFolderOpened, setNewFolderOpened] = useState(false);
+	const [renameTarget, setRenameTarget] = useState<MediaFolder | null>(null);
 
-	const openFolder = folders.find((f) => f.id === openFolderId) ?? null;
+	const uploadInputRef = useRef<HTMLInputElement>(null);
 
-	// Kategori target untuk pembuatan folder baru.
-	const targetCategoryId =
-		openFolder?.categoryId ?? activeCategoryId ?? categories[0].id;
-	const targetCategoryName =
-		categories.find((c) => c.id === targetCategoryId)?.name ?? "";
+	const { data, isLoading, isError, error } = useQuery({
+		queryKey: [
+			"media",
+			currentPath,
+			{ search: debouncedSearch, fileTypeFilter, sortBy },
+		],
+		queryFn: () =>
+			browseMedia(currentPath, {
+				search: debouncedSearch || undefined,
+				type: fileTypeFilter === "all" ? undefined : fileTypeFilter,
+				sort: mapSortToApi(sortBy),
+				order: mapOrderToApi(sortBy),
+			}),
+		placeholderData: (prev) => prev,
+	});
 
-	// Jumlah file per kategori (untuk panel CATEGORIES).
-	const countByCategory = useMemo(() => {
-		const map: Record<number, number> = {};
-		for (const file of files) {
-			map[file.categoryId] = (map[file.categoryId] ?? 0) + 1;
-		}
-		return map;
-	}, [files]);
+	// TODO(konfirmasi): belum jelas apakah GET /media sudah memfilter status
+	// pending dari sisi backend. Kalau ternyata sudah, filter ini bisa dihapus.
+	const files = (data?.files ?? []).filter((f) => f.status === "ready");
 
-	// Folder yang tampil di kolom kanan (hanya saat di akar kategori).
-	const visibleFolders = useMemo(() => {
-		if (openFolderId !== null) return [];
-		return folders.filter(
-			(f) => activeCategoryId === null || f.categoryId === activeCategoryId,
-		);
-	}, [folders, openFolderId, activeCategoryId]);
+	// Search berlaku di SEMUA folder (contract.md bagian 7), jadi daftar folder
+	// milik path aktif tidak relevan lagi saat sedang mencari.
+	const isSearching = debouncedSearch.trim().length > 0;
+	const folders = isSearching ? [] : (data?.folders ?? []);
 
-	// Derivasi file yang ditampilkan.
-	const filteredFiles = useMemo(() => {
-		let result = [...files];
+	// Modal detail dibaca ulang dari hasil query supaya ikut ter-update setelah
+	// PATCH dan otomatis tertutup kalau file-nya terhapus.
+	const detailFile = files.find((f) => f.id === detailFileId) ?? null;
 
-		if (activeCategoryId !== null) {
-			result = result.filter((f) => f.categoryId === activeCategoryId);
-		}
+	const invalidateMedia = () =>
+		queryClient.invalidateQueries({ queryKey: ["media"] });
 
-		// Akar kategori → hanya file tanpa folder; selain itu → file folder aktif.
-		result = result.filter((f) =>
-			openFolderId === null ? f.folderId === null : f.folderId === openFolderId,
-		);
+	// ----- Mutations -----
 
-		if (fileTypeFilter !== "all") {
-			result = result.filter((f) => f.type === fileTypeFilter);
-		}
+	const createFolderMutation = useMutation({
+		mutationFn: (folderName: string) =>
+			createFolder({ path: currentPath, folderName }),
+		onSuccess: () => {
+			notify.success("Folder dibuat");
+			setNewFolderOpened(false);
+			invalidateMedia();
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
 
-		if (search.trim()) {
-			const q = search.trim().toLowerCase();
-			result = result.filter((f) => f.name.toLowerCase().includes(q));
-		}
+	const renameFolderMutation = useMutation({
+		mutationFn: ({ folder, name }: { folder: MediaFolder; name: string }) =>
+			// `path` di endpoint ini = folder INDUK, bukan path folder itu sendiri.
+			updateFolder(folder.id, {
+				path: parentPathOf(folder.path),
+				folderName: name,
+			}),
+		onSuccess: () => {
+			notify.success("Folder di-rename");
+			setRenameTarget(null);
+			invalidateMedia();
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
 
-		switch (sortBy) {
-			case "newest":
-				result.sort(
-					(a, b) =>
-						new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime(),
-				);
-				break;
-			case "oldest":
-				result.sort(
-					(a, b) =>
-						new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime(),
-				);
-				break;
-			case "name-az":
-				result.sort((a, b) => a.name.localeCompare(b.name));
-				break;
-		}
+	const deleteFolderMutation = useMutation({
+		mutationFn: (folder: MediaFolder) => deleteFolder(folder.id),
+		onSuccess: (_result, folder) => {
+			notify.success("Folder dihapus");
+			// Kalau yang terhapus adalah folder aktif (atau induknya), path sekarang
+			// sudah tidak ada — mundur ke induk folder tersebut.
+			if (
+				currentPath === folder.path ||
+				currentPath.startsWith(`${folder.path}/`)
+			) {
+				setCurrentPath(parentPathOf(folder.path));
+			}
+			invalidateMedia();
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
 
-		return result;
-	}, [files, activeCategoryId, openFolderId, fileTypeFilter, search, sortBy]);
+	const deleteFileMutation = useMutation({
+		mutationFn: (id: string) => deleteMediaFile(id),
+		onSuccess: (_result, id) => {
+			notify.success("File dihapus");
+			if (detailFileId === id) setDetailFileId(null);
+			invalidateMedia();
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
+
+	const altTextMutation = useMutation({
+		// `path` sengaja TIDAK dikirim — kalau ikut terkirim file akan berpindah
+		// folder. Field yang tidak dikirim tidak diubah server.
+		mutationFn: ({ id, altText }: { id: string; altText: string }) =>
+			patchMediaFile(id, { file: { altText } }),
+		onSuccess: () => {
+			notify.success("Alt text disimpan");
+			invalidateMedia();
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
+
+	const uploadMutation = useMutation({
+		mutationFn: (selected: File[]) => uploadDirect(currentPath, selected),
+		onSuccess: (result) => {
+			notify.success(`${result.length} file diunggah`);
+			invalidateMedia();
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
 
 	// ----- Handlers -----
 
-	const selectCategory = (id: number | null) => {
-		setActiveCategoryId(id);
-		setOpenFolderId(null);
+	const confirmDeleteFolder = (folder: MediaFolder) => {
+		modals.openConfirmModal({
+			title: "Delete folder",
+			children: (
+				<Text size="sm">
+					Hapus folder <strong>{folder.name}</strong>? Seluruh subfolder dan
+					file di dalamnya ikut terhapus. Tindakan ini tidak bisa dibatalkan.
+				</Text>
+			),
+			labels: { confirm: "Delete", cancel: "Cancel" },
+			confirmProps: { color: "red" },
+			onConfirm: () => deleteFolderMutation.mutate(folder),
+		});
 	};
 
-	const createFolder = (name: string) => {
-		const folder = { id: Date.now(), name, categoryId: targetCategoryId };
-		console.log("Create folder", folder);
-		setFolders((prev) => [...prev, folder]);
-	};
-
-	const deleteFolder = (id: number) => {
-		console.log("Delete folder", id);
-		setFolders((prev) => prev.filter((f) => f.id !== id));
-		setFiles((prev) => prev.filter((f) => f.folderId !== id));
-		setOpenFolderId(null);
-	};
-
-	const deleteFile = (id: number) => {
-		console.log("Delete file", id);
-		setFiles((prev) => prev.filter((f) => f.id !== id));
-	};
-
-	const updateAltText = (id: number, value: string) => {
-		console.log("Update altText", id, value);
-		setFiles((prev) =>
-			prev.map((f) => (f.id === id ? { ...f, altText: value } : f)),
-		);
-		setDetailFile((prev) =>
-			prev && prev.id === id ? { ...prev, altText: value } : prev,
-		);
+	const confirmDeleteFile = (id: string, name: string) => {
+		modals.openConfirmModal({
+			title: "Delete file",
+			children: (
+				<Text size="sm">
+					Hapus <strong>{name}</strong>? Tindakan ini tidak bisa dibatalkan.
+				</Text>
+			),
+			labels: { confirm: "Delete", cancel: "Cancel" },
+			confirmProps: { color: "red" },
+			onConfirm: () => deleteFileMutation.mutate(id),
+		});
 	};
 
 	const copyUrl = (url: string) => {
 		navigator.clipboard.writeText(url);
+		notify.success("URL disalin");
 	};
 
 	const downloadFile = (file: MediaFile) => {
-		console.log("Download file", file.id);
+		// Endpoint download mengirim `content-disposition: attachment`, jadi cukup
+		// diarahkan lewat anchor — tidak perlu mengambil blob sendiri.
+		const link = document.createElement("a");
+		link.href = getMediaDownloadUrl(file.id);
+		link.rel = "noopener";
+		document.body.appendChild(link);
+		link.click();
+		link.remove();
 	};
 
-	const uploadNew = () => {
-		console.log("Upload new");
+	const handleFilesSelected = (fileList: FileList | null) => {
+		const selected = Array.from(fileList ?? []);
+		// Reset value supaya file yang sama bisa dipilih lagi setelah ini.
+		if (uploadInputRef.current) uploadInputRef.current.value = "";
+		if (selected.length === 0) return;
+
+		// TODO(multipart): file > 120 MB harus lewat upload-multipart (Tahap 8).
+		const tooBig = selected.filter((f) => f.size > MAX_DIRECT_UPLOAD_BYTES);
+		const accepted = selected.filter((f) => f.size <= MAX_DIRECT_UPLOAD_BYTES);
+
+		if (tooBig.length > 0) {
+			notify.error(
+				`File terlalu besar, maksimal 120 MB: ${tooBig
+					.map((f) => f.name)
+					.join(", ")}`,
+			);
+		}
+		// Sebagian file kebesaran tidak membatalkan sisanya.
+		if (accepted.length > 0) uploadMutation.mutate(accepted);
 	};
 
 	// ----- Derived display -----
 
-	const title = openFolder
-		? openFolder.name
-		: activeCategoryId !== null
-			? (categories.find((c) => c.id === activeCategoryId)?.name ??
-				"Media Library")
-			: "Media Library";
+	const currentFolderName =
+		currentPath.split("/").filter(Boolean).pop() ?? "Media Library";
 
-	const subtitle = openFolder
-		? `${filteredFiles.length} files in this folder`
-		: `${filteredFiles.length} files · ${visibleFolders.length} folders`;
-
-	const detailCategoryName = detailFile
-		? (categories.find((c) => c.id === detailFile.categoryId)?.name ?? "—")
-		: "";
-	const detailFolderName = detailFile
-		? (folders.find((f) => f.id === detailFile.folderId)?.name ?? null)
-		: null;
+	const subtitle = isSearching
+		? `Hasil pencarian "${debouncedSearch}" di semua folder`
+		: `${files.length} files · ${folders.length} folders`;
 
 	return (
 		<Container size="xl">
 			<PageHeader
-				title={title}
+				title={currentFolderName}
 				subtitle={subtitle}
 				actions={
 					<Group gap="sm">
@@ -205,12 +298,26 @@ export function MediaLibrary() {
 						>
 							New folder
 						</Button>
-						<Button leftSection={<IconUpload size={16} />} onClick={uploadNew}>
+						<Button
+							leftSection={<IconUpload size={16} />}
+							loading={uploadMutation.isPending}
+							onClick={() => uploadInputRef.current?.click()}
+						>
 							Upload New
 						</Button>
 					</Group>
 				}
 			/>
+
+			<input
+				ref={uploadInputRef}
+				type="file"
+				multiple
+				hidden
+				onChange={(e) => handleFilesSelected(e.currentTarget.files)}
+			/>
+
+			<MediaBreadcrumb currentPath={currentPath} onNavigate={setCurrentPath} />
 
 			{/* Toolbar */}
 			<Card withBorder mb="md">
@@ -223,21 +330,12 @@ export function MediaLibrary() {
 						style={{ flex: 1, minWidth: 200 }}
 					/>
 					<Select
-						placeholder="All Categories"
-						data={categories.map((c) => ({
-							value: String(c.id),
-							label: c.name,
-						}))}
-						value={activeCategoryId !== null ? String(activeCategoryId) : null}
-						onChange={(val) => selectCategory(val ? Number(val) : null)}
-						clearable
-						w={180}
-					/>
-					<Select
 						data={[
 							{ value: "all", label: "All File Types" },
 							{ value: "image", label: "Image" },
 							{ value: "video", label: "Video" },
+							{ value: "audio", label: "Audio" },
+							{ value: "document", label: "Document" },
 						]}
 						value={fileTypeFilter}
 						onChange={(val) =>
@@ -265,24 +363,6 @@ export function MediaLibrary() {
 				<Grid.Col span={{ base: 12, md: 3 }}>
 					<Stack gap="md">
 						<Card withBorder>
-							<CategoryPanel
-								categories={categories}
-								countByCategory={countByCategory}
-								activeCategoryId={activeCategoryId}
-								onSelectCategory={selectCategory}
-								openFolderCategoryName={
-									openFolder
-										? (categories.find((c) => c.id === openFolder.categoryId)
-												?.name ?? null)
-										: null
-								}
-								onBack={() => setOpenFolderId(null)}
-								onDeleteFolder={() => {
-									if (openFolder) deleteFolder(openFolder.id);
-								}}
-							/>
-						</Card>
-						<Card withBorder>
 							<FileTypePanel
 								value={fileTypeFilter}
 								onChange={setFileTypeFilter}
@@ -293,77 +373,92 @@ export function MediaLibrary() {
 
 				{/* Kolom kanan: konten */}
 				<Grid.Col span={{ base: 12, md: 9 }}>
-					<Stack gap="lg">
-						{/* Folders */}
-						{visibleFolders.length > 0 && (
-							<Stack gap="sm">
-								<Text fw={600}>Folders ({visibleFolders.length})</Text>
-								<SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
-									{visibleFolders.map((folder) => (
-										<FolderCard
-											key={folder.id}
-											folder={folder}
-											fileCount={
-												files.filter((f) => f.folderId === folder.id).length
-											}
-											onOpen={() => {
-												setActiveCategoryId(folder.categoryId);
-												setOpenFolderId(folder.id);
-											}}
-											onRename={() => console.log("Rename folder", folder.id)}
-											onDelete={() => deleteFolder(folder.id)}
-										/>
-									))}
-								</SimpleGrid>
-							</Stack>
-						)}
+					{isLoading ? (
+						<Group justify="center" py="xl">
+							<Loader size="sm" />
+						</Group>
+					) : isError ? (
+						<Text c="red" size="sm" ta="center" py="xl">
+							{getApiErrorMessage(error)}
+						</Text>
+					) : (
+						<Stack gap="lg">
+							{/* Folders */}
+							{folders.length > 0 && (
+								<Stack gap="sm">
+									<Text fw={600}>Folders ({folders.length})</Text>
+									<SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
+										{folders.map((folder) => (
+											<FolderCard
+												key={folder.id}
+												folder={folder}
+												onOpen={() => setCurrentPath(folder.path)}
+												onRename={() => setRenameTarget(folder)}
+												onDelete={() => confirmDeleteFolder(folder)}
+											/>
+										))}
+									</SimpleGrid>
+								</Stack>
+							)}
 
-						{/* Files */}
-						{filteredFiles.length === 0 ? (
-							<Stack align="center" gap="xs" py="xl">
-								<IconPhoto size={48} color="var(--mantine-color-gray-5)" />
-								<Text fw={500}>No files</Text>
-								<Text size="sm" c="dimmed">
-									Upload a file to get started.
-								</Text>
-							</Stack>
-						) : (
-							<Stack gap="sm">
-								<Text fw={600}>Files ({filteredFiles.length})</Text>
-								<SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
-									{filteredFiles.map((file) => (
-										<MediaCard
-											key={file.id}
-											file={file}
-											onOpenDetail={() => setDetailFile(file)}
-											onCopyUrl={() => copyUrl(file.url)}
-											onDownload={() => downloadFile(file)}
-											onDelete={() => deleteFile(file.id)}
-										/>
-									))}
-								</SimpleGrid>
-							</Stack>
-						)}
-					</Stack>
+							{/* Files */}
+							{files.length === 0 ? (
+								<Stack align="center" gap="xs" py="xl">
+									<IconPhoto size={48} color="var(--mantine-color-gray-5)" />
+									<Text fw={500}>No files</Text>
+									<Text size="sm" c="dimmed">
+										Upload a file to get started.
+									</Text>
+								</Stack>
+							) : (
+								<Stack gap="sm">
+									<Text fw={600}>Files ({files.length})</Text>
+									<SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
+										{files.map((file) => (
+											<MediaCard
+												key={file.id}
+												file={file}
+												onOpenDetail={() => setDetailFileId(file.id)}
+												onCopyUrl={() => copyUrl(getMediaPreviewUrl(file))}
+												onDownload={() => downloadFile(file)}
+												onDelete={() => confirmDeleteFile(file.id, file.name)}
+											/>
+										))}
+									</SimpleGrid>
+								</Stack>
+							)}
+						</Stack>
+					)}
 				</Grid.Col>
 			</Grid>
 
 			{/* Modals */}
 			<MediaDetailModal
 				file={detailFile}
-				categoryName={detailCategoryName}
-				folderName={detailFolderName}
-				onClose={() => setDetailFile(null)}
-				onAltTextChange={updateAltText}
+				folderPath={isSearching ? "—" : currentPath}
+				savingAltText={altTextMutation.isPending}
+				onClose={() => setDetailFileId(null)}
+				onSaveAltText={(id, altText) => altTextMutation.mutate({ id, altText })}
 				onCopyUrl={copyUrl}
 				onDownload={downloadFile}
-				onDelete={deleteFile}
+				onDelete={(id) => confirmDeleteFile(id, detailFile?.name ?? "file ini")}
 			/>
 			<NewFolderModal
 				opened={newFolderOpened}
-				categoryName={targetCategoryName}
+				parentPath={currentPath}
+				loading={createFolderMutation.isPending}
 				onClose={() => setNewFolderOpened(false)}
-				onCreate={createFolder}
+				onCreate={(name) => createFolderMutation.mutate(name)}
+			/>
+			<RenameFolderModal
+				folder={renameTarget}
+				loading={renameFolderMutation.isPending}
+				onClose={() => setRenameTarget(null)}
+				onRename={(name) => {
+					if (renameTarget) {
+						renameFolderMutation.mutate({ folder: renameTarget, name });
+					}
+				}}
 			/>
 		</Container>
 	);
