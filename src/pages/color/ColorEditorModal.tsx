@@ -13,35 +13,49 @@ import {
 	TextInput,
 } from "@mantine/core";
 import { IconPhoto } from "@tabler/icons-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import type { Color } from "@/data/dummy";
+import { getApiErrorMessage } from "@/api/client";
+import {
+	type ColorInput as ColorInputBody,
+	createColor,
+	stripHash,
+	updateColor,
+	withHash,
+} from "@/api/colors";
+import type { FinishColor } from "@/api/finishes";
+import { getMediaPreviewUrl } from "@/api/media";
+import { notify } from "@/components/notify";
 import { type ColorFormData, colorSchema } from "./colorSchema";
 import { MediaPickerModal } from "./MediaPickerModal";
 
-interface Category {
-	id: number;
+interface FinishOption {
+	id: string;
 	name: string;
 }
 
 interface ColorEditorModalProps {
 	opened: boolean;
-	initial?: Color;
-	categories: Category[];
-	categoryId: number | null;
+	/** Bentuk ringkas dari GET /finishes — tanpa `finishesId`. */
+	initial?: FinishColor;
+	finishes: FinishOption[];
+	/** Finish tempat color ini berada (atau tujuan saat menambah color baru). */
+	finishId: string | null;
 	onClose: () => void;
-	onSave: (color: Color, categoryId: number) => void;
 }
 
 export function ColorEditorModal({
 	opened,
 	initial,
-	categories,
-	categoryId,
+	finishes,
+	finishId,
 	onClose,
-	onSave,
 }: ColorEditorModalProps) {
+	const queryClient = useQueryClient();
 	const [mediaOpened, setMediaOpened] = useState(false);
+	// Field form `photo` cuma menyimpan uuid; URL preview-nya disimpan terpisah.
+	const [photoPreview, setPhotoPreview] = useState<string | undefined>();
 
 	const {
 		control,
@@ -58,7 +72,7 @@ export function ColorEditorModal({
 			hex: "",
 			photo: undefined,
 			notes: "",
-			categoryId: "",
+			finishId: "",
 		},
 	});
 
@@ -69,39 +83,51 @@ export function ColorEditorModal({
 		if (!opened) return;
 		reset({
 			name: initial?.name ?? "",
-			hex: initial?.hex ?? "",
-			photo: initial?.photo,
+			hex: initial ? withHash(initial.hexCode) : "",
+			// AMBIL .id — swatchPhoto itu objek File, tapi form menyimpan uuid-nya
+			// saja karena itulah yang nanti dikirim sebagai `swatchImage`.
+			photo: initial?.swatchPhoto?.id ?? undefined,
 			notes: initial?.notes ?? "",
-			categoryId: categoryId != null ? String(categoryId) : "",
+			finishId: finishId ?? "",
 		});
-	}, [opened, initial, categoryId, reset]);
+		setPhotoPreview(
+			initial?.swatchPhoto ? getMediaPreviewUrl(initial.swatchPhoto) : undefined,
+		);
+	}, [opened, initial, finishId, reset]);
 
 	const name = watch("name");
 	const hex = watch("hex") ?? "";
 	const photo = watch("photo");
-	const selectedCategory = watch("categoryId");
+	const selectedFinish = watch("finishId");
 
-	const categoryName =
-		categories.find((c) => String(c.id) === selectedCategory)?.name ?? "";
+	const finishName = finishes.find((f) => f.id === selectedFinish)?.name ?? "";
 
-	const hasColour = Boolean(photo) || hex.trim().length > 0;
-
-	const statusLabel = hex.trim()
-		? hex
-		: photo
-			? "Photo swatch"
-			: "No colour set";
+	const mutation = useMutation({
+		mutationFn: (body: ColorInputBody) =>
+			initial ? updateColor(initial.id, body) : createColor(body),
+		onSuccess: () => {
+			notify.success(isEditing ? "Color diperbarui" : "Color dibuat");
+			// Daftar color di layar datang dari GET /finishes, bukan GET /colors.
+			queryClient.invalidateQueries({ queryKey: ["finishes"] });
+			onClose();
+		},
+		onError: (error) => notify.error(getApiErrorMessage(error)),
+	});
 
 	const onSubmit = (data: ColorFormData) => {
-		const color: Color = {
-			id: initial?.id ?? Date.now(),
-			name: data.name,
-			hex: data.hex?.trim() || undefined,
-			photo: data.photo,
+		mutation.mutate({
+			color: data.name, // name  → color
+			hex: stripHash(data.hex), // buang "#"
+			finishId: data.finishId,
+			// Kirim undefined (bukan ""), agar tidak tertolak validasi backend.
 			notes: data.notes?.trim() || undefined,
-		};
-		onSave(color, Number(data.categoryId));
-		onClose();
+			swatchImage: data.photo || undefined, // photo → swatchImage (uuid)
+		});
+	};
+
+	const clearPhoto = () => {
+		setValue("photo", undefined, { shouldValidate: true });
+		setPhotoPreview(undefined);
 	};
 
 	return (
@@ -109,7 +135,7 @@ export function ColorEditorModal({
 			<Modal
 				opened={opened}
 				onClose={onClose}
-				title={isEditing ? "Edit color" : `Add ${categoryName} color`}
+				title={isEditing ? "Edit color" : `Add ${finishName} color`}
 				centered
 			>
 				<form onSubmit={handleSubmit(onSubmit)}>
@@ -132,7 +158,9 @@ export function ColorEditorModal({
 									flexShrink: 0,
 									border: "1px solid var(--mantine-color-gray-3)",
 									backgroundColor: hex.trim() || "transparent",
-									backgroundImage: photo ? `url(${photo})` : undefined,
+									backgroundImage: photoPreview
+										? `url(${photoPreview})`
+										: undefined,
 									backgroundSize: "cover",
 									backgroundPosition: "center",
 								}}
@@ -142,8 +170,8 @@ export function ColorEditorModal({
 									{name.trim() || "Untitled color"}
 								</Text>
 								<Text size="xs" c="dimmed" truncate>
-									{statusLabel}
-									{categoryName ? ` · ${categoryName}` : ""}
+									{hex.trim() || "No colour set"}
+									{finishName ? ` · ${finishName}` : ""}
 								</Text>
 							</Stack>
 						</Group>
@@ -165,7 +193,7 @@ export function ColorEditorModal({
 							{photo ? (
 								<Group gap="sm" align="flex-start" wrap="nowrap">
 									<Image
-										src={photo}
+										src={photoPreview}
 										w={72}
 										h={72}
 										radius="md"
@@ -186,11 +214,7 @@ export function ColorEditorModal({
 											variant="subtle"
 											color="red"
 											size="xs"
-											onClick={() =>
-												setValue("photo", undefined, {
-													shouldValidate: true,
-												})
-											}
+											onClick={clearPhoto}
 										>
 											Remove
 										</Button>
@@ -221,46 +245,43 @@ export function ColorEditorModal({
 							)}
 						</Stack>
 
-						{/* Approximate colour + Category */}
+						{/* Colour + material type */}
 						<Group grow align="flex-start">
 							<Controller
 								name="hex"
 								control={control}
 								render={({ field }) => (
 									<ColorInput
-										label="Approximate colour (optional)"
+										label="Colour"
 										placeholder="#888888"
+										required
 										value={field.value ?? ""}
 										onChange={field.onChange}
 										withEyeDropper={false}
+										error={errors.hex?.message}
 									/>
 								)}
 							/>
 							<Controller
-								name="categoryId"
+								name="finishId"
 								control={control}
 								render={({ field }) => (
 									<Select
-										label="Category"
-										data={categories.map((c) => ({
-											value: String(c.id),
-											label: c.name,
+										// Sengaja "Material type", bukan "Category" — Categories
+										// adalah fitur lain yang berbeda.
+										label="Material type"
+										data={finishes.map((f) => ({
+											value: f.id,
+											label: f.name,
 										}))}
 										value={field.value}
 										onChange={field.onChange}
 										allowDeselect={false}
-										error={errors.categoryId?.message}
+										error={errors.finishId?.message}
 									/>
 								)}
 							/>
 						</Group>
-
-						{!hasColour && (
-							<Text size="xs" c="dimmed">
-								Add a photo, or pick an approximate colour — at least one is
-								needed.
-							</Text>
-						)}
 
 						{/* Notes */}
 						<Textarea
@@ -276,7 +297,11 @@ export function ColorEditorModal({
 							<Button type="button" variant="default" onClick={onClose}>
 								Cancel
 							</Button>
-							<Button type="submit">
+							<Button
+								type="submit"
+								loading={mutation.isPending}
+								disabled={mutation.isPending}
+							>
 								{isEditing ? "Save changes" : "Add color"}
 							</Button>
 						</Group>
@@ -287,7 +312,11 @@ export function ColorEditorModal({
 			<MediaPickerModal
 				opened={mediaOpened}
 				onClose={() => setMediaOpened(false)}
-				onSelect={(url) => setValue("photo", url, { shouldValidate: true })}
+				onSelect={(file) => {
+					// uuid ke form (itu yang dikirim), URL ke state preview.
+					setValue("photo", file.id, { shouldValidate: true });
+					setPhotoPreview(getMediaPreviewUrl(file));
+				}}
 			/>
 		</>
 	);

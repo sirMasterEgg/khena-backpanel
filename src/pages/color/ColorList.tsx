@@ -1,108 +1,125 @@
 import {
 	Button,
 	Card,
+	Center,
 	Container,
 	Group,
+	Loader,
 	Stack,
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import { IconPlus, IconX } from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { PageHeader } from "@/components/PageHeader";
+import { getApiErrorMessage } from "@/api/client";
+import { deleteColor } from "@/api/colors";
 import {
-	type Color,
-	dummyMaterialTypes,
-	type MaterialType,
-} from "@/data/dummy";
+	createFinish,
+	deleteFinish,
+	type FinishColor,
+	type FinishWithColors,
+	listFinishes,
+} from "@/api/finishes";
+import { notify } from "@/components/notify";
+import { PageHeader } from "@/components/PageHeader";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { ColorEditorModal } from "./ColorEditorModal";
 import { MaterialTypeCard } from "./MaterialTypeCard";
 
 export function ColorList() {
 	usePageTitle("Color");
-	const [materials, setMaterials] =
-		useState<MaterialType[]>(dummyMaterialTypes);
+	const queryClient = useQueryClient();
+
 	const [isAdding, setIsAdding] = useState(false);
 	const [newName, setNewName] = useState("");
 	const [modalOpened, setModalOpened] = useState(false);
-	const [editingColor, setEditingColor] = useState<Color | undefined>();
-	const [editingMaterialId, setEditingMaterialId] = useState<number | null>(
-		null,
-	);
+	const [editingColor, setEditingColor] = useState<FinishColor | undefined>();
+	const [editingFinishId, setEditingFinishId] = useState<string | null>(null);
 
-	const deleteColor = (materialId: number, colorId: number) => {
-		console.log(`Delete color ${colorId} from material ${materialId}`);
-		setMaterials((prev) =>
-			prev.map((m) =>
-				m.id === materialId
-					? { ...m, colors: m.colors.filter((c) => c.id !== colorId) }
-					: m,
+	const { data, isLoading, isError, error } = useQuery({
+		queryKey: ["finishes"],
+		// GET /finishes default limit-nya 10, sementara halaman ini menampilkan
+		// semua kartu sekaligus tanpa pagination.
+		// TODO(konfirmasi): `limit: 100` mengasumsikan jumlah finish sedikit. Kalau
+		// nanti lebih dari itu, halaman ini perlu pagination / infinite scroll.
+		queryFn: () => listFinishes({ limit: 100 }),
+	});
+
+	const finishes = data?.data ?? [];
+
+	const invalidateFinishes = () =>
+		queryClient.invalidateQueries({ queryKey: ["finishes"] });
+
+	const createFinishMutation = useMutation({
+		mutationFn: (name: string) => createFinish({ finish: name }),
+		onSuccess: () => {
+			notify.success("Material type dibuat");
+			setNewName("");
+			setIsAdding(false);
+			invalidateFinishes();
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
+
+	const deleteFinishMutation = useMutation({
+		mutationFn: (id: string) => deleteFinish(id),
+		onSuccess: () => {
+			notify.success("Material type dihapus");
+			invalidateFinishes();
+		},
+		// Menampilkan apa adanya pesan backend, mis. "finish is still used by
+		// N color(s)", supaya user paham kenapa gagal.
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
+
+	const deleteColorMutation = useMutation({
+		mutationFn: (id: string) => deleteColor(id),
+		onSuccess: () => {
+			notify.success("Color dihapus");
+			// Yang di-invalidate ["finishes"], BUKAN ["colors"] — daftar color yang
+			// tampil di layar datang dari response GET /finishes.
+			invalidateFinishes();
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
+
+	const confirmDeleteFinish = (finish: FinishWithColors) => {
+		modals.openConfirmModal({
+			title: "Delete material type",
+			children: (
+				<Text size="sm">
+					Delete <strong>{finish.name}</strong>? This action cannot be undone.
+				</Text>
 			),
-		);
+			labels: { confirm: "Delete", cancel: "Cancel" },
+			confirmProps: { color: "red" },
+			onConfirm: () => deleteFinishMutation.mutate(finish.id),
+		});
 	};
 
-	const deleteMaterial = (materialId: number) => {
-		const material = materials.find((m) => m.id === materialId);
-		if (material?.locked) {
-			console.log("Cannot delete locked material");
-			return;
-		}
-		console.log(`Delete material ${materialId}`);
-		setMaterials((prev) => prev.filter((m) => m.id !== materialId));
+	const confirmDeleteColor = (color: FinishColor) => {
+		modals.openConfirmModal({
+			title: "Delete color",
+			children: (
+				<Text size="sm">
+					Delete <strong>{color.name}</strong>? This action cannot be undone.
+				</Text>
+			),
+			labels: { confirm: "Delete", cancel: "Cancel" },
+			confirmProps: { color: "red" },
+			onConfirm: () => deleteColorMutation.mutate(color.id),
+		});
 	};
 
-	const addMaterial = (name: string) => {
-		if (!name.trim()) return;
-		const newMaterial: MaterialType = {
-			id: Date.now(),
-			name,
-			colors: [],
-		};
-		console.log("Add material:", newMaterial);
-		// Newest non-locked material always on top.
-		setMaterials((prev) => [...prev, newMaterial]);
-		setNewName("");
-		setIsAdding(false);
+	const openColorModal = (finishId: string, color?: FinishColor) => {
+		setEditingFinishId(finishId);
+		setEditingColor(color);
+		setModalOpened(true);
 	};
 
-	const saveColor = (
-		targetMaterialId: number,
-		color: Color,
-		sourceMaterialId: number | null,
-	) => {
-		console.log(`Save color to material ${targetMaterialId}:`, color);
-		setMaterials((prev) =>
-			prev.map((m) => {
-				// Moving to a different category: drop it from the source card.
-				if (
-					m.id === sourceMaterialId &&
-					sourceMaterialId !== targetMaterialId
-				) {
-					return { ...m, colors: m.colors.filter((c) => c.id !== color.id) };
-				}
-				if (m.id === targetMaterialId) {
-					const existing = m.colors.some((c) => c.id === color.id);
-					return existing
-						? {
-								...m,
-								colors: m.colors.map((c) => (c.id === color.id ? color : c)),
-							}
-						: { ...m, colors: [...m.colors, color] };
-				}
-				return m;
-			}),
-		);
-	};
-
-	const lockedMaterials = materials.filter((m) => m.locked);
-	const editableMaterials = materials
-		.filter((m) => !m.locked)
-		.slice()
-		.reverse();
-	const categoryOptions = materials
-		.filter((m) => !m.locked)
-		.map((m) => ({ id: m.id, name: m.name }));
+	const finishOptions = finishes.map((f) => ({ id: f.id, name: f.name }));
 
 	return (
 		<Container size="xl">
@@ -119,25 +136,6 @@ export function ColorList() {
 				}
 			/>
 
-			{lockedMaterials.map((material) => (
-				<MaterialTypeCard
-					key={material.id}
-					material={material}
-					onAddColor={() => {
-						setEditingMaterialId(material.id);
-						setEditingColor(undefined);
-						setModalOpened(true);
-					}}
-					onEditColor={(color) => {
-						setEditingMaterialId(material.id);
-						setEditingColor(color);
-						setModalOpened(true);
-					}}
-					onDeleteColor={(colorId) => deleteColor(material.id, colorId)}
-					onDeleteMaterial={() => deleteMaterial(material.id)}
-				/>
-			))}
-
 			{isAdding && (
 				<Card withBorder mb="md">
 					<Stack gap="md">
@@ -151,7 +149,12 @@ export function ColorList() {
 								onChange={(e) => setNewName(e.currentTarget.value)}
 								style={{ flex: 1 }}
 							/>
-							<Button onClick={() => addMaterial(newName)} size="sm">
+							<Button
+								size="sm"
+								loading={createFinishMutation.isPending}
+								disabled={!newName.trim() || createFinishMutation.isPending}
+								onClick={() => createFinishMutation.mutate(newName.trim())}
+							>
 								Add
 							</Button>
 							<Button
@@ -170,37 +173,43 @@ export function ColorList() {
 				</Card>
 			)}
 
-			{editableMaterials.map((material) => (
-				<MaterialTypeCard
-					key={material.id}
-					material={material}
-					onAddColor={() => {
-						setEditingMaterialId(material.id);
-						setEditingColor(undefined);
-						setModalOpened(true);
-					}}
-					onEditColor={(color) => {
-						setEditingMaterialId(material.id);
-						setEditingColor(color);
-						setModalOpened(true);
-					}}
-					onDeleteColor={(colorId) => deleteColor(material.id, colorId)}
-					onDeleteMaterial={() => deleteMaterial(material.id)}
-				/>
-			))}
+			{isLoading ? (
+				<Center py="xl">
+					<Loader />
+				</Center>
+			) : isError ? (
+				<Text c="red" ta="center" py="xl">
+					{getApiErrorMessage(error)}
+				</Text>
+			) : finishes.length === 0 ? (
+				<Card withBorder>
+					<Text c="dimmed" ta="center" py="xl">
+						Belum ada material type. Klik "Add material type" untuk memulai.
+					</Text>
+				</Card>
+			) : (
+				// Urutan mengikuti server apa adanya, supaya konsisten setelah refresh.
+				finishes.map((finish) => (
+					<MaterialTypeCard
+						key={finish.id}
+						finish={finish}
+						onAddColor={() => openColorModal(finish.id)}
+						onEditColor={(color) => openColorModal(finish.id, color)}
+						onDeleteColor={confirmDeleteColor}
+						onDeleteFinish={() => confirmDeleteFinish(finish)}
+					/>
+				))
+			)}
 
 			<ColorEditorModal
 				opened={modalOpened}
 				initial={editingColor}
-				categories={categoryOptions}
-				categoryId={editingMaterialId}
+				finishes={finishOptions}
+				finishId={editingFinishId}
 				onClose={() => {
 					setModalOpened(false);
 					setEditingColor(undefined);
-					setEditingMaterialId(null);
-				}}
-				onSave={(color, targetCategoryId) => {
-					saveColor(targetCategoryId, color, editingMaterialId);
+					setEditingFinishId(null);
 				}}
 			/>
 		</Container>

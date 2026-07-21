@@ -1,20 +1,22 @@
 import { ActionIcon, Box, Group, Menu, Stack, Text } from "@mantine/core";
 import { IconDots, IconPencil, IconTrash } from "@tabler/icons-react";
-import type { Color } from "@/data/dummy";
+import { withHash } from "@/api/colors";
+import type { FinishColor } from "@/api/finishes";
+import { getMediaPreviewUrl } from "@/api/media";
 
 interface ColorTileProps {
-	color: Color;
-	variant: "brand" | "category";
+	color: FinishColor;
 	onEdit?: () => void;
 	onDelete?: () => void;
 }
 
-export function ColorTile({
-	color,
-	variant,
-	onEdit,
-	onDelete,
-}: ColorTileProps) {
+export function ColorTile({ color, onEdit, onDelete }: ColorTileProps) {
+	// `swatchPhoto` null = media-nya sudah di-soft-delete. Kondisi normal, bukan
+	// error — color tetap tampil, cukup jatuh ke warna hexCode-nya.
+	const swatchUrl = color.swatchPhoto
+		? getMediaPreviewUrl(color.swatchPhoto)
+		: undefined;
+
 	return (
 		<Box
 			p="md"
@@ -30,8 +32,8 @@ export function ColorTile({
 							width: 28,
 							height: 28,
 							borderRadius: "50%",
-							backgroundColor: color.hex ?? "transparent",
-							backgroundImage: color.photo ? `url(${color.photo})` : undefined,
+							backgroundColor: withHash(color.hexCode),
+							backgroundImage: swatchUrl ? `url(${swatchUrl})` : undefined,
 							backgroundSize: "cover",
 							backgroundPosition: "center",
 							border: "1px solid #ddd",
@@ -43,35 +45,30 @@ export function ColorTile({
 							{color.name}
 						</Text>
 						<Text size="xs" c="dimmed">
-							{color.hex ?? (color.photo ? "Photo swatch" : "No colour set")}
+							{withHash(color.hexCode)}
 						</Text>
 					</Stack>
 				</Group>
 
-				{variant === "category" && (
-					<Menu>
-						<Menu.Target>
-							<ActionIcon size="sm" variant="subtle">
-								<IconDots size={14} />
-							</ActionIcon>
-						</Menu.Target>
-						<Menu.Dropdown>
-							<Menu.Item
-								leftSection={<IconPencil size={14} />}
-								onClick={onEdit}
-							>
-								Edit color
-							</Menu.Item>
-							<Menu.Item
-								leftSection={<IconTrash size={14} />}
-								color="red"
-								onClick={onDelete}
-							>
-								Delete color
-							</Menu.Item>
-						</Menu.Dropdown>
-					</Menu>
-				)}
+				<Menu>
+					<Menu.Target>
+						<ActionIcon size="sm" variant="subtle">
+							<IconDots size={14} />
+						</ActionIcon>
+					</Menu.Target>
+					<Menu.Dropdown>
+						<Menu.Item leftSection={<IconPencil size={14} />} onClick={onEdit}>
+							Edit color
+						</Menu.Item>
+						<Menu.Item
+							leftSection={<IconTrash size={14} />}
+							color="red"
+							onClick={onDelete}
+						>
+							Delete color
+						</Menu.Item>
+					</Menu.Dropdown>
+				</Menu>
 			</Group>
 		</Box>
 	);
