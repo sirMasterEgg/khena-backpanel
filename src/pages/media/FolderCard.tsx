@@ -1,10 +1,9 @@
 import { ActionIcon, Card, Group, Menu, Stack, Text } from "@mantine/core";
 import { IconBookmark, IconDots } from "@tabler/icons-react";
-import type { MediaFolder } from "@/data/dummy";
+import type { MediaFolder } from "@/api/media";
 
 interface FolderCardProps {
 	folder: MediaFolder;
-	fileCount: number;
 	onOpen: () => void;
 	onRename: () => void;
 	onDelete: () => void;
@@ -12,7 +11,6 @@ interface FolderCardProps {
 
 export function FolderCard({
 	folder,
-	fileCount,
 	onOpen,
 	onRename,
 	onDelete,
@@ -31,8 +29,10 @@ export function FolderCard({
 						<Text size="sm" fw={500} truncate>
 							{folder.name}
 						</Text>
+						{/* API tidak mengirim jumlah file per folder — menghitungnya butuh
+						    1 request per folder (N+1), jadi tidak ditampilkan. */}
 						<Text size="xs" c="dimmed">
-							{fileCount} files
+							Folder
 						</Text>
 					</Stack>
 				</Group>

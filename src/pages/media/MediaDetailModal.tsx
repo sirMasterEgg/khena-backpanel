@@ -9,18 +9,22 @@ import {
 	TextInput,
 } from "@mantine/core";
 import { IconCopy, IconDownload, IconTrash } from "@tabler/icons-react";
-import type { MediaFile } from "@/data/dummy";
+import dayjs from "dayjs";
+import { useState } from "react";
+import { getMediaPreviewUrl, type MediaFile } from "@/api/media";
 import { formatSize } from "./format";
+
+/** Batas alt text di API (contract.md bagian 7) — dijaga juga di input. */
+const ALT_TEXT_MAX_LENGTH = 1000;
 
 interface MediaDetailModalProps {
 	file: MediaFile | null;
-	categoryName: string;
-	folderName: string | null;
+	folderPath: string;
 	onClose: () => void;
-	onAltTextChange: (id: number, value: string) => void;
+	onSaveAltText: (id: string, value: string) => void;
 	onCopyUrl: (url: string) => void;
 	onDownload: (file: MediaFile) => void;
-	onDelete: (id: number) => void;
+	onDelete: (id: string) => void;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -38,18 +42,43 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 export function MediaDetailModal({
 	file,
-	categoryName,
-	folderName,
+	folderPath,
 	onClose,
-	onAltTextChange,
+	onSaveAltText,
 	onCopyUrl,
 	onDownload,
 	onDelete,
 }: MediaDetailModalProps) {
+	// Alt text ditahan di state lokal supaya tidak ada request per ketikan;
+	// pengirimannya sekali saja saat modal ditutup.
+	const [altText, setAltText] = useState("");
+
+	// Identitas nilai yang sedang ditampilkan: ikut berubah saat pindah file
+	// maupun saat server mengembalikan alt text baru.
+	const savedAltText = file?.altText ?? "";
+	const fileKey = file ? `${file.id}:${savedAltText}` : null;
+	const [syncedKey, setSyncedKey] = useState<string | null>(null);
+
+	// Reset state saat props berubah — pola "adjusting state during render",
+	// lebih tepat daripada useEffect karena tidak menyebabkan render kedua.
+	if (fileKey !== syncedKey) {
+		setSyncedKey(fileKey);
+		setAltText(savedAltText);
+	}
+
+	const handleClose = () => {
+		// Simpan hanya kalau memang berubah, supaya menutup modal tanpa mengedit
+		// tidak menembakkan PATCH sama sekali.
+		if (file && altText !== savedAltText) {
+			onSaveAltText(file.id, altText);
+		}
+		onClose();
+	};
+
 	return (
 		<Modal
 			opened={file !== null}
-			onClose={onClose}
+			onClose={handleClose}
 			title={file?.name ?? "File details"}
 			size="lg"
 			centered
@@ -60,7 +89,7 @@ export function MediaDetailModal({
 						{/* Pratinjau besar */}
 						<Grid.Col span={{ base: 12, sm: 6 }}>
 							<Image
-								src={file.url}
+								src={getMediaPreviewUrl(file)}
 								radius="md"
 								fit="contain"
 								alt={file.altText ?? file.name}
@@ -72,7 +101,8 @@ export function MediaDetailModal({
 							<Stack gap="xs">
 								<DetailRow label="File name" value={file.name} />
 								<DetailRow label="Type" value={file.type} />
-								<DetailRow label="Size" value={formatSize(file.size)} />
+								<DetailRow label="Mime type" value={file.mimeType} />
+								<DetailRow label="Size" value={formatSize(file.sizeBytes)} />
 								<DetailRow
 									label="Dimensions"
 									value={
@@ -81,17 +111,19 @@ export function MediaDetailModal({
 											: "—"
 									}
 								/>
-								<DetailRow label="Category" value={categoryName} />
-								<DetailRow label="Folder" value={folderName ?? "—"} />
-								<DetailRow label="Uploaded" value={file.uploadedAt} />
-								<DetailRow label="ID" value={String(file.id)} />
+								<DetailRow label="Folder" value={folderPath} />
+								<DetailRow
+									label="Uploaded"
+									value={dayjs(file.createdAt).format("DD MMM YYYY HH:mm")}
+								/>
+								<DetailRow label="ID" value={file.id} />
 								<TextInput
 									label="Alt text"
 									placeholder="Describe this file"
-									value={file.altText ?? ""}
-									onChange={(e) =>
-										onAltTextChange(file.id, e.currentTarget.value)
-									}
+									description="Perubahan disimpan saat modal ditutup."
+									maxLength={ALT_TEXT_MAX_LENGTH}
+									value={altText}
+									onChange={(e) => setAltText(e.currentTarget.value)}
 								/>
 							</Stack>
 						</Grid.Col>
@@ -102,7 +134,7 @@ export function MediaDetailModal({
 						<Button
 							variant="default"
 							leftSection={<IconCopy size={16} />}
-							onClick={() => onCopyUrl(file.url)}
+							onClick={() => onCopyUrl(getMediaPreviewUrl(file))}
 						>
 							Copy URL
 						</Button>
@@ -116,10 +148,7 @@ export function MediaDetailModal({
 						<Button
 							color="red"
 							leftSection={<IconTrash size={16} />}
-							onClick={() => {
-								onDelete(file.id);
-								onClose();
-							}}
+							onClick={() => onDelete(file.id)}
 						>
 							Delete
 						</Button>

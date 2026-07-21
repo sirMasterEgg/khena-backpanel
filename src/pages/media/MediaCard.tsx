@@ -9,7 +9,8 @@ import {
 	Text,
 } from "@mantine/core";
 import { IconDots, IconPlayerPlayFilled } from "@tabler/icons-react";
-import type { MediaFile } from "@/data/dummy";
+import dayjs from "dayjs";
+import { getMediaPreviewUrl, type MediaFile } from "@/api/media";
 import { formatSize } from "./format";
 
 interface MediaCardProps {
@@ -37,7 +38,7 @@ export function MediaCard({
 			{/* Pratinjau */}
 			<Box style={{ position: "relative" }}>
 				<Image
-					src={file.url}
+					src={getMediaPreviewUrl(file)}
 					h={140}
 					fit="cover"
 					alt={file.altText ?? file.name}
@@ -66,7 +67,8 @@ export function MediaCard({
 						{file.name}
 					</Text>
 					<Text size="xs" c="dimmed" truncate>
-						{file.type} · {formatSize(file.size)} · {file.uploadedAt}
+						{file.type} · {formatSize(file.sizeBytes)} ·{" "}
+						{dayjs(file.createdAt).format("DD MMM YYYY")}
 					</Text>
 				</Stack>
 				<Menu position="bottom-end">
