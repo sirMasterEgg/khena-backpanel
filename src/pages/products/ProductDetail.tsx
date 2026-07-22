@@ -21,6 +21,7 @@ import { getProduct } from "@/api/products";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { formatCurrency } from "./format";
 
 export function ProductDetail() {
 	const navigate = useNavigate();
@@ -255,7 +256,7 @@ export function ProductDetail() {
 														{colorNameById.get(variant.colorId) ?? "—"}
 													</Table.Td>
 													<Table.Td>{variant.detailProductSku}</Table.Td>
-													<Table.Td>${variant.price}</Table.Td>
+													<Table.Td>{formatCurrency(variant.price)}</Table.Td>
 													<Table.Td>
 														{/* Stok varian tidak ada di response detail. */}
 														<Badge color="gray" variant="light">

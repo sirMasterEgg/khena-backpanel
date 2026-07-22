@@ -688,8 +688,10 @@ export function ProductEditor() {
 																	render={({ field: { onChange, value } }) => (
 																		<NumberInput
 																			label="Price"
-																			placeholder="0.00"
-																			prefix="$"
+																			placeholder="0"
+																			prefix="Rp "
+																			thousandSeparator="."
+																			decimalSeparator=","
 																			hideControls
 																			value={value || ""}
 																			onChange={onChange}
@@ -707,8 +709,10 @@ export function ProductEditor() {
 																	render={({ field: { onChange, value } }) => (
 																		<NumberInput
 																			label="Cost"
-																			placeholder="0.00"
-																			prefix="$"
+																			placeholder="0"
+																			prefix="Rp "
+																			thousandSeparator="."
+																			decimalSeparator=","
 																			hideControls
 																			value={value || ""}
 																			onChange={onChange}
@@ -753,8 +757,10 @@ export function ProductEditor() {
 																	render={({ field: { value } }) => (
 																		<NumberInput
 																			label="Compare Price"
-																			placeholder="0.00"
-																			prefix="$"
+																			placeholder="0"
+																			prefix="Rp "
+																			thousandSeparator="."
+																			decimalSeparator=","
 																			hideControls
 																			value={value || ""}
 																			disabled
@@ -769,8 +775,10 @@ export function ProductEditor() {
 																	render={({ field: { onChange, value } }) => (
 																		<NumberInput
 																			label="Marketplace"
-																			placeholder="0.00"
-																			prefix="$"
+																			placeholder="0"
+																			prefix="Rp "
+																			thousandSeparator="."
+																			decimalSeparator=","
 																			hideControls
 																			value={value || ""}
 																			onChange={(val) =>
