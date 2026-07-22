@@ -850,8 +850,8 @@ export function ProductEditor() {
 																			"2px dashed var(--mantine-color-gray-3)",
 																		textAlign: "center",
 																		cursor: "pointer",
-																		width: 220,
-																		height: 220,
+																		width: 165,
+																		height: 165,
 																		display: "flex",
 																		alignItems: "center",
 																		justifyContent: "center",
@@ -871,8 +871,8 @@ export function ProductEditor() {
 																	>
 																		<Image
 																			src={previewUrl(mediaId)}
-																			w={220}
-																			h={220}
+																			w={165}
+																			h={165}
 																			radius="md"
 																			fit="cover"
 																			alt="Variant image"
