@@ -115,18 +115,75 @@ apiClient.interceptors.response.use(
 );
 
 // 3e. Helper ekstrak pesan/kode error (dipakai komponen untuk notifikasi)
-export function getApiErrorMessage(error: unknown): string {
+
+function getErrorBody(error: unknown): ApiErrorBody["error"] | undefined {
 	if (error instanceof AxiosError) {
-		const body = error.response?.data as ApiErrorBody | undefined;
-		if (body?.error?.message) return body.error.message;
+		return (error.response?.data as ApiErrorBody | undefined)?.error;
 	}
+	return undefined;
+}
+
+/**
+ * Satu entri `error.details` dari Elysia. Bentuknya tidak dijamin stabil, jadi
+ * semua field dibaca defensif.
+ */
+type ValidationDetail = {
+	path?: string; // JSON pointer, mis. "/finish"
+	message?: string;
+	summary?: string;
+};
+
+/** "/finish" → "finish"; "/items/0/name" → "items.0.name". */
+function pointerToField(path: string): string {
+	return path.replace(/^\//, "").replace(/\//g, ".");
+}
+
+function getValidationDetails(
+	body: ApiErrorBody["error"] | undefined,
+): ValidationDetail[] {
+	if (!Array.isArray(body?.details)) return [];
+	return body.details.filter(
+		(d): d is ValidationDetail => typeof d === "object" && d !== null,
+	);
+}
+
+export function getApiErrorMessage(error: unknown): string {
+	const body = getErrorBody(error);
+
+	// 422 membalas message generik "validation failed"; detail aslinya ada di
+	// `error.details` (contract.md bagian 1). Rangkai itu supaya user tahu
+	// field mana yang salah, bukan cuma "validation failed".
+	const messages = getValidationDetails(body)
+		.map((d) => {
+			const text = d.summary ?? d.message;
+			if (!text) return null;
+			const field = d.path ? pointerToField(d.path) : "";
+			return field ? `${field}: ${text}` : text;
+		})
+		.filter((m): m is string => Boolean(m));
+
+	if (messages.length > 0) return messages.join("\n");
+	if (body?.message) return body.message;
 	return "Terjadi kesalahan. Coba lagi.";
 }
 
-export function getApiErrorCode(error: unknown): string | null {
-	if (error instanceof AxiosError) {
-		const body = error.response?.data as ApiErrorBody | undefined;
-		return body?.error?.code ?? null;
+/**
+ * Peta nama field → pesan, dari `error.details` sebuah response 422. Dipakai
+ * form untuk menaruh error di field yang tepat lewat `setError`, bukan cuma
+ * melempar toast. Mengembalikan objek kosong kalau error-nya bukan validasi.
+ */
+export function getApiFieldErrors(error: unknown): Record<string, string> {
+	const result: Record<string, string> = {};
+	for (const detail of getValidationDetails(getErrorBody(error))) {
+		const text = detail.summary ?? detail.message;
+		if (!detail.path || !text) continue;
+		const field = pointerToField(detail.path);
+		// Entri pertama per field yang menang — biasanya yang paling spesifik.
+		if (!(field in result)) result[field] = text;
 	}
-	return null;
+	return result;
+}
+
+export function getApiErrorCode(error: unknown): string | null {
+	return getErrorBody(error)?.code ?? null;
 }

@@ -23,7 +23,7 @@ export type Color = {
 /** Body create & update — PUT body SAMA PERSIS dengan POST. */
 export type ColorInput = {
 	color: string;
-	/** 6 digit hex TANPA "#". Pakai stripHash() sebelum dikirim. */
+	/** 6 digit hex TANPA "#" — lihat HEX_PATTERN. */
 	hex: string;
 	finishId: string;
 	notes?: string;
@@ -64,12 +64,26 @@ export async function deleteColor(id: string) {
 	return res.data.data;
 }
 
-/** "#b23a2f" (dari <ColorInput>) → "b23a2f" (untuk API). */
-export function stripHash(hex: string): string {
-	return hex.trim().replace(/^#/, "").toLowerCase();
+/**
+ * Bentuk kanonik hex: tepat 6 digit, TANPA "#" — sama persis dengan
+ * `Color.hexCode` dari API. Form menyimpan bentuk ini juga, jadi tidak ada
+ * konversi bolak-balik; "#" murni urusan tampilan (lihat HexColorInput).
+ */
+export const HEX_PATTERN = /^[0-9a-fA-F]{6}$/;
+
+/**
+ * Bersihkan input mentah jadi bentuk kanonik: buang semua karakter non-hex,
+ * potong 6, lowercase. Dipakai di setiap keystroke & paste — "#" ikut tersaring
+ * karena bukan karakter hex, jadi paste "#FF0000" langsung jadi "ff0000".
+ */
+export function sanitizeHexInput(raw: string): string {
+	return raw
+		.replace(/[^0-9a-fA-F]/g, "")
+		.slice(0, 6)
+		.toLowerCase();
 }
 
-/** "b23a2f" (dari API) → "#b23a2f" (untuk <ColorInput> & CSS backgroundColor). */
+/** "b23a2f" → "#b23a2f" (untuk CSS backgroundColor & tampilan). */
 export function withHash(hexCode: string): string {
 	return `#${hexCode.replace(/^#/, "")}`;
 }

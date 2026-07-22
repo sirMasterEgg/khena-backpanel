@@ -9,7 +9,11 @@ export const queryClient = new QueryClient({
 			refetchOnWindowFocus: false,
 		},
 		mutations: {
-			retry: 1,
+			// JANGAN di-retry. Write (POST/PUT/DELETE) tidak idempotent: kalau
+			// backend sudah menulis data lalu membalas error, retry menghasilkan
+			// baris duplikat — dan user cuma lihat SATU toast karena hanya
+			// kegagalan terakhir yang sampai ke onError.
+			retry: 0,
 		},
 	},
 });
