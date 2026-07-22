@@ -57,6 +57,7 @@ const SORT_PARAMS: Record<
 	newest: { sort: "createdAt", order: "desc" },
 	oldest: { sort: "createdAt", order: "asc" },
 	"name-az": { sort: "name", order: "asc" },
+	"name-za": { sort: "name", order: "desc" },
 };
 
 const PRODUCT_STATUSES: ProductStatus[] = [
@@ -434,6 +435,7 @@ export function ProductsList() {
 								{ value: "newest", label: "Newest" },
 								{ value: "oldest", label: "Oldest" },
 								{ value: "name-az", label: "Name A-Z" },
+								{ value: "name-za", label: "Name Z-A" },
 							]}
 							value={sortBy}
 							onChange={(val) => handleFilterChange(() => setSortBy(val))}
