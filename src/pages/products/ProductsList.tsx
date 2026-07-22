@@ -434,13 +434,6 @@ export function ProductsList() {
 								{ value: "newest", label: "Newest" },
 								{ value: "oldest", label: "Oldest" },
 								{ value: "name-az", label: "Name A-Z" },
-								// API tidak mendukung sort harga — opsi tetap ada tapi disabled.
-								{ value: "price-low", label: "Price low→high", disabled: true },
-								{
-									value: "price-high",
-									label: "Price high→low",
-									disabled: true,
-								},
 							]}
 							value={sortBy}
 							onChange={(val) => handleFilterChange(() => setSortBy(val))}
