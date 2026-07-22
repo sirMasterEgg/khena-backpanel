@@ -57,6 +57,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { STATUS_OPTIONS, VISIBILITY_OPTIONS } from "@/config/productOptions";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { MediaPickerModal } from "@/pages/color/MediaPickerModal";
+import { formatCurrency } from "./format";
 import { type ProductFormData, productSchema } from "./productSchema";
 
 // Order of the editor tabs, used by the Previous/Next footer navigation.
@@ -165,7 +166,7 @@ function toFormValues(detail: ProductDetail): ProductFormData {
 			price: v.price,
 			capitalPrice: v.capitalPrice,
 			discountPercent: v.discountPercent ?? 0,
-			comparePrice: 0, // dihitung ulang oleh effect price+discount
+			comparePrice: 0, // UI-only; tampilannya dihitung saat render
 			marketplacePrice: v.marketplacePrice ?? undefined,
 			// initialStock tidak ada di response — backend mengabaikannya untuk
 			// varian lama, inputnya di-disable.
@@ -268,22 +269,9 @@ export function ProductEditor() {
 		setMediaById((prev) => ({ ...prev, ...collectMediaFiles(productDetail) }));
 	}, [productDetail, reset]);
 
-	// Watch variant fields to calculate compare price.
+	// Compare price & profit dihitung langsung dari nilai yang di-watch saat
+	// render (bukan setValue di effect) — selalu sinkron dengan ketikan user.
 	const variants = watch("variant");
-	useEffect(() => {
-		variants?.forEach((variant, idx) => {
-			if (
-				variant.price !== undefined &&
-				variant.discountPercent !== undefined
-			) {
-				const comparePrice =
-					variant.discountPercent > 0
-						? Math.round(variant.price / (1 - variant.discountPercent / 100))
-						: variant.price;
-				setValue(`variant.${idx}.comparePrice`, comparePrice);
-			}
-		});
-	}, [variants, setValue]);
 
 	const media = watch("media");
 	const productDimensionImage = watch("productDimension.image");
@@ -629,6 +617,19 @@ export function ProductEditor() {
 											// Varian lama (punya id): backend mengabaikan
 											// initialStock → input stok di-disable.
 											const isExistingVariant = Boolean(variants?.[idx]?.id);
+											// Compare price = harga sebelum diskon; profit =
+											// price - cost. Keduanya UI-only, tidak dikirim ke API.
+											const variantPrice = variants?.[idx]?.price ?? 0;
+											const variantDiscount =
+												variants?.[idx]?.discountPercent ?? 0;
+											const comparePrice =
+												variantDiscount > 0 && variantDiscount < 100
+													? Math.round(
+															variantPrice / (1 - variantDiscount / 100),
+														)
+													: variantPrice;
+											const profit =
+												variantPrice - (variants?.[idx]?.capitalPrice ?? 0);
 											return (
 												<Paper key={field.id} p="md" radius="md" withBorder>
 													<Stack gap="md">
@@ -723,6 +724,14 @@ export function ProductEditor() {
 																		/>
 																	)}
 																/>
+																{/* Profit = price - cost, UI-only. */}
+																<Text
+																	size="xs"
+																	c={profit < 0 ? "red" : "dimmed"}
+																	mt={4}
+																>
+																	Profit: {formatCurrency(profit)}
+																</Text>
 															</Grid.Col>
 															<Grid.Col span={{ base: 6, sm: 2 }}>
 																<Controller
@@ -749,23 +758,17 @@ export function ProductEditor() {
 																/>
 															</Grid.Col>
 															<Grid.Col span={{ base: 6, sm: 2 }}>
-																{/* UI-only: dihitung dari price+discount,
-																    tidak dikirim ke API. */}
-																<Controller
-																	name={`variant.${idx}.comparePrice`}
-																	control={control}
-																	render={({ field: { value } }) => (
-																		<NumberInput
-																			label="Compare Price"
-																			placeholder="0"
-																			leftSection="Rp"
-																			thousandSeparator="."
-																			decimalSeparator=","
-																			hideControls
-																			value={value || ""}
-																			disabled
-																		/>
-																	)}
+																{/* UI-only: otomatis dihitung dari
+																    price+discount, tidak dikirim ke API. */}
+																<NumberInput
+																	label="Compare Price"
+																	placeholder="0"
+																	leftSection="Rp"
+																	thousandSeparator="."
+																	decimalSeparator=","
+																	hideControls
+																	value={comparePrice || ""}
+																	disabled
 																/>
 															</Grid.Col>
 															<Grid.Col span={{ base: 6, sm: 2 }}>
