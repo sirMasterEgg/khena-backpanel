@@ -1,5 +1,6 @@
 import {
 	ActionIcon,
+	Badge,
 	Box,
 	Button,
 	Card,
@@ -9,17 +10,22 @@ import {
 	Text,
 	Tooltip,
 } from "@mantine/core";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconLock, IconPlus, IconTrash } from "@tabler/icons-react";
 import type { FinishColor, FinishWithColors } from "@/api/finishes";
 import { ColorTile } from "./ColorTile";
 
 interface MaterialTypeCardProps {
 	/** "Material type" di UI = "Finish" di API. */
 	finish: FinishWithColors;
-	onAddColor: () => void;
-	onEditColor: (color: FinishColor) => void;
-	onDeleteColor: (color: FinishColor) => void;
-	onDeleteFinish: () => void;
+	onAddColor?: () => void;
+	onEditColor?: (color: FinishColor) => void;
+	onDeleteColor?: (color: FinishColor) => void;
+	onDeleteFinish?: () => void;
+	/**
+	 * Grup bawaan brand: read-only. Tanpa tombol tambah/hapus, dan tiap color
+	 * tampil terkunci. Handler di atas diabaikan saat locked.
+	 */
+	locked?: boolean;
 }
 
 export function MaterialTypeCard({
@@ -28,6 +34,7 @@ export function MaterialTypeCard({
 	onEditColor,
 	onDeleteColor,
 	onDeleteFinish,
+	locked,
 }: MaterialTypeCardProps) {
 	// Backend menolak menghapus finish yang masih dipakai color aktif. Data
 	// `colors` sudah di tangan dari GET /finishes, jadi guard-nya gratis.
@@ -37,35 +44,48 @@ export function MaterialTypeCard({
 		<Card withBorder mb="md">
 			<Stack gap="md">
 				<Group justify="space-between">
-					<Text fw={600}>
-						{finish.name} ({finish.colors.length})
-					</Text>
 					<Group gap="xs">
-						<Button
-							leftSection={<IconPlus size={16} />}
-							size="sm"
-							onClick={onAddColor}
-						>
-							Add {finish.name} color
-						</Button>
-						<Tooltip
-							label="Hapus semua color di dalamnya dulu"
-							disabled={!hasColors}
-						>
-							{/* Tooltip butuh elemen yang tetap menerima event walau disabled. */}
-							<Box>
-								<ActionIcon
-									color="red"
-									variant="light"
-									size="sm"
-									disabled={hasColors}
-									onClick={onDeleteFinish}
-								>
-									<IconTrash size={16} />
-								</ActionIcon>
-							</Box>
-						</Tooltip>
+						<Text fw={600}>
+							{finish.name} ({finish.colors.length})
+						</Text>
 					</Group>
+					{locked ? (
+						<Badge
+							size="sm"
+							variant="light"
+							color="gray"
+							leftSection={<IconLock size={12} />}
+						>
+							Locked
+						</Badge>
+					) : (
+						<Group gap="xs">
+							<Button
+								leftSection={<IconPlus size={16} />}
+								size="sm"
+								onClick={onAddColor}
+							>
+								Add {finish.name} color
+							</Button>
+							<Tooltip
+								label="Hapus semua color di dalamnya dulu"
+								disabled={!hasColors}
+							>
+								{/* Tooltip butuh elemen yang tetap menerima event walau disabled. */}
+								<Box>
+									<ActionIcon
+										color="red"
+										variant="light"
+										size="sm"
+										disabled={hasColors}
+										onClick={onDeleteFinish}
+									>
+										<IconTrash size={16} />
+									</ActionIcon>
+								</Box>
+							</Tooltip>
+						</Group>
+					)}
 				</Group>
 
 				{finish.colors.length === 0 ? (
@@ -87,8 +107,9 @@ export function MaterialTypeCard({
 							<ColorTile
 								key={color.id}
 								color={color}
-								onEdit={() => onEditColor(color)}
-								onDelete={() => onDeleteColor(color)}
+								locked={locked}
+								onEdit={() => onEditColor?.(color)}
+								onDelete={() => onDeleteColor?.(color)}
 							/>
 						))}
 					</SimpleGrid>
