@@ -1,37 +1,44 @@
 import { ActionIcon, Box, Group, Menu, Stack, Text } from "@mantine/core";
 import { IconDots, IconPencil, IconTrash } from "@tabler/icons-react";
-import type { Color } from "@/data/dummy";
+import { withHash } from "@/api/colors";
+import type { FinishColor } from "@/api/finishes";
+import { getMediaPreviewUrl } from "@/api/media";
 
 interface ColorTileProps {
-	color: Color;
-	variant: "brand" | "category";
+	color: FinishColor;
 	onEdit?: () => void;
 	onDelete?: () => void;
+	/** Color bawaan brand: tidak bisa diedit/dihapus, hanya ditampilkan. */
+	locked?: boolean;
 }
 
-export function ColorTile({
-	color,
-	variant,
-	onEdit,
-	onDelete,
-}: ColorTileProps) {
+export function ColorTile({ color, onEdit, onDelete, locked }: ColorTileProps) {
+	// `swatchPhoto` null = media-nya sudah di-soft-delete. Kondisi normal, bukan
+	// error — color tetap tampil, cukup jatuh ke warna hexCode-nya.
+	const swatchUrl = color.swatchPhoto
+		? getMediaPreviewUrl(color.swatchPhoto)
+		: undefined;
+
 	return (
 		<Box
 			p="md"
+			h="100%"
 			style={{
 				border: "1px solid #ddd",
 				borderRadius: 4,
+				display: "flex",
+				alignItems: "center",
 			}}
 		>
-			<Group justify="space-between" align="center" wrap="nowrap">
+			<Group justify="space-between" align="center" wrap="nowrap" w="100%">
 				<Group gap="sm" align="center" flex={1}>
 					<Box
 						style={{
 							width: 28,
 							height: 28,
 							borderRadius: "50%",
-							backgroundColor: color.hex ?? "transparent",
-							backgroundImage: color.photo ? `url(${color.photo})` : undefined,
+							backgroundColor: withHash(color.hexCode),
+							backgroundImage: swatchUrl ? `url(${swatchUrl})` : undefined,
 							backgroundSize: "cover",
 							backgroundPosition: "center",
 							border: "1px solid #ddd",
@@ -43,12 +50,12 @@ export function ColorTile({
 							{color.name}
 						</Text>
 						<Text size="xs" c="dimmed">
-							{color.hex ?? (color.photo ? "Photo swatch" : "No colour set")}
+							{withHash(color.hexCode).toUpperCase()}
 						</Text>
 					</Stack>
 				</Group>
 
-				{variant === "category" && (
+				{!locked && (
 					<Menu>
 						<Menu.Target>
 							<ActionIcon size="sm" variant="subtle">

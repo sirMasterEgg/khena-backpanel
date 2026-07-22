@@ -1,5 +1,6 @@
 import {
 	ActionIcon,
+	Badge,
 	Box,
 	Button,
 	Card,
@@ -7,42 +8,56 @@ import {
 	SimpleGrid,
 	Stack,
 	Text,
+	Tooltip,
 } from "@mantine/core";
 import { IconLock, IconPlus, IconTrash } from "@tabler/icons-react";
-import type { Color, MaterialType } from "@/data/dummy";
+import type { FinishColor, FinishWithColors } from "@/api/finishes";
 import { ColorTile } from "./ColorTile";
 
 interface MaterialTypeCardProps {
-	material: MaterialType;
-	onAddColor: () => void;
-	onEditColor: (color: Color) => void;
-	onDeleteColor: (colorId: number) => void;
-	onDeleteMaterial: () => void;
+	/** "Material type" di UI = "Finish" di API. */
+	finish: FinishWithColors;
+	onAddColor?: () => void;
+	onEditColor?: (color: FinishColor) => void;
+	onDeleteColor?: (color: FinishColor) => void;
+	onDeleteFinish?: () => void;
+	/**
+	 * Grup bawaan brand: read-only. Tanpa tombol tambah/hapus, dan tiap color
+	 * tampil terkunci. Handler di atas diabaikan saat locked.
+	 */
+	locked?: boolean;
 }
 
 export function MaterialTypeCard({
-	material,
+	finish,
 	onAddColor,
 	onEditColor,
 	onDeleteColor,
-	onDeleteMaterial,
+	onDeleteFinish,
+	locked,
 }: MaterialTypeCardProps) {
-	const isLocked = material.locked ?? false;
+	// Backend menolak menghapus finish yang masih dipakai color aktif. Data
+	// `colors` sudah di tangan dari GET /finishes, jadi guard-nya gratis.
+	const hasColors = finish.colors.length > 0;
 
 	return (
 		<Card withBorder mb="md">
 			<Stack gap="md">
 				<Group justify="space-between">
-					<Text fw={600}>
-						{isLocked
-							? "Brand"
-							: `${material.name} (${material.colors.length})`}
-					</Text>
-					{isLocked ? (
-						<Group gap="xs">
-							<IconLock size={16} />
-							<Text size="sm">Locked</Text>
-						</Group>
+					<Group gap="xs">
+						<Text fw={600}>
+							{finish.name} ({finish.colors.length})
+						</Text>
+					</Group>
+					{locked ? (
+						<Badge
+							size="sm"
+							variant="light"
+							color="gray"
+							leftSection={<IconLock size={12} />}
+						>
+							Locked
+						</Badge>
 					) : (
 						<Group gap="xs">
 							<Button
@@ -50,21 +65,30 @@ export function MaterialTypeCard({
 								size="sm"
 								onClick={onAddColor}
 							>
-								Add {material.name} color
+								Add {finish.name} color
 							</Button>
-							<ActionIcon
-								color="red"
-								variant="light"
-								size="sm"
-								onClick={onDeleteMaterial}
+							<Tooltip
+								label="Hapus semua color di dalamnya dulu"
+								disabled={!hasColors}
 							>
-								<IconTrash size={16} />
-							</ActionIcon>
+								{/* Tooltip butuh elemen yang tetap menerima event walau disabled. */}
+								<Box>
+									<ActionIcon
+										color="red"
+										variant="light"
+										size="sm"
+										disabled={hasColors}
+										onClick={onDeleteFinish}
+									>
+										<IconTrash size={16} />
+									</ActionIcon>
+								</Box>
+							</Tooltip>
 						</Group>
 					)}
 				</Group>
 
-				{material.colors.length === 0 && !isLocked ? (
+				{finish.colors.length === 0 ? (
 					<Box
 						p="md"
 						style={{
@@ -77,19 +101,19 @@ export function MaterialTypeCard({
 							No colors yet. Click 'Add color' to get started.
 						</Text>
 					</Box>
-				) : material.colors.length > 0 ? (
+				) : (
 					<SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
-						{material.colors.map((color) => (
+						{finish.colors.map((color) => (
 							<ColorTile
 								key={color.id}
 								color={color}
-								variant={isLocked ? "brand" : "category"}
-								onEdit={() => onEditColor(color)}
-								onDelete={() => onDeleteColor(color.id)}
+								locked={locked}
+								onEdit={() => onEditColor?.(color)}
+								onDelete={() => onDeleteColor?.(color)}
 							/>
 						))}
 					</SimpleGrid>
-				) : null}
+				)}
 			</Stack>
 		</Card>
 	);

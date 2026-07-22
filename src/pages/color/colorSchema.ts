@@ -1,19 +1,20 @@
 import { z } from "zod";
+import { HEX_PATTERN } from "@/api/colors";
 
-export const colorSchema = z
-	.object({
-		name: z.string().trim().min(1, "Color name is required"),
-		hex: z.string().trim().optional(),
-		photo: z.string().optional(),
-		notes: z.string().trim().optional(),
-		// selectedCategory disimpan sebagai string id Select.
-		categoryId: z.string().min(1, "Category is required"),
-	})
-	// Minimal salah satu warna harus ada: foto atau hex.
-	.refine((d) => Boolean(d.photo) || (d.hex?.length ?? 0) > 0, {
-		message:
-			"Add a photo, or pick an approximate colour — at least one is needed.",
-		path: ["hex"],
-	});
+export const colorSchema = z.object({
+	name: z.string().trim().min(1, "Color name is required"),
+	// `hex` WAJIB di POST /colors, disimpan tanpa "#". HexColorInput sudah
+	// menyaring karakter non-hex saat mengetik, jadi satu-satunya pelanggaran
+	// yang mungkin sampai sini adalah panjangnya kurang dari 6.
+	hex: z
+		.string()
+		.trim()
+		.regex(HEX_PATTERN, "Hex harus 6 karakter, contoh b23a2f"),
+	// Isinya uuid media (bukan URL) — itulah yang dikirim sebagai `swatchImage`.
+	photo: z.string().optional(),
+	notes: z.string().trim().optional(),
+	// Id finish dari <Select>; di API namanya `finishId`.
+	finishId: z.string().min(1, "Material type is required"),
+});
 
 export type ColorFormData = z.infer<typeof colorSchema>;
