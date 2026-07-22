@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+	AspectRatio,
 	Button,
 	Card,
 	Center,
@@ -849,8 +850,8 @@ export function ProductEditor() {
 																			"2px dashed var(--mantine-color-gray-3)",
 																		textAlign: "center",
 																		cursor: "pointer",
-																		width: 110,
-																		height: 110,
+																		width: 220,
+																		height: 220,
 																		display: "flex",
 																		alignItems: "center",
 																		justifyContent: "center",
@@ -870,8 +871,8 @@ export function ProductEditor() {
 																	>
 																		<Image
 																			src={previewUrl(mediaId)}
-																			w={110}
-																			h={110}
+																			w={220}
+																			h={220}
 																			radius="md"
 																			fit="cover"
 																			alt="Variant image"
@@ -1024,7 +1025,7 @@ export function ProductEditor() {
 									<Card.Section inheritPadding py="md" pb="lg">
 										<div>
 											<Text fw={600}>Product Dimension</Text>
-											<Text size="sm" c="dimmed">
+											<Text size="sm" c="dimmed" mih={72}>
 												Upload your dimension diagram — typically a photo with
 												width/depth/height labelled directly on the product.
 												This is what appears on the storefront.
@@ -1035,17 +1036,19 @@ export function ProductEditor() {
 										<Stack gap="md">
 											{productDimensionImage ? (
 												<div style={{ position: "relative" }}>
-													<Image
-														src={previewUrl(productDimensionImage)}
-														radius="md"
-														fit="cover"
-														h={150}
-														alt="Product dimension diagram"
-														style={{ cursor: "pointer" }}
-														onClick={() =>
-															setPickerTarget({ kind: "productDimension" })
-														}
-													/>
+													{/* Rasio 1:1, lebar penuh mengikuti kolom card. */}
+													<AspectRatio ratio={1}>
+														<Image
+															src={previewUrl(productDimensionImage)}
+															radius="md"
+															fit="cover"
+															alt="Product dimension diagram"
+															style={{ cursor: "pointer" }}
+															onClick={() =>
+																setPickerTarget({ kind: "productDimension" })
+															}
+														/>
+													</AspectRatio>
 													<Button
 														type="button"
 														size="compact-xs"
@@ -1098,7 +1101,7 @@ export function ProductEditor() {
 											)}
 											{/* Width / Depth / Height / Weight - side by side */}
 											<Grid gap="md">
-												<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Grid.Col span={{ base: 12, sm: 4 }}>
 													<Controller
 														name="productDimension.width"
 														control={control}
@@ -1116,7 +1119,7 @@ export function ProductEditor() {
 														)}
 													/>
 												</Grid.Col>
-												<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Grid.Col span={{ base: 12, sm: 4 }}>
 													<Controller
 														name="productDimension.depth"
 														control={control}
@@ -1134,7 +1137,7 @@ export function ProductEditor() {
 														)}
 													/>
 												</Grid.Col>
-												<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Grid.Col span={{ base: 12, sm: 4 }}>
 													<Controller
 														name="productDimension.height"
 														control={control}
@@ -1152,7 +1155,7 @@ export function ProductEditor() {
 														)}
 													/>
 												</Grid.Col>
-												<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Grid.Col span={{ base: 12, sm: 4 }}>
 													<Controller
 														name="productDimension.weight"
 														control={control}
@@ -1182,7 +1185,7 @@ export function ProductEditor() {
 									<Card.Section inheritPadding py="md" pb="lg">
 										<div>
 											<Text fw={600}>Box Dimensions</Text>
-											<Text size="sm" c="dimmed">
+											<Text size="sm" c="dimmed" mih={72}>
 												Upload your shipping-box diagram. Used by shipping zones
 												to calculate freight.
 											</Text>
@@ -1192,17 +1195,19 @@ export function ProductEditor() {
 										<Stack gap="md">
 											{boxDimensionImage ? (
 												<div style={{ position: "relative" }}>
-													<Image
-														src={previewUrl(boxDimensionImage)}
-														radius="md"
-														fit="cover"
-														h={150}
-														alt="Box dimension diagram"
-														style={{ cursor: "pointer" }}
-														onClick={() =>
-															setPickerTarget({ kind: "boxDimension" })
-														}
-													/>
+													{/* Rasio 1:1, lebar penuh mengikuti kolom card. */}
+													<AspectRatio ratio={1}>
+														<Image
+															src={previewUrl(boxDimensionImage)}
+															radius="md"
+															fit="cover"
+															alt="Box dimension diagram"
+															style={{ cursor: "pointer" }}
+															onClick={() =>
+																setPickerTarget({ kind: "boxDimension" })
+															}
+														/>
+													</AspectRatio>
 													<Button
 														type="button"
 														size="compact-xs"
@@ -1253,7 +1258,7 @@ export function ProductEditor() {
 											)}
 											{/* Box W / D / H / Weight - side by side */}
 											<Grid gap="md">
-												<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Grid.Col span={{ base: 12, sm: 4 }}>
 													<Controller
 														name="boxDimension.width"
 														control={control}
@@ -1269,7 +1274,7 @@ export function ProductEditor() {
 														)}
 													/>
 												</Grid.Col>
-												<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Grid.Col span={{ base: 12, sm: 4 }}>
 													<Controller
 														name="boxDimension.depth"
 														control={control}
@@ -1285,7 +1290,7 @@ export function ProductEditor() {
 														)}
 													/>
 												</Grid.Col>
-												<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Grid.Col span={{ base: 12, sm: 4 }}>
 													<Controller
 														name="boxDimension.height"
 														control={control}
@@ -1301,7 +1306,7 @@ export function ProductEditor() {
 														)}
 													/>
 												</Grid.Col>
-												<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Grid.Col span={{ base: 12, sm: 4 }}>
 													<Controller
 														name="boxDimension.weight"
 														control={control}
