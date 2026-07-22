@@ -1,4 +1,5 @@
 import { apiClient } from "@/api/client";
+import type { Finish } from "@/api/finishes";
 import type { MediaFile } from "@/api/media";
 import type { ApiListSuccess, ApiSuccess } from "@/api/types";
 
@@ -16,6 +17,12 @@ export type Color = {
 	swatchPhoto: MediaFile | null;
 	notes: string | null;
 	finishesId: string;
+	/**
+	 * Objek Finish LENGKAP hasil join lewat `finishesId` — nama finish bisa
+	 * langsung dipakai tanpa request tambahan. `null` kalau finish-nya sudah
+	 * dihapus (soft delete). Di request tetap dikirim uuid lewat `finishId`.
+	 */
+	finishes: Finish | null;
 	createdAt: string;
 	updatedAt: string;
 };

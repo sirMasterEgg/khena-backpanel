@@ -45,8 +45,12 @@ export function ProductDetail() {
 		queryKey: ["colors", { forOptions: true }],
 		queryFn: () => listColors({ limit: 100 }),
 	});
+	// Label "Warna - Finish", sama dengan dropdown varian di editor.
 	const colorNameById = new Map(
-		(colorsQuery.data?.data ?? []).map((c) => [c.id, c.name]),
+		(colorsQuery.data?.data ?? []).map((c) => [
+			c.id,
+			c.finishes ? `${c.name} - ${c.finishes.name}` : c.name,
+		]),
 	);
 
 	if (isLoading) {

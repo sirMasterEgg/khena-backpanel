@@ -346,9 +346,11 @@ export function ProductEditor() {
 		value: c.id,
 		label: c.name,
 	}));
+	// Label "Warna - Finish" (finish dari objek `finishes` yang sudah di-join
+	// backend); color tanpa finish tampil nama warnanya saja.
 	const colorOptions = (colorsQuery.data?.data ?? []).map((c) => ({
 		value: c.id,
-		label: c.name,
+		label: c.finishes ? `${c.name} - ${c.finishes.name}` : c.name,
 	}));
 	const careInstructionOptions = careInstructionsQuery.data?.data ?? [];
 
