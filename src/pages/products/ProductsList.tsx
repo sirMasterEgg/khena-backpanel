@@ -39,8 +39,8 @@ import {
 	deleteProduct,
 	listProducts,
 	type ProductListParams,
-	patchProduct,
 	type ProductStatus,
+	patchProduct,
 } from "@/api/products";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
@@ -77,7 +77,6 @@ export function ProductsList() {
 	const [activeTab, setActiveTab] = useState<string | null>("all");
 	const [search, setSearch] = useState("");
 	const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-	const [statusFilter, setStatusFilter] = useState<string | null>(null);
 	const [sortBy, setSortBy] = useState<string | null>(null);
 	const [page, setPage] = useState(1);
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -87,9 +86,8 @@ export function ProductsList() {
 	// Debounce supaya tidak request ke server tiap keystroke.
 	const [debouncedSearch] = useDebouncedValue(search, 300);
 
-	// Filter status bisa datang dari dua tempat: Select "Status" menang atas tab.
-	const effectiveStatus =
-		statusFilter ?? (activeTab !== "all" ? activeTab : null);
+	// Filter status mengikuti tab aktif.
+	const effectiveStatus = activeTab !== "all" ? activeTab : null;
 
 	const params: ProductListParams = {
 		search: debouncedSearch || undefined,
@@ -388,13 +386,6 @@ export function ProductsList() {
 							}
 							clearable
 							searchable
-						/>
-						<Select
-							placeholder="Status"
-							data={PRODUCT_STATUSES}
-							value={statusFilter}
-							onChange={(val) => handleFilterChange(() => setStatusFilter(val))}
-							clearable
 						/>
 						<Select
 							placeholder="Sort"
