@@ -628,8 +628,15 @@ export function ProductEditor() {
 															variantPrice / (1 - variantDiscount / 100),
 														)
 													: variantPrice;
-											const profit =
-												variantPrice - (variants?.[idx]?.capitalPrice ?? 0);
+											const variantCost =
+												variants?.[idx]?.capitalPrice ?? 0;
+											const profit = variantPrice - variantCost;
+											// Persentase untung/rugi terhadap modal (cost). Tidak
+											// ditampilkan saat cost 0 — pembaginya tidak bermakna.
+											const profitPercent =
+												variantCost > 0
+													? Math.round((profit / variantCost) * 100)
+													: null;
 											return (
 												<Paper key={field.id} p="md" radius="md" withBorder>
 													<Stack gap="md">
@@ -727,10 +734,13 @@ export function ProductEditor() {
 																{/* Profit = price - cost, UI-only. */}
 																<Text
 																	size="xs"
-																	c={profit < 0 ? "red" : "dimmed"}
+																	c={profit < 0 ? "red" : "green"}
+																	fw={700}
 																	mt={4}
 																>
 																	Profit: {formatCurrency(profit)}
+																	{profitPercent !== null &&
+																		` (${profitPercent}%)`}
 																</Text>
 															</Grid.Col>
 															<Grid.Col span={{ base: 6, sm: 2 }}>
