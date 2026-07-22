@@ -2,11 +2,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	Button,
 	Card,
+	Center,
 	Checkbox,
 	Container,
 	Grid,
 	Group,
 	Image,
+	Loader,
 	NumberInput,
 	Paper,
 	Select,
@@ -17,6 +19,7 @@ import {
 	TextInput,
 } from "@mantine/core";
 import {
+	IconArrowLeft,
 	IconChevronLeft,
 	IconChevronRight,
 	IconPlus,
@@ -43,7 +46,11 @@ import {
 } from "@/api/media";
 import {
 	createProduct,
+	getProduct,
+	patchProduct,
+	type ProductDetail,
 	type ProductInput,
+	type ProductPatchInput,
 } from "@/api/products";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
@@ -105,6 +112,85 @@ function toProductInput(data: ProductFormData): ProductInput {
 	};
 }
 
+/**
+ * Nilai form → body PATCH. Body dikirim lengkap (paling sederhana & aman),
+ * kecuali `collectionId` yang tidak ada di response detail — kalau user tidak
+ * memilih apa pun, field-nya tidak dikirim supaya tautan lama tidak berubah.
+ * Semantik varian: ber-`id` = update, tanpa `id` = baru, yang dihapus dari
+ * form di-soft-delete backend.
+ */
+function toProductPatchInput(data: ProductFormData): ProductPatchInput {
+	return {
+		...toProductInput(data),
+		variant: data.variant.map(
+			({ id, comparePrice: _comparePrice, ...variant }) =>
+				id ? { id, ...variant } : variant,
+		),
+	};
+}
+
+/** Mapping response GET /products/:id → nilai form (kebalikan toProductInput). */
+function toFormValues(detail: ProductDetail): ProductFormData {
+	return {
+		productName: detail.name,
+		baseSku: detail.baseSku,
+		// collectionId tidak ada di response detail — tidak bisa di-prefill.
+		collectionId: "",
+		categoryId: detail.category.id,
+		status: detail.status ?? "draft",
+		description: detail.description ?? "",
+		lowStockAlert: detail.lowStockAlert ?? undefined,
+		materialInformation: detail.materials ?? "",
+		careInstructionIds: detail.careInstructions.map((c) => c.id),
+		productDimension: {
+			width: detail.productDimension.width,
+			depth: detail.productDimension.depth,
+			height: detail.productDimension.height,
+			weight: detail.productDimension.weight,
+			image: detail.productDimension.media?.id ?? "",
+		},
+		boxDimension: {
+			width: detail.boxDimension.width,
+			depth: detail.boxDimension.depth,
+			height: detail.boxDimension.height,
+			weight: detail.boxDimension.weight,
+			image: detail.boxDimension.media?.id ?? "",
+		},
+		media: detail.media.map((f) => f.id),
+		variant: detail.variants.map((v) => ({
+			id: v.id,
+			colorId: v.colorId,
+			sku: v.detailProductSku,
+			visibility: v.visibility,
+			price: v.price,
+			capitalPrice: v.capitalPrice,
+			discountPercent: v.discountPercent ?? 0,
+			comparePrice: 0, // dihitung ulang oleh effect price+discount
+			marketplacePrice: v.marketplacePrice ?? undefined,
+			// initialStock tidak ada di response — backend mengabaikannya untuk
+			// varian lama, inputnya di-disable.
+			initialStock: 0,
+			images: v.images.map((f) => f.id),
+		})),
+	};
+}
+
+/** Semua objek File di response detail → map id→File untuk preview. */
+function collectMediaFiles(detail: ProductDetail): Record<string, MediaFile> {
+	const map: Record<string, MediaFile> = {};
+	for (const file of detail.media) map[file.id] = file;
+	if (detail.productDimension.media) {
+		map[detail.productDimension.media.id] = detail.productDimension.media;
+	}
+	if (detail.boxDimension.media) {
+		map[detail.boxDimension.media.id] = detail.boxDimension.media;
+	}
+	for (const variant of detail.variants) {
+		for (const file of variant.images) map[file.id] = file;
+	}
+	return map;
+}
+
 export function ProductEditor() {
 	usePageTitle("Product");
 	const navigate = useNavigate();
@@ -127,6 +213,13 @@ export function ProductEditor() {
 		return file ? getMediaPreviewUrl(file) : getMediaDownloadUrl(mediaId);
 	};
 
+	// Mode EDIT: load detail lalu prefill form lewat reset() di effect bawah.
+	const productQuery = useQuery({
+		queryKey: ["products", id],
+		queryFn: () => getProduct(id as string),
+		enabled: !isNew,
+	});
+
 	const {
 		control,
 		handleSubmit,
@@ -134,6 +227,7 @@ export function ProductEditor() {
 		watch,
 		setValue,
 		setError,
+		reset,
 		formState: { errors },
 	} = useForm<ProductFormData>({
 		resolver: zodResolver(productSchema),
@@ -164,6 +258,15 @@ export function ProductEditor() {
 		control,
 		name: "variant",
 	});
+
+	// Prefill saat data detail datang (mode edit). Objek File dari response
+	// dimasukkan ke map preview supaya <Image> punya URL siap pakai.
+	const productDetail = productQuery.data;
+	useEffect(() => {
+		if (!productDetail) return;
+		reset(toFormValues(productDetail));
+		setMediaById((prev) => ({ ...prev, ...collectMediaFiles(productDetail) }));
+	}, [productDetail, reset]);
 
 	// Watch variant fields to calculate compare price.
 	const variants = watch("variant");
@@ -285,11 +388,62 @@ export function ProductEditor() {
 		onError: applyApiErrors,
 	});
 
-	const isSaving = createMutation.isPending;
+	const patchMutation = useMutation({
+		mutationFn: (body: ProductPatchInput) =>
+			patchProduct(id as string, body),
+		onSuccess: () => {
+			notify.success("Product diperbarui");
+			queryClient.invalidateQueries({ queryKey: ["products"] });
+			queryClient.invalidateQueries({ queryKey: ["products", id] });
+			navigate("/products");
+		},
+		onError: applyApiErrors,
+	});
+
+	const isSaving = createMutation.isPending || patchMutation.isPending;
 
 	const onSubmit = (data: ProductFormData) => {
-		createMutation.mutate(toProductInput(data));
+		if (isNew) {
+			createMutation.mutate(toProductInput(data));
+		} else {
+			patchMutation.mutate(toProductPatchInput(data));
+		}
 	};
+
+	if (!isNew && productQuery.isLoading) {
+		return (
+			<Container size="xl">
+				<Center py="xl">
+					<Loader />
+				</Center>
+			</Container>
+		);
+	}
+
+	// Termasuk `400 product not found` (error.code NOT_FOUND).
+	if (!isNew && productQuery.isError) {
+		return (
+			<Container size="xl">
+				<PageHeader
+					title="Product Not Found"
+					actions={
+						<Button
+							variant="default"
+							leftSection={<IconArrowLeft size={16} />}
+							onClick={() => navigate("/products")}
+						>
+							Back to Products
+						</Button>
+					}
+				/>
+				<Card withBorder>
+					<Text c="dimmed" ta="center" py="xl">
+						{getApiErrorMessage(productQuery.error)}
+					</Text>
+				</Card>
+			</Container>
+		);
+	}
 
 	return (
 		<Container size="xl">
