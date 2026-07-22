@@ -1,13 +1,5 @@
-import {
-	ActionIcon,
-	Box,
-	Group,
-	Menu,
-	Stack,
-	Text,
-	Tooltip,
-} from "@mantine/core";
-import { IconDots, IconLock, IconPencil, IconTrash } from "@tabler/icons-react";
+import { ActionIcon, Box, Group, Menu, Stack, Text } from "@mantine/core";
+import { IconDots, IconPencil, IconTrash } from "@tabler/icons-react";
 import { withHash } from "@/api/colors";
 import type { FinishColor } from "@/api/finishes";
 import { getMediaPreviewUrl } from "@/api/media";

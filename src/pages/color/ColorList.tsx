@@ -1,3 +1,4 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	Button,
 	Card,
@@ -13,7 +14,12 @@ import { modals } from "@mantine/modals";
 import { IconPlus, IconX } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { getApiErrorMessage } from "@/api/client";
+import { useForm } from "react-hook-form";
+import {
+	getApiErrorCode,
+	getApiErrorMessage,
+	getApiFieldErrors,
+} from "@/api/client";
 import { deleteColor } from "@/api/colors";
 import {
 	createFinish,
@@ -24,8 +30,10 @@ import {
 } from "@/api/finishes";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
+import { BRAND_COLOR } from "@/data/constants.ts";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { ColorEditorModal } from "./ColorEditorModal";
+import { type FinishFormData, finishSchema } from "./finishSchema";
 import { MaterialTypeCard } from "./MaterialTypeCard";
 
 export function ColorList() {
@@ -33,7 +41,6 @@ export function ColorList() {
 	const queryClient = useQueryClient();
 
 	const [isAdding, setIsAdding] = useState(false);
-	const [newName, setNewName] = useState("");
 	const [modalOpened, setModalOpened] = useState(false);
 	const [editingColor, setEditingColor] = useState<FinishColor | undefined>();
 	const [editingFinishId, setEditingFinishId] = useState<string | null>(null);
@@ -49,18 +56,80 @@ export function ColorList() {
 
 	const finishes = data?.data ?? [];
 
+	// Grup "Brand" bawaan — read-only, tidak datang dari API. Bentuknya dipetakan
+	// ke FinishWithColors supaya bisa dirender oleh MaterialTypeCard yang sama.
+	const brandFinish: FinishWithColors = {
+		id: "brand-locked",
+		name: BRAND_COLOR.name,
+		createdAt: "",
+		updatedAt: "",
+		colors: BRAND_COLOR.colors.map((c) => ({
+			id: c.id,
+			name: c.name,
+			hexCode: c.hex,
+			swatchPhoto: null,
+			notes: null,
+		})),
+	};
+
 	const invalidateFinishes = () =>
 		queryClient.invalidateQueries({ queryKey: ["finishes"] });
+
+	const {
+		register: registerFinish,
+		handleSubmit: handleFinishSubmit,
+		reset: resetFinishForm,
+		setError: setFinishError,
+		formState: { errors: finishErrors },
+	} = useForm<FinishFormData>({
+		resolver: zodResolver(finishSchema),
+		defaultValues: { name: "" },
+	});
+
+	const closeAddFinish = () => {
+		setIsAdding(false);
+		resetFinishForm({ name: "" });
+	};
 
 	const createFinishMutation = useMutation({
 		mutationFn: (name: string) => createFinish({ finish: name }),
 		onSuccess: () => {
 			notify.success("Material type dibuat");
-			setNewName("");
-			setIsAdding(false);
+			closeAddFinish();
 			invalidateFinishes();
 		},
-		onError: (err) => notify.error(getApiErrorMessage(err)),
+		onError: (err) => {
+			// Tampilkan INLINE di field kalau errornya memang soal isi field —
+			// duplikat (CONFLICT) atau validasi backend. Toast saja tidak cukup:
+			// user perlu melihat penyebabnya menempel di input yang salah.
+			const fieldErrors = getApiFieldErrors(err);
+			const finishFieldError = fieldErrors.finish;
+			if (finishFieldError) {
+				setFinishError("name", { message: finishFieldError });
+				return;
+			}
+			if (getApiErrorCode(err) === "CONFLICT") {
+				setFinishError("name", { message: getApiErrorMessage(err) });
+				return;
+			}
+			notify.error(getApiErrorMessage(err));
+		},
+	});
+
+	const submitFinish = handleFinishSubmit(({ name }) => {
+		// Cek duplikat di client dulu: backend membalas 400 CONFLICT untuk nama
+		// yang sama, tapi menahannya di sini berarti user dapat jawaban instan
+		// dan tidak ada request sia-sia.
+		const duplicate = finishes.find(
+			(f) => f.name.trim().toLowerCase() === name.toLowerCase(),
+		);
+		if (duplicate) {
+			setFinishError("name", {
+				message: `Material type "${duplicate.name}" sudah ada`,
+			});
+			return;
+		}
+		createFinishMutation.mutate(name);
 	});
 
 	const deleteFinishMutation = useMutation({
@@ -119,8 +188,6 @@ export function ColorList() {
 		setModalOpened(true);
 	};
 
-	const finishOptions = finishes.map((f) => ({ id: f.id, name: f.name }));
-
 	return (
 		<Container size="xl">
 			<PageHeader
@@ -138,40 +205,44 @@ export function ColorList() {
 
 			{isAdding && (
 				<Card withBorder mb="md">
-					<Stack gap="md">
-						<Text fw={500} size="sm">
-							New material type
-						</Text>
-						<Group align="flex-end">
-							<TextInput
-								placeholder="Material type name"
-								value={newName}
-								onChange={(e) => setNewName(e.currentTarget.value)}
-								style={{ flex: 1 }}
-							/>
-							<Button
-								size="sm"
-								loading={createFinishMutation.isPending}
-								disabled={!newName.trim() || createFinishMutation.isPending}
-								onClick={() => createFinishMutation.mutate(newName.trim())}
-							>
-								Add
-							</Button>
-							<Button
-								variant="default"
-								size="sm"
-								leftSection={<IconX size={14} />}
-								onClick={() => {
-									setIsAdding(false);
-									setNewName("");
-								}}
-							>
-								Cancel
-							</Button>
-						</Group>
-					</Stack>
+					<form onSubmit={submitFinish} noValidate>
+						<Stack gap="md">
+							<Text fw={500} size="sm">
+								New material type
+							</Text>
+							<Group align="flex-start">
+								<TextInput
+									placeholder="Material type name"
+									{...registerFinish("name")}
+									error={finishErrors.name?.message}
+									style={{ flex: 1 }}
+								/>
+								<Button
+									type="submit"
+									size="sm"
+									loading={createFinishMutation.isPending}
+									disabled={createFinishMutation.isPending}
+								>
+									Add
+								</Button>
+								{/* type="button" WAJIB — tanpa itu tombol ikut men-submit form. */}
+								<Button
+									type="button"
+									variant="default"
+									size="sm"
+									leftSection={<IconX size={14} />}
+									onClick={closeAddFinish}
+								>
+									Cancel
+								</Button>
+							</Group>
+						</Stack>
+					</form>
 				</Card>
 			)}
+
+			{/* Grup Brand terkunci selalu di atas, terlepas dari data API. */}
+			<MaterialTypeCard finish={brandFinish} locked />
 
 			{isLoading ? (
 				<Center py="xl">
@@ -204,10 +275,15 @@ export function ColorList() {
 			<ColorEditorModal
 				opened={modalOpened}
 				initial={editingColor}
-				finishes={finishOptions}
+				// Diteruskan lengkap dengan `colors` — modal memerlukannya untuk
+				// mencegah nama color duplikat dalam satu material type.
+				finishes={finishes}
 				finishId={editingFinishId}
-				onClose={() => {
-					setModalOpened(false);
+				onClose={() => setModalOpened(false)}
+				// Bersihkan state SETELAH animasi tutup selesai. Kalau di-reset
+				// sinkron di onClose, judul & preview berkedip ke state kosong
+				// selagi modal masih terlihat.
+				onExited={() => {
 					setEditingColor(undefined);
 					setEditingFinishId(null);
 				}}
