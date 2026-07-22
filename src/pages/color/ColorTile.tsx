@@ -22,12 +22,15 @@ export function ColorTile({ color, onEdit, onDelete, locked }: ColorTileProps) {
 	return (
 		<Box
 			p="md"
+			h="100%"
 			style={{
 				border: "1px solid #ddd",
 				borderRadius: 4,
+				display: "flex",
+				alignItems: "center",
 			}}
 		>
-			<Group justify="space-between" align="center" wrap="nowrap">
+			<Group justify="space-between" align="center" wrap="nowrap" w="100%">
 				<Group gap="sm" align="center" flex={1}>
 					<Box
 						style={{

@@ -26,6 +26,12 @@ export type ColorInput = {
 	/** 6 digit hex TANPA "#" — lihat HEX_PATTERN. */
 	hex: string;
 	finishId: string;
+	/**
+	 * String "" = kosongkan notes. PENTING untuk PUT (full replace): mengirim
+	 * `undefined` membuat field hilang dari body sehingga backend menahan notes
+	 * lama — tidak bisa dikosongkan. Backend juga menolak `null` ("Expected
+	 * property 'notes' to be string"), jadi selalu kirim string.
+	 */
 	notes?: string;
 	/** DIKIRIM sebagai uuid media — bukan objek File. */
 	swatchImage?: string;

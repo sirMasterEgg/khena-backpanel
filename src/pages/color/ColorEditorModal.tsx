@@ -180,8 +180,11 @@ export function ColorEditorModal({
 			color: data.name, // name  → color
 			hex: data.hex, // sudah 6 karakter lowercase tanpa "#"
 			finishId: data.finishId,
-			// Kirim undefined (bukan ""), agar tidak tertolak validasi backend.
-			notes: data.notes?.trim() || undefined,
+			// Kirim string "" (bukan undefined/null) saat kosong. Ini PUT
+			// full-replace: undefined menghilangkan field dari body sehingga notes
+			// lama tidak bisa dikosongkan, dan backend menolak `null` ("Expected
+			// property 'notes' to be string"). Empty string = notes dikosongkan.
+			notes: data.notes?.trim() ?? "",
 			swatchImage: data.photo || undefined, // photo → swatchImage (uuid)
 		});
 	};
