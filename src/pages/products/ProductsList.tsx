@@ -3,10 +3,12 @@ import {
 	Badge,
 	Button,
 	Card,
+	Center,
 	Checkbox,
 	Container,
 	Grid,
 	Group,
+	Loader,
 	Menu,
 	Pagination,
 	Select,
@@ -16,6 +18,8 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { useDebouncedValue } from "@mantine/hooks";
+import { modals } from "@mantine/modals";
 import {
 	IconAlertTriangle,
 	IconDots,
@@ -26,17 +30,49 @@ import {
 	IconStack2,
 	IconUpload,
 } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useNavigate } from "react-router";
+import { listCategories } from "@/api/categories";
+import { getApiErrorMessage } from "@/api/client";
+import {
+	deleteProduct,
+	listProducts,
+	type ProductListParams,
+	patchProduct,
+	type ProductStatus,
+} from "@/api/products";
+import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { StatusBadge } from "@/components/StatusBadge";
-import { dummyProducts } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
+
+/** Nilai dropdown sort UI → pasangan `sort` + `order` untuk query API. */
+const SORT_PARAMS: Record<
+	string,
+	{ sort: ProductListParams["sort"]; order: "asc" | "desc" }
+> = {
+	newest: { sort: "createdAt", order: "desc" },
+	oldest: { sort: "createdAt", order: "asc" },
+	"name-az": { sort: "name", order: "asc" },
+};
+
+const PRODUCT_STATUSES: ProductStatus[] = [
+	"published",
+	"draft",
+	"scheduled",
+	"archived",
+];
+
+function isProductStatus(value: string | null): value is ProductStatus {
+	return PRODUCT_STATUSES.includes(value as ProductStatus);
+}
 
 export function ProductsList() {
 	usePageTitle("Products");
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 
 	const [activeTab, setActiveTab] = useState<string | null>("all");
 	const [search, setSearch] = useState("");
@@ -44,87 +80,47 @@ export function ProductsList() {
 	const [statusFilter, setStatusFilter] = useState<string | null>(null);
 	const [sortBy, setSortBy] = useState<string | null>(null);
 	const [page, setPage] = useState(1);
-	const [selectedIds, setSelectedIds] = useState<number[]>([]);
+	const [selectedIds, setSelectedIds] = useState<string[]>([]);
+	// Loop bulk berjalan manual (bukan useMutation) — flag ini untuk disable tombol.
+	const [bulkRunning, setBulkRunning] = useState(false);
 
-	// Calculate stats from full data
-	const stats = useMemo(() => {
-		return {
-			total: dummyProducts.length,
-			inventory: dummyProducts.reduce((sum, p) => sum + p.stock, 0),
-			outOfStock: dummyProducts.filter((p) => p.stock === 0).length,
-			draft: dummyProducts.filter((p) => p.status === "draft").length,
-			published: dummyProducts.filter((p) => p.status === "published").length,
-			scheduled: dummyProducts.filter((p) => p.status === "scheduled").length,
-			archived: dummyProducts.filter((p) => p.status === "archived").length,
-		};
-	}, []);
+	// Debounce supaya tidak request ke server tiap keystroke.
+	const [debouncedSearch] = useDebouncedValue(search, 300);
 
-	// Filter & sort logic
-	const filteredProducts = useMemo(() => {
-		let result = [...dummyProducts];
+	// Filter status bisa datang dari dua tempat: Select "Status" menang atas tab.
+	const effectiveStatus =
+		statusFilter ?? (activeTab !== "all" ? activeTab : null);
 
-		// Tab filter
-		if (activeTab && activeTab !== "all") {
-			result = result.filter((p) => p.status === activeTab);
-		}
+	const params: ProductListParams = {
+		search: debouncedSearch || undefined,
+		categoryId: categoryFilter ?? undefined,
+		status: isProductStatus(effectiveStatus) ? effectiveStatus : undefined,
+		...(sortBy ? SORT_PARAMS[sortBy] : undefined),
+		page,
+		limit: 10,
+	};
 
-		// Status select filter
-		if (statusFilter) {
-			result = result.filter((p) => p.status === statusFilter);
-		}
+	const { data, isLoading, isError, error } = useQuery({
+		queryKey: ["products", params],
+		queryFn: () => listProducts(params),
+	});
 
-		// Category filter
-		if (categoryFilter) {
-			result = result.filter((p) => p.category === categoryFilter);
-		}
+	const products = data?.data ?? [];
+	const totalPages = data?.meta.totalPages ?? 1;
 
-		// Search by name or SKU
-		if (search) {
-			const searchLower = search.toLowerCase();
-			result = result.filter(
-				(p) =>
-					p.name.toLowerCase().includes(searchLower) ||
-					p.sku.toLowerCase().includes(searchLower),
-			);
-		}
+	// Opsi kategori dari API — bukan lagi derive dari data produk.
+	const categoriesQuery = useQuery({
+		queryKey: ["categories", { forFilter: true }],
+		// limit besar: dropdown butuh semua kategori, bukan 10 pertama.
+		queryFn: () => listCategories({ limit: 100 }),
+	});
+	const categoryOptions = (categoriesQuery.data?.data ?? []).map((c) => ({
+		value: c.id,
+		label: c.category,
+	}));
 
-		// Sort
-		if (sortBy) {
-			switch (sortBy) {
-				case "newest":
-					result.sort(
-						(a, b) =>
-							new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-					);
-					break;
-				case "oldest":
-					result.sort(
-						(a, b) =>
-							new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime(),
-					);
-					break;
-				case "name-az":
-					result.sort((a, b) => a.name.localeCompare(b.name));
-					break;
-				case "price-low":
-					result.sort((a, b) => a.price - b.price);
-					break;
-				case "price-high":
-					result.sort((a, b) => b.price - a.price);
-					break;
-			}
-		}
-
-		return result;
-	}, [activeTab, search, categoryFilter, statusFilter, sortBy]);
-
-	// Pagination
-	const itemsPerPage = 10;
-	const paged = filteredProducts.slice(
-		(page - 1) * itemsPerPage,
-		page * itemsPerPage,
-	);
-	const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+	const invalidateProducts = () =>
+		queryClient.invalidateQueries({ queryKey: ["products"] });
 
 	// Reset page when filters change
 	const handleFilterChange = (callback: () => void) => {
@@ -132,37 +128,105 @@ export function ProductsList() {
 		callback();
 	};
 
-	// Get unique categories from data
-	const categories = Array.from(new Set(dummyProducts.map((p) => p.category)));
-
 	// Checkbox handlers
 	const toggleSelectAll = () => {
-		if (selectedIds.length === paged.length) {
+		if (selectedIds.length === products.length) {
 			setSelectedIds([]);
 		} else {
-			setSelectedIds(paged.map((p) => p.id));
+			setSelectedIds(products.map((p) => p.id));
 		}
 	};
 
-	const toggleSelectProduct = (id: number) => {
+	const toggleSelectProduct = (id: string) => {
 		setSelectedIds((prev) =>
 			prev.includes(id) ? prev.filter((pid) => pid !== id) : [...prev, id],
 		);
 	};
 
+	const deleteMutation = useMutation({
+		mutationFn: (id: string) => deleteProduct(id),
+		onSuccess: () => {
+			notify.success("Product dihapus");
+			invalidateProducts();
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
+
+	const confirmDeleteProduct = (product: { id: string; name: string }) => {
+		modals.openConfirmModal({
+			title: "Delete product",
+			children: (
+				<Text size="sm">
+					Delete <strong>{product.name}</strong>? This action cannot be undone.
+				</Text>
+			),
+			labels: { confirm: "Delete", cancel: "Cancel" },
+			confirmProps: { color: "red" },
+			onConfirm: () => deleteMutation.mutate(product.id),
+		});
+	};
+
+	/**
+	 * Tidak ada endpoint bulk di API — dijalankan sebagai loop request per item,
+	 * berurutan, lalu tampilkan ringkasan sukses/gagal.
+	 */
+	const runBulkAction = async (
+		action: "publish" | "draft" | "archive" | "delete",
+	) => {
+		setBulkRunning(true);
+		let ok = 0;
+		let failed = 0;
+		for (const id of selectedIds) {
+			try {
+				if (action === "delete") {
+					await deleteProduct(id);
+				} else {
+					const status: ProductStatus =
+						action === "publish"
+							? "published"
+							: action === "archive"
+								? "archived"
+								: "draft";
+					// PATCH partial: cukup kirim status saja.
+					await patchProduct(id, { status });
+				}
+				ok++;
+			} catch {
+				failed++;
+			}
+		}
+		setBulkRunning(false);
+		setSelectedIds([]);
+		invalidateProducts();
+		if (failed === 0) {
+			notify.success(`${ok} product berhasil diproses`);
+		} else {
+			notify.error(`${ok} berhasil, ${failed} gagal diproses`);
+		}
+	};
+
 	const handleBulkAction = (
 		action: "publish" | "draft" | "archive" | "delete",
 	) => {
-		console.log(`Bulk "${action}" pada produk:`, selectedIds);
-		setSelectedIds([]);
+		if (action === "delete") {
+			modals.openConfirmModal({
+				title: "Delete products",
+				children: (
+					<Text size="sm">
+						Delete <strong>{selectedIds.length}</strong> selected product(s)?
+						This action cannot be undone.
+					</Text>
+				),
+				labels: { confirm: "Delete", cancel: "Cancel" },
+				confirmProps: { color: "red" },
+				onConfirm: () => void runBulkAction("delete"),
+			});
+			return;
+		}
+		void runBulkAction(action);
 	};
 
 	const clearSelection = () => setSelectedIds([]);
-
-	// Helper to calculate margin
-	const calculateMargin = (price: number, cost: number) => {
-		return Math.round(((price - cost) / price) * 100);
-	};
 
 	// Helper to format last updated
 	const formatLastUpdated = (dateStr: string) => {
@@ -210,6 +274,8 @@ export function ProductsList() {
 							<Button
 								size="xs"
 								variant="default"
+								loading={bulkRunning}
+								disabled={bulkRunning}
 								onClick={() => handleBulkAction("publish")}
 							>
 								Publish
@@ -217,6 +283,7 @@ export function ProductsList() {
 							<Button
 								size="xs"
 								variant="default"
+								disabled={bulkRunning}
 								onClick={() => handleBulkAction("draft")}
 							>
 								Move to Draft
@@ -224,6 +291,7 @@ export function ProductsList() {
 							<Button
 								size="xs"
 								variant="default"
+								disabled={bulkRunning}
 								onClick={() => handleBulkAction("archive")}
 							>
 								Archive
@@ -232,11 +300,17 @@ export function ProductsList() {
 								size="xs"
 								color="red"
 								variant="light"
+								disabled={bulkRunning}
 								onClick={() => handleBulkAction("delete")}
 							>
 								Delete
 							</Button>
-							<Button size="xs" variant="subtle" onClick={clearSelection}>
+							<Button
+								size="xs"
+								variant="subtle"
+								disabled={bulkRunning}
+								onClick={clearSelection}
+							>
 								Clear
 							</Button>
 						</Group>
@@ -244,34 +318,35 @@ export function ProductsList() {
 				</Card>
 			)}
 
-			{/* Stats Cards */}
+			{/* Stats Cards — hanya Total Products yang tersedia dari API (meta.total).
+			    Tidak ada endpoint stats produk: tile lain diisi placeholder. */}
 			<Grid gap="md" mb="xl">
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconStack2 size={20} />}
 						label="Total Products"
-						value={stats.total}
+						value={data?.meta.total ?? "—"}
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconStack2 size={20} />}
 						label="Total Inventory"
-						value={stats.inventory}
+						value="—"
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconAlertTriangle size={20} />}
 						label="Out of stocks"
-						value={stats.outOfStock}
+						value="—"
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconPencil size={20} />}
 						label="Draft Products"
-						value={stats.draft}
+						value="—"
 					/>
 				</Grid.Col>
 			</Grid>
@@ -279,18 +354,18 @@ export function ProductsList() {
 			{/* Toolbar */}
 			<Card withBorder mb="md">
 				<Stack gap="md">
-					{/* Tabs */}
-					<Tabs value={activeTab} onChange={setActiveTab}>
+					{/* Tabs — angka per-status butuh endpoint stats produk (belum ada),
+					    jadi label tampil tanpa angka untuk sementara. */}
+					<Tabs
+						value={activeTab}
+						onChange={(tab) => handleFilterChange(() => setActiveTab(tab))}
+					>
 						<Tabs.List>
-							<Tabs.Tab value="all">All Products ({stats.total})</Tabs.Tab>
-							<Tabs.Tab value="published">
-								Published ({stats.published})
-							</Tabs.Tab>
-							<Tabs.Tab value="draft">Draft ({stats.draft})</Tabs.Tab>
-							<Tabs.Tab value="scheduled">
-								Scheduled ({stats.scheduled})
-							</Tabs.Tab>
-							<Tabs.Tab value="archived">Archived ({stats.archived})</Tabs.Tab>
+							<Tabs.Tab value="all">All Products</Tabs.Tab>
+							<Tabs.Tab value="published">Published</Tabs.Tab>
+							<Tabs.Tab value="draft">Draft</Tabs.Tab>
+							<Tabs.Tab value="scheduled">Scheduled</Tabs.Tab>
+							<Tabs.Tab value="archived">Archived</Tabs.Tab>
 						</Tabs.List>
 					</Tabs>
 
@@ -306,16 +381,17 @@ export function ProductsList() {
 						/>
 						<Select
 							placeholder="Category"
-							data={categories}
+							data={categoryOptions}
 							value={categoryFilter}
 							onChange={(val) =>
 								handleFilterChange(() => setCategoryFilter(val))
 							}
 							clearable
+							searchable
 						/>
 						<Select
 							placeholder="Status"
-							data={["published", "draft", "scheduled", "archived"]}
+							data={PRODUCT_STATUSES}
 							value={statusFilter}
 							onChange={(val) => handleFilterChange(() => setStatusFilter(val))}
 							clearable
@@ -326,11 +402,16 @@ export function ProductsList() {
 								{ value: "newest", label: "Newest" },
 								{ value: "oldest", label: "Oldest" },
 								{ value: "name-az", label: "Name A-Z" },
-								{ value: "price-low", label: "Price low→high" },
-								{ value: "price-high", label: "Price high→low" },
+								// API tidak mendukung sort harga — opsi tetap ada tapi disabled.
+								{ value: "price-low", label: "Price low→high", disabled: true },
+								{
+									value: "price-high",
+									label: "Price high→low",
+									disabled: true,
+								},
 							]}
 							value={sortBy}
-							onChange={setSortBy}
+							onChange={(val) => handleFilterChange(() => setSortBy(val))}
 							clearable
 						/>
 					</Group>
@@ -339,128 +420,125 @@ export function ProductsList() {
 
 			{/* Table */}
 			<Card withBorder>
-				<Table striped>
-					<Table.Thead>
-						<Table.Tr>
-							<Table.Th style={{ width: 40 }}>
-								<Checkbox
-									checked={
-										selectedIds.length === paged.length && paged.length > 0
-									}
-									onChange={toggleSelectAll}
-									indeterminate={
-										selectedIds.length > 0 && selectedIds.length < paged.length
-									}
-								/>
-							</Table.Th>
-							<Table.Th>Product</Table.Th>
-							<Table.Th>Collection</Table.Th>
-							<Table.Th>Category</Table.Th>
-							<Table.Th>Price</Table.Th>
-							<Table.Th>Margin</Table.Th>
-							<Table.Th>Stock</Table.Th>
-							<Table.Th>Last Updated</Table.Th>
-							<Table.Th>Status</Table.Th>
-							<Table.Th>Action</Table.Th>
-						</Table.Tr>
-					</Table.Thead>
-					<Table.Tbody>
-						{paged.length > 0 ? (
-							paged.map((product) => (
-								<Table.Tr
-									key={product.id}
-									style={{ cursor: "pointer" }}
-									onClick={() => navigate(`/products/${product.id}/edit`)}
-								>
-									<Table.Td onClick={(e) => e.stopPropagation()}>
-										<Checkbox
-											checked={selectedIds.includes(product.id)}
-											onChange={() => toggleSelectProduct(product.id)}
-											onClick={(e) => e.stopPropagation()}
-										/>
-									</Table.Td>
-									<Table.Td>
-										<Stack gap={0}>
-											<span style={{ fontWeight: 500 }}>{product.name}</span>
-											<span style={{ fontSize: "12px", color: "gray" }}>
-												SKU: {product.sku}
-											</span>
-										</Stack>
-									</Table.Td>
-									<Table.Td>{product.collection}</Table.Td>
-									<Table.Td>{product.category}</Table.Td>
-									<Table.Td>${product.price}</Table.Td>
-									<Table.Td>
-										{calculateMargin(product.price, product.cost)}%
-									</Table.Td>
-									<Table.Td>
-										<Badge
-											color={
-												product.stock === 0
-													? "red"
-													: product.stock < 5
-														? "yellow"
-														: "green"
-											}
-										>
-											{product.stock} units
-										</Badge>
-									</Table.Td>
-									<Table.Td>{formatLastUpdated(product.updatedAt)}</Table.Td>
-									<Table.Td>
-										<StatusBadge
-											status={
-												product.status as
-													| "published"
-													| "draft"
-													| "scheduled"
-													| "archived"
-											}
-										/>
-									</Table.Td>
-									<Table.Td onClick={(e) => e.stopPropagation()}>
-										<Menu>
-											<Menu.Target>
-												<ActionIcon size="sm" variant="subtle">
-													<IconDots size={14} />
-												</ActionIcon>
-											</Menu.Target>
-											<Menu.Dropdown>
-												<Menu.Item
-													onClick={() =>
-														navigate(`/products/${product.id}/edit`)
-													}
-												>
-													Edit
-												</Menu.Item>
-												<Menu.Item
-													onClick={() => console.log(`Duplicate ${product.id}`)}
-												>
-													Duplicate
-												</Menu.Item>
-												<Menu.Item
-													color="red"
-													onClick={() => console.log(`Delete ${product.id}`)}
-												>
-													Delete
-												</Menu.Item>
-											</Menu.Dropdown>
-										</Menu>
+				{isLoading ? (
+					<Center py="xl">
+						<Loader />
+					</Center>
+				) : isError ? (
+					<Text c="red" ta="center" py="xl">
+						{getApiErrorMessage(error)}
+					</Text>
+				) : (
+					<Table striped>
+						<Table.Thead>
+							<Table.Tr>
+								<Table.Th style={{ width: 40 }}>
+									<Checkbox
+										checked={
+											selectedIds.length === products.length &&
+											products.length > 0
+										}
+										onChange={toggleSelectAll}
+										indeterminate={
+											selectedIds.length > 0 &&
+											selectedIds.length < products.length
+										}
+									/>
+								</Table.Th>
+								<Table.Th>Product</Table.Th>
+								<Table.Th>Collection</Table.Th>
+								<Table.Th>Category</Table.Th>
+								<Table.Th>Price</Table.Th>
+								<Table.Th>Margin</Table.Th>
+								<Table.Th>Stock</Table.Th>
+								<Table.Th>Last Updated</Table.Th>
+								<Table.Th>Status</Table.Th>
+								<Table.Th>Action</Table.Th>
+							</Table.Tr>
+						</Table.Thead>
+						<Table.Tbody>
+							{products.length > 0 ? (
+								products.map((product) => (
+									<Table.Tr
+										key={product.id}
+										style={{ cursor: "pointer" }}
+										onClick={() => navigate(`/products/${product.id}/edit`)}
+									>
+										<Table.Td onClick={(e) => e.stopPropagation()}>
+											<Checkbox
+												checked={selectedIds.includes(product.id)}
+												onChange={() => toggleSelectProduct(product.id)}
+												onClick={(e) => e.stopPropagation()}
+											/>
+										</Table.Td>
+										<Table.Td>
+											<Stack gap={0}>
+												<span style={{ fontWeight: 500 }}>{product.name}</span>
+												<span style={{ fontSize: "12px", color: "gray" }}>
+													SKU: {product.baseSku}
+												</span>
+											</Stack>
+										</Table.Td>
+										{/* Collection/Price/Margin/Stock tidak tersedia di
+										    endpoint list → placeholder. */}
+										<Table.Td>—</Table.Td>
+										<Table.Td>{product.category.name}</Table.Td>
+										<Table.Td>—</Table.Td>
+										<Table.Td>—</Table.Td>
+										<Table.Td>
+											<Badge color="gray" variant="light">
+												—
+											</Badge>
+										</Table.Td>
+										<Table.Td>{formatLastUpdated(product.updatedAt)}</Table.Td>
+										<Table.Td>
+											{product.status ? (
+												<StatusBadge status={product.status} />
+											) : (
+												"—"
+											)}
+										</Table.Td>
+										<Table.Td onClick={(e) => e.stopPropagation()}>
+											<Menu>
+												<Menu.Target>
+													<ActionIcon size="sm" variant="subtle">
+														<IconDots size={14} />
+													</ActionIcon>
+												</Menu.Target>
+												<Menu.Dropdown>
+													<Menu.Item
+														onClick={() =>
+															navigate(`/products/${product.id}/edit`)
+														}
+													>
+														Edit
+													</Menu.Item>
+													{/* Tidak ada endpoint duplicate produk. */}
+													<Menu.Item disabled>Duplicate</Menu.Item>
+													<Menu.Item
+														color="red"
+														onClick={() => confirmDeleteProduct(product)}
+													>
+														Delete
+													</Menu.Item>
+												</Menu.Dropdown>
+											</Menu>
+										</Table.Td>
+									</Table.Tr>
+								))
+							) : (
+								<Table.Tr>
+									<Table.Td
+										colSpan={10}
+										style={{ textAlign: "center", padding: "2rem" }}
+									>
+										No products found
 									</Table.Td>
 								</Table.Tr>
-							))
-						) : (
-							<Table.Tr>
-								<Table.Td
-									colSpan={10}
-									style={{ textAlign: "center", padding: "2rem" }}
-								>
-									No products found
-								</Table.Td>
-							</Table.Tr>
-						)}
-					</Table.Tbody>
-				</Table>
+							)}
+						</Table.Tbody>
+					</Table>
+				)}
 
 				{/* Pagination */}
 				{totalPages > 1 && (
