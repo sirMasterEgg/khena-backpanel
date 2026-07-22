@@ -367,26 +367,28 @@ export function ProductsList() {
 						</Tabs.List>
 					</Tabs>
 
-					{/* Filters */}
-					<Group grow>
-						<TextInput
-							placeholder="Search products..."
-							leftSection={<IconSearch size={16} />}
-							value={search}
-							onChange={(e) =>
-								handleFilterChange(() => setSearch(e.currentTarget.value))
-							}
-						/>
-						<Select
-							placeholder="Category"
-							data={categoryOptions}
-							value={categoryFilter}
-							onChange={(val) =>
-								handleFilterChange(() => setCategoryFilter(val))
-							}
-							clearable
-							searchable
-						/>
+					{/* Filters — Search + Category di kiri, Sort terpisah di kanan. */}
+					<Group justify="space-between">
+						<Group grow style={{ flex: 1 }} maw={600}>
+							<TextInput
+								placeholder="Search products..."
+								leftSection={<IconSearch size={16} />}
+								value={search}
+								onChange={(e) =>
+									handleFilterChange(() => setSearch(e.currentTarget.value))
+								}
+							/>
+							<Select
+								placeholder="Category"
+								data={categoryOptions}
+								value={categoryFilter}
+								onChange={(val) =>
+									handleFilterChange(() => setCategoryFilter(val))
+								}
+								clearable
+								searchable
+							/>
+						</Group>
 						<Select
 							placeholder="Sort"
 							data={[
