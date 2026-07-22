@@ -83,6 +83,21 @@ const createEmptyVariant = () => ({
 
 const emptyDimension = { image: "" } as ProductFormData["productDimension"];
 
+/**
+ * Ambil bagian SETELAH prefix base sku dari sebuah sku varian.
+ * "KURSI001-1" dgn base "KURSI001" → "1"; sku yang tidak diawali base
+ * dikembalikan utuh (dianggap murni suffix). Dipakai supaya pergantian
+ * baseSku me-REPLACE prefix lama, bukan menumpuknya
+ * (KURSI002-KURSI001-1 ← bug yang dihindari).
+ */
+function variantSkuSuffix(sku: string, base: string): string {
+	if (!sku) return "";
+	if (base && sku.startsWith(`${base}-`)) return sku.slice(base.length + 1);
+	if (base && sku.startsWith(base))
+		return sku.slice(base.length).replace(/^-/, "");
+	return sku;
+}
+
 /** Ke mana hasil pilihan MediaPickerModal ditulis di form. */
 type PickerTarget =
 	| { kind: "media" }
@@ -230,6 +245,7 @@ export function ProductEditor() {
 		setValue,
 		setError,
 		reset,
+		getValues,
 		formState: { errors },
 	} = useForm<ProductFormData>({
 		resolver: zodResolver(productSchema),
@@ -273,6 +289,32 @@ export function ProductEditor() {
 	// Compare price & profit dihitung langsung dari nilai yang di-watch saat
 	// render (bukan setValue di effect) — selalu sinkron dengan ketikan user.
 	const variants = watch("variant");
+
+	// Prefix tetap SKU varian. Aturan API: sku varian HARUS diawali baseSku —
+	// prefix (termasuk "-" pemisah) dikunci di UI sebagai leftSection sehingga
+	// tidak mungkin terhapus; user hanya mengetik bagian setelahnya.
+	const baseSku = watch("baseSku");
+	const skuPrefix = baseSku ? `${baseSku}-` : "";
+
+	/**
+	 * Dipanggil dari onChange input Base SKU (create maupun edit): prefix lama
+	 * tiap sku varian di-REPLACE dengan yang baru — suffix diambil relatif
+	 * terhadap base sebelumnya supaya tidak menumpuk (bukan
+	 * KURSI002-KURSI001-1). Sinkron dalam satu event, jadi tidak ada frame
+	 * "kedip" seperti kalau lewat useEffect.
+	 */
+	const handleBaseSkuChange = (newBase: string) => {
+		const prevBase = getValues("baseSku");
+		setValue("baseSku", newBase, { shouldDirty: true });
+		getValues("variant").forEach((variant, idx) => {
+			const suffix = variantSkuSuffix(variant.sku, prevBase);
+			// Suffix kosong dibiarkan kosong — sku tidak diisi prefix menggantung.
+			const nextSku = suffix ? (newBase ? `${newBase}-${suffix}` : suffix) : "";
+			if (nextSku !== variant.sku) {
+				setValue(`variant.${idx}.sku`, nextSku);
+			}
+		});
+	};
 
 	const media = watch("media");
 	const productDimensionImage = watch("productDimension.image");
@@ -484,11 +526,23 @@ export function ProductEditor() {
 										{/* SKU + Collection - side by side */}
 										<Grid gap="md">
 											<Grid.Col span={{ base: 12, sm: 6 }}>
-												<TextInput
-													label="SKU"
-													placeholder="Enter SKU"
-													{...register("baseSku")}
-													error={errors.baseSku?.message}
+												{/* onChange kustom: ikut menulis ulang prefix semua
+												    sku varian secara sinkron (handleBaseSkuChange). */}
+												<Controller
+													name="baseSku"
+													control={control}
+													render={({ field }) => (
+														<TextInput
+															label="SKU"
+															placeholder="Enter SKU"
+															value={field.value}
+															onChange={(e) =>
+																handleBaseSkuChange(e.currentTarget.value)
+															}
+															onBlur={field.onBlur}
+															error={errors.baseSku?.message}
+														/>
+													)}
 												/>
 											</Grid.Col>
 											<Grid.Col span={{ base: 12, sm: 6 }}>
@@ -666,11 +720,50 @@ export function ProductEditor() {
 																/>
 															</Grid.Col>
 															<Grid.Col span={{ base: 12, sm: 4 }}>
-																<TextInput
-																	label="SKU"
-																	placeholder="Variant SKU"
-																	{...register(`variant.${idx}.sku`)}
-																	error={errors.variant?.[idx]?.sku?.message}
+																{/* Prefix "baseSku-" dirender sebagai leftSection —
+																    di luar area ketik, jadi tidak mungkin terhapus.
+																    Nilai form tetap SKU utuh (prefix + suffix). */}
+																<Controller
+																	name={`variant.${idx}.sku`}
+																	control={control}
+																	render={({ field }) => (
+																		<TextInput
+																			label="SKU"
+																			placeholder={
+																				skuPrefix ? "VARIAN" : "Variant SKU"
+																			}
+																			leftSection={
+																				skuPrefix ? (
+																					<Text
+																						size="sm"
+																						c="dimmed"
+																						fw={500}
+																						style={{ whiteSpace: "nowrap" }}
+																					>
+																						{skuPrefix}
+																					</Text>
+																				) : undefined
+																			}
+																			leftSectionWidth={
+																				skuPrefix
+																					? `calc(${skuPrefix.length}ch + 20px)`
+																					: undefined
+																			}
+																			leftSectionPointerEvents="none"
+																			value={variantSkuSuffix(
+																				field.value,
+																				baseSku,
+																			)}
+																			onChange={(e) => {
+																				const suffix = e.currentTarget.value;
+																				field.onChange(
+																					suffix ? skuPrefix + suffix : "",
+																				);
+																			}}
+																			onBlur={field.onBlur}
+																			error={errors.variant?.[idx]?.sku?.message}
+																		/>
+																	)}
 																/>
 															</Grid.Col>
 															<Grid.Col span={{ base: 12, sm: 4 }}>
