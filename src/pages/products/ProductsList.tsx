@@ -37,6 +37,7 @@ import { listCategories } from "@/api/categories";
 import { getApiErrorMessage } from "@/api/client";
 import {
 	deleteProduct,
+	getProductStats,
 	listProducts,
 	type ProductListParams,
 	type ProductStatus,
@@ -106,26 +107,13 @@ export function ProductsList() {
 	const products = data?.data ?? [];
 	const totalPages = data?.meta.totalPages ?? 1;
 
-	// Angka badge per tab. Tidak ada endpoint stats produk — dihitung dari
-	// meta.total dengan limit:1 per status (pola countCategoriesByRoomType).
+	// Stats agregat untuk tile & badge tab (GET /products/stats).
 	// queryKey diawali "products" supaya ikut ter-refresh saat ada mutasi.
-	const tabCountsQuery = useQuery({
-		queryKey: ["products", "tabCounts"],
-		queryFn: async () => {
-			const [all, published, draft, scheduled, archived] = await Promise.all([
-				listProducts({ limit: 1 }),
-				...PRODUCT_STATUSES.map((status) => listProducts({ status, limit: 1 })),
-			]);
-			return {
-				all: all.meta.total,
-				published: published.meta.total,
-				draft: draft.meta.total,
-				scheduled: scheduled.meta.total,
-				archived: archived.meta.total,
-			};
-		},
+	const statsQuery = useQuery({
+		queryKey: ["products", "stats"],
+		queryFn: getProductStats,
 	});
-	const tabCounts = tabCountsQuery.data;
+	const stats = statsQuery.data;
 
 	const tabBadge = (count: number | undefined) =>
 		count === undefined ? null : (
@@ -344,35 +332,34 @@ export function ProductsList() {
 				</Card>
 			)}
 
-			{/* Stats Cards — hanya Total Products yang tersedia dari API (meta.total).
-			    Tidak ada endpoint stats produk: tile lain diisi placeholder. */}
+			{/* Stats Cards — dari GET /products/stats. "—" selagi loading/gagal. */}
 			<Grid gap="md" mb="xl">
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconStack2 size={20} />}
 						label="Total Products"
-						value={data?.meta.total ?? "—"}
+						value={stats?.totalProducts ?? "—"}
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconStack2 size={20} />}
 						label="Total Inventory"
-						value="—"
+						value={stats?.totalInventory ?? "—"}
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconAlertTriangle size={20} />}
 						label="Out of stocks"
-						value="—"
+						value={stats?.totalOutOfStock ?? "—"}
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconPencil size={20} />}
 						label="Draft Products"
-						value="—"
+						value={stats?.totalDraft ?? "—"}
 					/>
 				</Grid.Col>
 			</Grid>
@@ -380,34 +367,39 @@ export function ProductsList() {
 			{/* Toolbar */}
 			<Card withBorder mb="md">
 				<Stack gap="md">
-					{/* Tabs — angka per-status butuh endpoint stats produk (belum ada),
-					    jadi label tampil tanpa angka untuk sementara. */}
+					{/* Tabs — badge angka per status dari GET /products/stats. */}
 					<Tabs
 						value={activeTab}
 						onChange={(tab) => handleFilterChange(() => setActiveTab(tab))}
 					>
 						<Tabs.List>
-							<Tabs.Tab value="all" rightSection={tabBadge(tabCounts?.all)}>
+							<Tabs.Tab
+								value="all"
+								rightSection={tabBadge(stats?.totalProducts)}
+							>
 								All Products
 							</Tabs.Tab>
 							<Tabs.Tab
 								value="published"
-								rightSection={tabBadge(tabCounts?.published)}
+								rightSection={tabBadge(stats?.totalPublished)}
 							>
 								Published
 							</Tabs.Tab>
-							<Tabs.Tab value="draft" rightSection={tabBadge(tabCounts?.draft)}>
+							<Tabs.Tab
+								value="draft"
+								rightSection={tabBadge(stats?.totalDraft)}
+							>
 								Draft
 							</Tabs.Tab>
 							<Tabs.Tab
 								value="scheduled"
-								rightSection={tabBadge(tabCounts?.scheduled)}
+								rightSection={tabBadge(stats?.totalScheduled)}
 							>
 								Scheduled
 							</Tabs.Tab>
 							<Tabs.Tab
 								value="archived"
-								rightSection={tabBadge(tabCounts?.archived)}
+								rightSection={tabBadge(stats?.totalArchived)}
 							>
 								Archived
 							</Tabs.Tab>

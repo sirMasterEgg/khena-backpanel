@@ -133,6 +133,22 @@ export type ProductListParams = {
 	limit?: number;
 };
 
+/** Ringkasan agregat produk (contract.md bagian 6, GET /products/stats). */
+export type ProductStats = {
+	totalProducts: number;
+	totalInventory: number;
+	totalOutOfStock: number;
+	totalPublished: number;
+	totalDraft: number;
+	totalScheduled: number;
+	totalArchived: number;
+};
+
+export async function getProductStats() {
+	const res = await apiClient.get<ApiSuccess<ProductStats>>("/products/stats");
+	return res.data.data;
+}
+
 export async function listProducts(params?: ProductListParams) {
 	const res = await apiClient.get<ApiListSuccess<ProductListItem>>(
 		"/products",
