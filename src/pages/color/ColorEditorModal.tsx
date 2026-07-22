@@ -2,7 +2,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	Box,
 	Button,
-	ColorInput,
 	Group,
 	Image,
 	Modal,
@@ -16,11 +15,11 @@ import { IconPhoto } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { getApiErrorMessage } from "@/api/client";
+import { getApiErrorMessage, getApiFieldErrors } from "@/api/client";
 import {
 	type ColorInput as ColorInputBody,
 	createColor,
-	stripHash,
+	HEX_PATTERN,
 	updateColor,
 	withHash,
 } from "@/api/colors";
@@ -28,11 +27,14 @@ import type { FinishColor } from "@/api/finishes";
 import { getMediaPreviewUrl } from "@/api/media";
 import { notify } from "@/components/notify";
 import { type ColorFormData, colorSchema } from "./colorSchema";
+import { HexColorInput } from "./HexColorInput";
 import { MediaPickerModal } from "./MediaPickerModal";
 
 interface FinishOption {
 	id: string;
 	name: string;
+	/** Dibutuhkan untuk mencegah nama color duplikat dalam satu material type. */
+	colors: FinishColor[];
 }
 
 interface ColorEditorModalProps {
@@ -43,6 +45,13 @@ interface ColorEditorModalProps {
 	/** Finish tempat color ini berada (atau tujuan saat menambah color baru). */
 	finishId: string | null;
 	onClose: () => void;
+	/**
+	 * Dipanggil SETELAH animasi tutup selesai. Parent memakai ini untuk
+	 * membersihkan state `initial`/`finishId` — kalau dibersihkan sinkron di
+	 * `onClose`, judul & preview sempat berkedip ke state kosong saat modal
+	 * masih terlihat.
+	 */
+	onExited?: () => void;
 }
 
 export function ColorEditorModal({
@@ -51,6 +60,7 @@ export function ColorEditorModal({
 	finishes,
 	finishId,
 	onClose,
+	onExited,
 }: ColorEditorModalProps) {
 	const queryClient = useQueryClient();
 	const [mediaOpened, setMediaOpened] = useState(false);
@@ -64,6 +74,7 @@ export function ColorEditorModal({
 		reset,
 		watch,
 		setValue,
+		setError,
 		formState: { errors },
 	} = useForm<ColorFormData>({
 		resolver: zodResolver(colorSchema),
@@ -83,7 +94,8 @@ export function ColorEditorModal({
 		if (!opened) return;
 		reset({
 			name: initial?.name ?? "",
-			hex: initial ? withHash(initial.hexCode) : "",
+			// Bentuk form = bentuk API (6 karakter tanpa "#"), tanpa konversi.
+			hex: initial?.hexCode ?? "",
 			// AMBIL .id — swatchPhoto itu objek File, tapi form menyimpan uuid-nya
 			// saja karena itulah yang nanti dikirim sebagai `swatchImage`.
 			photo: initial?.swatchPhoto?.id ?? undefined,
@@ -91,7 +103,9 @@ export function ColorEditorModal({
 			finishId: finishId ?? "",
 		});
 		setPhotoPreview(
-			initial?.swatchPhoto ? getMediaPreviewUrl(initial.swatchPhoto) : undefined,
+			initial?.swatchPhoto
+				? getMediaPreviewUrl(initial.swatchPhoto)
+				: undefined,
 		);
 	}, [opened, initial, finishId, reset]);
 
@@ -102,6 +116,10 @@ export function ColorEditorModal({
 
 	const finishName = finishes.find((f) => f.id === selectedFinish)?.name ?? "";
 
+	// Hanya dirender kalau sudah 6 karakter — CSS "background-color: ff0000"
+	// (tanpa "#") tidak valid dan diam-diam jatuh ke transparan.
+	const cssHex = HEX_PATTERN.test(hex) ? withHash(hex) : undefined;
+
 	const mutation = useMutation({
 		mutationFn: (body: ColorInputBody) =>
 			initial ? updateColor(initial.id, body) : createColor(body),
@@ -111,13 +129,56 @@ export function ColorEditorModal({
 			queryClient.invalidateQueries({ queryKey: ["finishes"] });
 			onClose();
 		},
-		onError: (error) => notify.error(getApiErrorMessage(error)),
+		onError: (error) => {
+			// Nama field di API berbeda dengan di form (lihat ColorInputBody).
+			// Petakan balik supaya error 422 dari backend menempel di input yang
+			// benar, bukan cuma jadi toast "validation failed".
+			const apiToForm: Record<string, keyof ColorFormData> = {
+				color: "name",
+				hex: "hex",
+				finishId: "finishId",
+				notes: "notes",
+				swatchImage: "photo",
+			};
+			const fieldErrors = getApiFieldErrors(error);
+			const entries = Object.entries(fieldErrors).filter(
+				([apiField]) => apiField in apiToForm,
+			);
+			if (entries.length > 0) {
+				for (const [apiField, message] of entries) {
+					setError(apiToForm[apiField], { message });
+				}
+				return;
+			}
+			notify.error(getApiErrorMessage(error));
+		},
 	});
 
 	const onSubmit = (data: ColorFormData) => {
+		// Cegah nama color duplikat DALAM SATU material type, konsisten dengan
+		// guard duplikat material type di ColorList. Tiga hal penting:
+		// - dicek terhadap finish TUJUAN (data.finishId), bukan finish asal —
+		//   Select memungkinkan memindahkan color antar material type;
+		// - `c.id !== initial?.id` supaya saat edit, color tidak dianggap
+		//   duplikat terhadap dirinya sendiri;
+		// - nama sama di material type BERBEDA tetap boleh (mis. "Merah Bata"
+		//   ada di Matte sekaligus Gloss).
+		const targetFinish = finishes.find((f) => f.id === data.finishId);
+		const duplicate = targetFinish?.colors.find(
+			(c) =>
+				c.name.trim().toLowerCase() === data.name.toLowerCase() &&
+				c.id !== initial?.id,
+		);
+		if (duplicate) {
+			setError("name", {
+				message: `Color "${duplicate.name}" sudah ada di material type ini`,
+			});
+			return;
+		}
+
 		mutation.mutate({
 			color: data.name, // name  → color
-			hex: stripHash(data.hex), // buang "#"
+			hex: data.hex, // sudah 6 karakter lowercase tanpa "#"
 			finishId: data.finishId,
 			// Kirim undefined (bukan ""), agar tidak tertolak validasi backend.
 			notes: data.notes?.trim() || undefined,
@@ -135,7 +196,14 @@ export function ColorEditorModal({
 			<Modal
 				opened={opened}
 				onClose={onClose}
-				title={isEditing ? "Edit color" : `Add ${finishName} color`}
+				onExitTransitionEnd={onExited}
+				// `finishName` bisa kosong sesaat sebelum form ter-reset — rangkai
+				// lewat filter+join supaya tidak jadi "Add  color" (spasi ganda).
+				title={
+					isEditing
+						? "Edit color"
+						: ["Add", finishName, "color"].filter(Boolean).join(" ")
+				}
 				centered
 			>
 				<form onSubmit={handleSubmit(onSubmit)}>
@@ -157,7 +225,7 @@ export function ColorEditorModal({
 									borderRadius: "50%",
 									flexShrink: 0,
 									border: "1px solid var(--mantine-color-gray-3)",
-									backgroundColor: hex.trim() || "transparent",
+									backgroundColor: cssHex ?? "transparent",
 									backgroundImage: photoPreview
 										? `url(${photoPreview})`
 										: undefined,
@@ -170,7 +238,7 @@ export function ColorEditorModal({
 									{name.trim() || "Untitled color"}
 								</Text>
 								<Text size="xs" c="dimmed" truncate>
-									{hex.trim() || "No colour set"}
+									{cssHex ?? "No colour set"}
 									{finishName ? ` · ${finishName}` : ""}
 								</Text>
 							</Stack>
@@ -251,13 +319,10 @@ export function ColorEditorModal({
 								name="hex"
 								control={control}
 								render={({ field }) => (
-									<ColorInput
-										label="Colour"
-										placeholder="#888888"
-										required
+									<HexColorInput
 										value={field.value ?? ""}
 										onChange={field.onChange}
-										withEyeDropper={false}
+										onBlur={field.onBlur}
 										error={errors.hex?.message}
 									/>
 								)}
@@ -288,6 +353,7 @@ export function ColorEditorModal({
 							label="Notes (optional)"
 							placeholder="Supplier code, finishing details, etc."
 							{...register("notes")}
+							error={errors.notes?.message}
 							autosize
 							minRows={2}
 						/>
