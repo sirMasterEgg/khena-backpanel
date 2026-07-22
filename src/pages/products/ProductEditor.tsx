@@ -689,7 +689,7 @@ export function ProductEditor() {
 																		<NumberInput
 																			label="Price"
 																			placeholder="0"
-																			prefix="Rp "
+																			leftSection="Rp"
 																			thousandSeparator="."
 																			decimalSeparator=","
 																			hideControls
@@ -710,7 +710,7 @@ export function ProductEditor() {
 																		<NumberInput
 																			label="Cost"
 																			placeholder="0"
-																			prefix="Rp "
+																			leftSection="Rp"
 																			thousandSeparator="."
 																			decimalSeparator=","
 																			hideControls
@@ -758,7 +758,7 @@ export function ProductEditor() {
 																		<NumberInput
 																			label="Compare Price"
 																			placeholder="0"
-																			prefix="Rp "
+																			leftSection="Rp"
 																			thousandSeparator="."
 																			decimalSeparator=","
 																			hideControls
@@ -776,7 +776,7 @@ export function ProductEditor() {
 																		<NumberInput
 																			label="Marketplace"
 																			placeholder="0"
-																			prefix="Rp "
+																			leftSection="Rp"
 																			thousandSeparator="."
 																			decimalSeparator=","
 																			hideControls
