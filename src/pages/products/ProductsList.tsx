@@ -106,6 +106,34 @@ export function ProductsList() {
 	const products = data?.data ?? [];
 	const totalPages = data?.meta.totalPages ?? 1;
 
+	// Angka badge per tab. Tidak ada endpoint stats produk — dihitung dari
+	// meta.total dengan limit:1 per status (pola countCategoriesByRoomType).
+	// queryKey diawali "products" supaya ikut ter-refresh saat ada mutasi.
+	const tabCountsQuery = useQuery({
+		queryKey: ["products", "tabCounts"],
+		queryFn: async () => {
+			const [all, published, draft, scheduled, archived] = await Promise.all([
+				listProducts({ limit: 1 }),
+				...PRODUCT_STATUSES.map((status) => listProducts({ status, limit: 1 })),
+			]);
+			return {
+				all: all.meta.total,
+				published: published.meta.total,
+				draft: draft.meta.total,
+				scheduled: scheduled.meta.total,
+				archived: archived.meta.total,
+			};
+		},
+	});
+	const tabCounts = tabCountsQuery.data;
+
+	const tabBadge = (count: number | undefined) =>
+		count === undefined ? null : (
+			<Badge size="sm" circle variant="light">
+				{count}
+			</Badge>
+		);
+
 	// Opsi kategori dari API — bukan lagi derive dari data produk.
 	const categoriesQuery = useQuery({
 		queryKey: ["categories", { forFilter: true }],
@@ -359,11 +387,30 @@ export function ProductsList() {
 						onChange={(tab) => handleFilterChange(() => setActiveTab(tab))}
 					>
 						<Tabs.List>
-							<Tabs.Tab value="all">All Products</Tabs.Tab>
-							<Tabs.Tab value="published">Published</Tabs.Tab>
-							<Tabs.Tab value="draft">Draft</Tabs.Tab>
-							<Tabs.Tab value="scheduled">Scheduled</Tabs.Tab>
-							<Tabs.Tab value="archived">Archived</Tabs.Tab>
+							<Tabs.Tab value="all" rightSection={tabBadge(tabCounts?.all)}>
+								All Products
+							</Tabs.Tab>
+							<Tabs.Tab
+								value="published"
+								rightSection={tabBadge(tabCounts?.published)}
+							>
+								Published
+							</Tabs.Tab>
+							<Tabs.Tab value="draft" rightSection={tabBadge(tabCounts?.draft)}>
+								Draft
+							</Tabs.Tab>
+							<Tabs.Tab
+								value="scheduled"
+								rightSection={tabBadge(tabCounts?.scheduled)}
+							>
+								Scheduled
+							</Tabs.Tab>
+							<Tabs.Tab
+								value="archived"
+								rightSection={tabBadge(tabCounts?.archived)}
+							>
+								Archived
+							</Tabs.Tab>
 						</Tabs.List>
 					</Tabs>
 
