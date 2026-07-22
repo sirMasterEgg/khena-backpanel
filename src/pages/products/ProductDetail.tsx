@@ -2,19 +2,24 @@ import {
 	Badge,
 	Button,
 	Card,
+	Center,
 	Container,
 	Grid,
 	Group,
+	Loader,
 	Stack,
 	Table,
 	Text,
 } from "@mantine/core";
 import { IconArrowLeft, IconPencil } from "@tabler/icons-react";
-import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router";
+import { getApiErrorMessage } from "@/api/client";
+import { listColors } from "@/api/colors";
+import { getMediaPreviewUrl } from "@/api/media";
+import { getProduct } from "@/api/products";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
-import { dummyProducts } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
 export function ProductDetail() {
@@ -22,11 +27,39 @@ export function ProductDetail() {
 	const { id } = useParams();
 	usePageTitle("Product Detail");
 
-	const product = useMemo(() => {
-		return dummyProducts.find((p) => p.id === Number(id));
-	}, [id]);
+	const {
+		data: product,
+		isLoading,
+		isError,
+		error,
+	} = useQuery({
+		queryKey: ["products", id],
+		queryFn: () => getProduct(id as string),
+		enabled: Boolean(id),
+	});
 
-	if (!product) {
+	// Response varian hanya membawa colorId — nama warnanya diambil dari
+	// GET /colors lalu dipetakan di render.
+	const colorsQuery = useQuery({
+		queryKey: ["colors", { forOptions: true }],
+		queryFn: () => listColors({ limit: 100 }),
+	});
+	const colorNameById = new Map(
+		(colorsQuery.data?.data ?? []).map((c) => [c.id, c.name]),
+	);
+
+	if (isLoading) {
+		return (
+			<Container size="xl">
+				<Center py="xl">
+					<Loader />
+				</Center>
+			</Container>
+		);
+	}
+
+	// Termasuk `400 product not found` (error.code NOT_FOUND).
+	if (isError || !product) {
 		return (
 			<Container size="xl">
 				<PageHeader
@@ -43,16 +76,14 @@ export function ProductDetail() {
 				/>
 				<Card withBorder>
 					<Text c="dimmed" ta="center" py="xl">
-						The product you're looking for doesn't exist.
+						{isError
+							? getApiErrorMessage(error)
+							: "The product you're looking for doesn't exist."}
 					</Text>
 				</Card>
 			</Container>
 		);
 	}
-
-	const calculateMargin = (price: number, cost: number) => {
-		return Math.round(((price - cost) / price) * 100);
-	};
 
 	return (
 		<Container size="xl">
@@ -101,7 +132,7 @@ export function ProductDetail() {
 											<Text size="sm" c="dimmed">
 												SKU
 											</Text>
-											<Text fw={500}>{product.sku}</Text>
+											<Text fw={500}>{product.baseSku}</Text>
 										</div>
 									</Grid.Col>
 									<Grid.Col span={{ base: 12, sm: 6 }}>
@@ -109,7 +140,8 @@ export function ProductDetail() {
 											<Text size="sm" c="dimmed">
 												Collection
 											</Text>
-											<Text fw={500}>{product.collection}</Text>
+											{/* Response detail tidak menyertakan collection. */}
+											<Text fw={500}>—</Text>
 										</div>
 									</Grid.Col>
 									<Grid.Col span={{ base: 12, sm: 6 }}>
@@ -117,7 +149,7 @@ export function ProductDetail() {
 											<Text size="sm" c="dimmed">
 												Category
 											</Text>
-											<Text fw={500}>{product.category}</Text>
+											<Text fw={500}>{product.category.name}</Text>
 										</div>
 									</Grid.Col>
 									<Grid.Col span={{ base: 12, sm: 6 }}>
@@ -125,15 +157,11 @@ export function ProductDetail() {
 											<Text size="sm" c="dimmed">
 												Status
 											</Text>
-											<StatusBadge
-												status={
-													product.status as
-														| "published"
-														| "draft"
-														| "scheduled"
-														| "archived"
-												}
-											/>
+											{product.status ? (
+												<StatusBadge status={product.status} />
+											) : (
+												<Text fw={500}>—</Text>
+											)}
 										</div>
 									</Grid.Col>
 									<Grid.Col span={{ base: 12, sm: 6 }}>
@@ -158,7 +186,8 @@ export function ProductDetail() {
 							</Card.Section>
 						</Card>
 
-						{/* Pricing & Inventory */}
+						{/* Pricing & Inventory — harga/stok level produk tidak ada di API
+						    (harga per varian ada di tabel Variants). */}
 						<Card withBorder>
 							<Card.Section inheritPadding py="md" pb="lg">
 								<Text fw={600}>Pricing & Inventory</Text>
@@ -170,7 +199,7 @@ export function ProductDetail() {
 											<Text size="sm" c="dimmed">
 												Price
 											</Text>
-											<Text fw={500}>${product.price}</Text>
+											<Text fw={500}>—</Text>
 										</div>
 									</Grid.Col>
 									<Grid.Col span={{ base: 12, sm: 6 }}>
@@ -178,7 +207,7 @@ export function ProductDetail() {
 											<Text size="sm" c="dimmed">
 												Cost
 											</Text>
-											<Text fw={500}>${product.cost}</Text>
+											<Text fw={500}>—</Text>
 										</div>
 									</Grid.Col>
 									<Grid.Col span={{ base: 12, sm: 6 }}>
@@ -186,9 +215,7 @@ export function ProductDetail() {
 											<Text size="sm" c="dimmed">
 												Margin
 											</Text>
-											<Text fw={500}>
-												{calculateMargin(product.price, product.cost)}%
-											</Text>
+											<Text fw={500}>—</Text>
 										</div>
 									</Grid.Col>
 									<Grid.Col span={{ base: 12, sm: 6 }}>
@@ -196,16 +223,8 @@ export function ProductDetail() {
 											<Text size="sm" c="dimmed">
 												Stock
 											</Text>
-											<Badge
-												color={
-													product.stock === 0
-														? "red"
-														: product.stock < 5
-															? "yellow"
-															: "green"
-												}
-											>
-												{product.stock} units
+											<Badge color="gray" variant="light">
+												—
 											</Badge>
 										</div>
 									</Grid.Col>
@@ -214,7 +233,7 @@ export function ProductDetail() {
 						</Card>
 
 						{/* Variants */}
-						{product.variants && product.variants.length > 0 && (
+						{product.variants.length > 0 && (
 							<Card withBorder>
 								<Card.Section inheritPadding py="md" pb="lg">
 									<Text fw={600}>Product Variants</Text>
@@ -232,20 +251,15 @@ export function ProductDetail() {
 										<Table.Tbody>
 											{product.variants.map((variant) => (
 												<Table.Tr key={variant.id}>
-													<Table.Td>{variant.colorFinish}</Table.Td>
-													<Table.Td>{variant.sku}</Table.Td>
+													<Table.Td>
+														{colorNameById.get(variant.colorId) ?? "—"}
+													</Table.Td>
+													<Table.Td>{variant.detailProductSku}</Table.Td>
 													<Table.Td>${variant.price}</Table.Td>
 													<Table.Td>
-														<Badge
-															color={
-																variant.stock === 0
-																	? "red"
-																	: variant.stock < 3
-																		? "yellow"
-																		: "green"
-															}
-														>
-															{variant.stock}
+														{/* Stok varian tidak ada di response detail. */}
+														<Badge color="gray" variant="light">
+															—
 														</Badge>
 													</Table.Td>
 												</Table.Tr>
@@ -257,147 +271,116 @@ export function ProductDetail() {
 						)}
 
 						{/* Materials & Care */}
-						{(product.materialInfo || product.careCategories) && (
+						{(product.materials || product.careInstructions.length > 0) && (
 							<Card withBorder>
 								<Card.Section inheritPadding py="md" pb="lg">
 									<Text fw={600}>Materials & Care</Text>
 								</Card.Section>
 								<Card.Section inheritPadding pb="md">
 									<Stack gap="md">
-										{product.materialInfo && (
+										{product.materials && (
 											<div>
 												<Text size="sm" c="dimmed" mb="xs">
 													Material Information
 												</Text>
-												<Text fw={500}>{product.materialInfo}</Text>
+												<Text fw={500}>{product.materials}</Text>
 											</div>
 										)}
-										{product.careCategories &&
-											product.careCategories.length > 0 && (
-												<div>
-													<Text size="sm" c="dimmed" mb="xs">
-														Care Categories
-													</Text>
-													<Group gap="xs">
-														{product.careCategories.map((cat) => (
-															<Badge key={cat} variant="light">
-																{cat}
-															</Badge>
-														))}
-													</Group>
-												</div>
-											)}
+										{product.careInstructions.length > 0 && (
+											<div>
+												<Text size="sm" c="dimmed" mb="xs">
+													Care Instructions
+												</Text>
+												<Group gap="xs">
+													{product.careInstructions.map((care) => (
+														<Badge key={care.id} variant="light">
+															{care.instruction}
+														</Badge>
+													))}
+												</Group>
+											</div>
+										)}
 									</Stack>
 								</Card.Section>
 							</Card>
 						)}
 
 						{/* Dimensions */}
-						{(product.dimension || product.boxDimension) && (
-							<Card withBorder>
-								<Card.Section inheritPadding py="md" pb="lg">
-									<Text fw={600}>Dimensions</Text>
-								</Card.Section>
-								<Card.Section inheritPadding pb="md">
-									<Stack gap="md">
-										{product.dimension && (
-											<div>
-												<Text size="sm" fw={500} mb="xs">
-													Product Dimension
+						<Card withBorder>
+							<Card.Section inheritPadding py="md" pb="lg">
+								<Text fw={600}>Dimensions</Text>
+							</Card.Section>
+							<Card.Section inheritPadding pb="md">
+								<Stack gap="md">
+									<div>
+										<Text size="sm" fw={500} mb="xs">
+											Product Dimension
+										</Text>
+										<Grid gap="md">
+											<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Text size="xs" c="dimmed">
+													Width
 												</Text>
-												<Grid gap="md">
-													{product.dimension.width && (
-														<Grid.Col span={{ base: 6, sm: 3 }}>
-															<Text size="xs" c="dimmed">
-																Width
-															</Text>
-															<Text fw={500}>{product.dimension.width} cm</Text>
-														</Grid.Col>
-													)}
-													{product.dimension.depth && (
-														<Grid.Col span={{ base: 6, sm: 3 }}>
-															<Text size="xs" c="dimmed">
-																Depth
-															</Text>
-															<Text fw={500}>{product.dimension.depth} cm</Text>
-														</Grid.Col>
-													)}
-													{product.dimension.height && (
-														<Grid.Col span={{ base: 6, sm: 3 }}>
-															<Text size="xs" c="dimmed">
-																Height
-															</Text>
-															<Text fw={500}>
-																{product.dimension.height} cm
-															</Text>
-														</Grid.Col>
-													)}
-													{product.dimension.weight && (
-														<Grid.Col span={{ base: 6, sm: 3 }}>
-															<Text size="xs" c="dimmed">
-																Weight
-															</Text>
-															<Text fw={500}>
-																{product.dimension.weight} kg
-															</Text>
-														</Grid.Col>
-													)}
-												</Grid>
-											</div>
-										)}
-										{product.boxDimension && (
-											<div>
-												<Text size="sm" fw={500} mb="xs">
-													Box Dimension
+												<Text fw={500}>{product.productDimension.width} cm</Text>
+											</Grid.Col>
+											<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Text size="xs" c="dimmed">
+													Depth
 												</Text>
-												<Grid gap="md">
-													{product.boxDimension.width && (
-														<Grid.Col span={{ base: 6, sm: 3 }}>
-															<Text size="xs" c="dimmed">
-																Box Width
-															</Text>
-															<Text fw={500}>
-																{product.boxDimension.width} cm
-															</Text>
-														</Grid.Col>
-													)}
-													{product.boxDimension.depth && (
-														<Grid.Col span={{ base: 6, sm: 3 }}>
-															<Text size="xs" c="dimmed">
-																Box Depth
-															</Text>
-															<Text fw={500}>
-																{product.boxDimension.depth} cm
-															</Text>
-														</Grid.Col>
-													)}
-													{product.boxDimension.height && (
-														<Grid.Col span={{ base: 6, sm: 3 }}>
-															<Text size="xs" c="dimmed">
-																Box Height
-															</Text>
-															<Text fw={500}>
-																{product.boxDimension.height} cm
-															</Text>
-														</Grid.Col>
-													)}
-													{product.boxDimension.weight && (
-														<Grid.Col span={{ base: 6, sm: 3 }}>
-															<Text size="xs" c="dimmed">
-																Box Weight
-															</Text>
-															<Text fw={500}>
-																{product.boxDimension.weight} kg
-															</Text>
-														</Grid.Col>
-													)}
-												</Grid>
-											</div>
-										)}
-									</Stack>
-								</Card.Section>
-							</Card>
-						)}
+												<Text fw={500}>{product.productDimension.depth} cm</Text>
+											</Grid.Col>
+											<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Text size="xs" c="dimmed">
+													Height
+												</Text>
+												<Text fw={500}>
+													{product.productDimension.height} cm
+												</Text>
+											</Grid.Col>
+											<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Text size="xs" c="dimmed">
+													Weight
+												</Text>
+												<Text fw={500}>
+													{product.productDimension.weight} kg
+												</Text>
+											</Grid.Col>
+										</Grid>
+									</div>
+									<div>
+										<Text size="sm" fw={500} mb="xs">
+											Box Dimension
+										</Text>
+										<Grid gap="md">
+											<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Text size="xs" c="dimmed">
+													Box Width
+												</Text>
+												<Text fw={500}>{product.boxDimension.width} cm</Text>
+											</Grid.Col>
+											<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Text size="xs" c="dimmed">
+													Box Depth
+												</Text>
+												<Text fw={500}>{product.boxDimension.depth} cm</Text>
+											</Grid.Col>
+											<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Text size="xs" c="dimmed">
+													Box Height
+												</Text>
+												<Text fw={500}>{product.boxDimension.height} cm</Text>
+											</Grid.Col>
+											<Grid.Col span={{ base: 6, sm: 3 }}>
+												<Text size="xs" c="dimmed">
+													Box Weight
+												</Text>
+												<Text fw={500}>{product.boxDimension.weight} kg</Text>
+											</Grid.Col>
+										</Grid>
+									</div>
+								</Stack>
+							</Card.Section>
+						</Card>
 					</Stack>
 				</Grid.Col>
 
@@ -405,7 +388,7 @@ export function ProductDetail() {
 				<Grid.Col span={{ base: 12, md: 4 }}>
 					<Stack gap="md">
 						{/* Media Gallery */}
-						{product.media && product.media.length > 0 && (
+						{product.media.length > 0 && (
 							<Card withBorder>
 								<Card.Section inheritPadding py="md" pb="lg">
 									<Text fw={600} size="sm">
@@ -414,11 +397,11 @@ export function ProductDetail() {
 								</Card.Section>
 								<Card.Section inheritPadding pb="md">
 									<Stack gap="md">
-										{product.media.map((url) => (
+										{product.media.map((file) => (
 											<img
-												key={url}
-												src={url}
-												alt="Product media"
+												key={file.id}
+												src={getMediaPreviewUrl(file)}
+												alt={file.altText ?? file.name}
 												style={{ width: "100%", borderRadius: "8px" }}
 											/>
 										))}
