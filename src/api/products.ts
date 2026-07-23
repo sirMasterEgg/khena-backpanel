@@ -182,3 +182,55 @@ export async function deleteProduct(id: string) {
 	const res = await apiClient.delete<ApiSuccess<"OK">>(`/products/${id}`);
 	return res.data.data;
 }
+
+/**
+ * GET /products/bulk — response-nya CSV MENTAH, bukan { data } (contract.md
+ * bagian 6), makanya wajib `responseType: "blob"`. Endpoint ini butuh Bearer
+ * token (permission `product.read`), jadi tidak bisa dipakai sebagai
+ * `<a href>` langsung seperti getMediaDownloadUrl() — harus lewat apiClient
+ * supaya interceptor memasang Authorization.
+ */
+export async function exportProductsCsv(): Promise<{
+	blob: Blob;
+	filename: string;
+}> {
+	const res = await apiClient.get<Blob>("/products/bulk", {
+		responseType: "blob",
+	});
+	// Nama file dari header Content-Disposition:
+	// attachment; filename="products-<timestamp>.csv"
+	const disposition = res.headers["content-disposition"] as string | undefined;
+	const match = disposition?.match(/filename="?([^";]+)"?/);
+	return { blob: res.data, filename: match?.[1] ?? "products.csv" };
+}
+
+/** Hasil import per produk (contract.md bagian 6, POST /products/bulk). */
+export type ImportProductResult = {
+	baseSku: string;
+	status: "success" | "failed";
+	productId?: string;
+	error?: string;
+};
+
+/**
+ * Import bersifat partial success: HTTP 200 bukan berarti semua baris
+ * berhasil — kegagalan per-produk ada di `results[].error`.
+ */
+export type ImportProductsResponse = {
+	total: number;
+	successCount: number;
+	failedCount: number;
+	results: ImportProductResult[];
+};
+
+export async function importProductsCsv(file: File) {
+	const form = new FormData();
+	form.append("file", file);
+	// JANGAN set Content-Type manual — biarkan browser mengisi boundary
+	// multipart-nya (lihat komentar di uploadDirect, media.ts).
+	const res = await apiClient.post<ApiSuccess<ImportProductsResponse>>(
+		"/products/bulk",
+		form,
+	);
+	return res.data.data;
+}

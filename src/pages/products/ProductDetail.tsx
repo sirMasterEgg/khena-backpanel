@@ -143,15 +143,6 @@ export function ProductDetail() {
 									<Grid.Col span={{ base: 12, sm: 6 }}>
 										<div>
 											<Text size="sm" c="dimmed">
-												Collection
-											</Text>
-											{/* Response detail tidak menyertakan collection. */}
-											<Text fw={500}>—</Text>
-										</div>
-									</Grid.Col>
-									<Grid.Col span={{ base: 12, sm: 6 }}>
-										<div>
-											<Text size="sm" c="dimmed">
 												Category
 											</Text>
 											<Text fw={500}>{product.category.name}</Text>

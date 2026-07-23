@@ -34,9 +34,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { listCategories } from "@/api/categories";
-import { getApiErrorMessage } from "@/api/client";
+import { getApiErrorMessage, getBlobApiErrorMessage } from "@/api/client";
 import {
 	deleteProduct,
+	exportProductsCsv,
 	getProductStats,
 	listProducts,
 	type ProductListParams,
@@ -48,6 +49,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { StatusBadge } from "@/components/StatusBadge";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { ImportProductsModal } from "./ImportProductsModal";
 
 /** Nilai dropdown sort UI → pasangan `sort` + `order` untuk query API. */
 const SORT_PARAMS: Record<
@@ -84,6 +86,7 @@ export function ProductsList() {
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
 	// Loop bulk berjalan manual (bukan useMutation) — flag ini untuk disable tombol.
 	const [bulkRunning, setBulkRunning] = useState(false);
+	const [importOpened, setImportOpened] = useState(false);
 
 	// Debounce supaya tidak request ke server tiap keystroke.
 	const [debouncedSearch] = useDebouncedValue(search, 300);
@@ -165,6 +168,23 @@ export function ProductsList() {
 			invalidateProducts();
 		},
 		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
+
+	// Export CSV: response blob → trigger download lewat <a> sementara.
+	const exportMutation = useMutation({
+		mutationFn: exportProductsCsv,
+		onSuccess: ({ blob, filename }) => {
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = filename;
+			a.click();
+			URL.revokeObjectURL(url);
+			notify.success("Products berhasil di-export");
+		},
+		// responseType "blob" membuat body error juga berupa Blob — pakai helper
+		// async khusus supaya pesan asli dari server tetap terbaca.
+		onError: async (err) => notify.error(await getBlobApiErrorMessage(err)),
 	});
 
 	const confirmDeleteProduct = (product: { id: string; name: string }) => {
@@ -262,10 +282,19 @@ export function ProductsList() {
 				subtitle="Edit product details and manage all product settings"
 				actions={
 					<Group gap="sm">
-						<Button variant="default" leftSection={<IconUpload size={16} />}>
+						<Button
+							variant="default"
+							leftSection={<IconUpload size={16} />}
+							onClick={() => setImportOpened(true)}
+						>
 							Import
 						</Button>
-						<Button variant="default" leftSection={<IconDownload size={16} />}>
+						<Button
+							variant="default"
+							leftSection={<IconDownload size={16} />}
+							loading={exportMutation.isPending}
+							onClick={() => exportMutation.mutate()}
+						>
 							Export
 						</Button>
 						<Button
@@ -276,6 +305,11 @@ export function ProductsList() {
 						</Button>
 					</Group>
 				}
+			/>
+
+			<ImportProductsModal
+				opened={importOpened}
+				onClose={() => setImportOpened(false)}
 			/>
 
 			{/* Bulk Actions Toolbar */}
@@ -473,9 +507,7 @@ export function ProductsList() {
 									/>
 								</Table.Th>
 								<Table.Th>Product</Table.Th>
-								<Table.Th>Collection</Table.Th>
 								<Table.Th>Category</Table.Th>
-								<Table.Th>Stock</Table.Th>
 								<Table.Th>Last Updated</Table.Th>
 								<Table.Th>Status</Table.Th>
 								<Table.Th>Action</Table.Th>
@@ -504,15 +536,7 @@ export function ProductsList() {
 												</span>
 											</Stack>
 										</Table.Td>
-										{/* Collection/Stock tidak tersedia di endpoint list
-										    → placeholder. */}
-										<Table.Td>—</Table.Td>
 										<Table.Td>{product.category.name}</Table.Td>
-										<Table.Td>
-											<Badge color="gray" variant="light">
-												—
-											</Badge>
-										</Table.Td>
 										<Table.Td>{formatLastUpdated(product.updatedAt)}</Table.Td>
 										<Table.Td>
 											{product.status ? (
@@ -552,7 +576,7 @@ export function ProductsList() {
 							) : (
 								<Table.Tr>
 									<Table.Td
-										colSpan={8}
+										colSpan={6}
 										style={{ textAlign: "center", padding: "2rem" }}
 									>
 										No products found
