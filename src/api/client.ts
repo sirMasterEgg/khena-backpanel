@@ -147,9 +147,7 @@ function getValidationDetails(
 	);
 }
 
-export function getApiErrorMessage(error: unknown): string {
-	const body = getErrorBody(error);
-
+function messageFromErrorBody(body: ApiErrorBody["error"] | undefined): string {
 	// 422 membalas message generik "validation failed"; detail aslinya ada di
 	// `error.details` (contract.md bagian 1). Rangkai itu supaya user tahu
 	// field mana yang salah, bukan cuma "validation failed".
@@ -165,6 +163,29 @@ export function getApiErrorMessage(error: unknown): string {
 	if (messages.length > 0) return messages.join("\n");
 	if (body?.message) return body.message;
 	return "Terjadi kesalahan. Coba lagi.";
+}
+
+export function getApiErrorMessage(error: unknown): string {
+	return messageFromErrorBody(getErrorBody(error));
+}
+
+/**
+ * Versi async dari getApiErrorMessage untuk request `responseType: "blob"`
+ * (mis. export CSV): saat server membalas error, `error.response.data` ikut
+ * berupa Blob — bukan objek JSON — sehingga getApiErrorMessage biasa jatuh ke
+ * pesan generik. Di sini Blob-nya dibaca dulu sebagai teks lalu di-parse.
+ */
+export async function getBlobApiErrorMessage(error: unknown): Promise<string> {
+	const data = error instanceof AxiosError ? error.response?.data : undefined;
+	if (data instanceof Blob) {
+		try {
+			const parsed = JSON.parse(await data.text()) as ApiErrorBody;
+			return messageFromErrorBody(parsed.error);
+		} catch {
+			// Blob bukan JSON valid — jatuh ke jalur biasa di bawah.
+		}
+	}
+	return getApiErrorMessage(error);
 }
 
 /**
