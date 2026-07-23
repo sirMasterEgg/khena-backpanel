@@ -46,7 +46,6 @@ export const productSchema = z
 	.object({
 		productName: z.string().min(1, "Product name is required"),
 		baseSku: z.string().min(1, "SKU is required"),
-		collectionId: z.string().optional(),
 		categoryId: z.string().min(1, "Category is required"),
 		status: z.enum(["published", "draft", "scheduled", "archived"]),
 		description: z.string().optional(),

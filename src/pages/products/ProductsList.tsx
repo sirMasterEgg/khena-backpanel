@@ -507,9 +507,7 @@ export function ProductsList() {
 									/>
 								</Table.Th>
 								<Table.Th>Product</Table.Th>
-								<Table.Th>Collection</Table.Th>
 								<Table.Th>Category</Table.Th>
-								<Table.Th>Stock</Table.Th>
 								<Table.Th>Last Updated</Table.Th>
 								<Table.Th>Status</Table.Th>
 								<Table.Th>Action</Table.Th>
@@ -538,15 +536,7 @@ export function ProductsList() {
 												</span>
 											</Stack>
 										</Table.Td>
-										{/* Collection/Stock tidak tersedia di endpoint list
-										    → placeholder. */}
-										<Table.Td>—</Table.Td>
 										<Table.Td>{product.category.name}</Table.Td>
-										<Table.Td>
-											<Badge color="gray" variant="light">
-												—
-											</Badge>
-										</Table.Td>
 										<Table.Td>{formatLastUpdated(product.updatedAt)}</Table.Td>
 										<Table.Td>
 											{product.status ? (
@@ -586,7 +576,7 @@ export function ProductsList() {
 							) : (
 								<Table.Tr>
 									<Table.Td
-										colSpan={8}
+										colSpan={6}
 										style={{ textAlign: "center", padding: "2rem" }}
 									>
 										No products found

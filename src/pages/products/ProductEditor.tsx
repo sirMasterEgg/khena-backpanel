@@ -38,7 +38,6 @@ import {
 	getApiErrorMessage,
 	getApiFieldErrors,
 } from "@/api/client";
-import { listCollections } from "@/api/collections";
 import { listColors } from "@/api/colors";
 import {
 	getMediaDownloadUrl,
@@ -113,7 +112,6 @@ function toProductInput(data: ProductFormData): ProductInput {
 	return {
 		productName: data.productName,
 		baseSku: data.baseSku,
-		collectionId: data.collectionId || undefined,
 		categoryId: data.categoryId,
 		status: data.status,
 		description: data.description || undefined,
@@ -130,9 +128,7 @@ function toProductInput(data: ProductFormData): ProductInput {
 }
 
 /**
- * Nilai form → body PATCH. Body dikirim lengkap (paling sederhana & aman),
- * kecuali `collectionId` yang tidak ada di response detail — kalau user tidak
- * memilih apa pun, field-nya tidak dikirim supaya tautan lama tidak berubah.
+ * Nilai form → body PATCH. Body dikirim lengkap (paling sederhana & aman).
  * Semantik varian: ber-`id` = update, tanpa `id` = baru, yang dihapus dari
  * form di-soft-delete backend.
  */
@@ -151,8 +147,6 @@ function toFormValues(detail: ProductDetail): ProductFormData {
 	return {
 		productName: detail.name,
 		baseSku: detail.baseSku,
-		// collectionId tidak ada di response detail — tidak bisa di-prefill.
-		collectionId: "",
 		categoryId: detail.category.id,
 		status: detail.status ?? "draft",
 		description: detail.description ?? "",
@@ -252,7 +246,6 @@ export function ProductEditor() {
 		defaultValues: {
 			productName: "",
 			baseSku: "",
-			collectionId: "",
 			categoryId: "",
 			status: "draft",
 			description: "",
@@ -325,10 +318,6 @@ export function ProductEditor() {
 		queryKey: ["categories", { forOptions: true }],
 		queryFn: () => listCategories({ limit: OPTIONS_LIMIT }),
 	});
-	const collectionsQuery = useQuery({
-		queryKey: ["collections", { forOptions: true }],
-		queryFn: () => listCollections({ limit: OPTIONS_LIMIT }),
-	});
 	const colorsQuery = useQuery({
 		queryKey: ["colors", { forOptions: true }],
 		queryFn: () => listColors({ limit: OPTIONS_LIMIT }),
@@ -341,10 +330,6 @@ export function ProductEditor() {
 	const categoryOptions = (categoriesQuery.data?.data ?? []).map((c) => ({
 		value: c.id,
 		label: c.category,
-	}));
-	const collectionOptions = (collectionsQuery.data?.data ?? []).map((c) => ({
-		value: c.id,
-		label: c.name,
 	}));
 	// Label "Warna - Finish" (finish dari objek `finishes` yang sudah di-join
 	// backend); color tanpa finish tampil nama warnanya saja.
@@ -525,48 +510,24 @@ export function ProductEditor() {
 											error={errors.productName?.message}
 										/>
 
-										{/* SKU + Collection - side by side */}
-										<Grid gap="md">
-											<Grid.Col span={{ base: 12, sm: 6 }}>
-												{/* onChange kustom: ikut menulis ulang prefix semua
-												    sku varian secara sinkron (handleBaseSkuChange). */}
-												<Controller
-													name="baseSku"
-													control={control}
-													render={({ field }) => (
-														<TextInput
-															label="SKU"
-															placeholder="Enter SKU"
-															value={field.value}
-															onChange={(e) =>
-																handleBaseSkuChange(e.currentTarget.value)
-															}
-															onBlur={field.onBlur}
-															error={errors.baseSku?.message}
-														/>
-													)}
+										{/* onChange kustom: ikut menulis ulang prefix semua
+										    sku varian secara sinkron (handleBaseSkuChange). */}
+										<Controller
+											name="baseSku"
+											control={control}
+											render={({ field }) => (
+												<TextInput
+													label="SKU"
+													placeholder="Enter SKU"
+													value={field.value}
+													onChange={(e) =>
+														handleBaseSkuChange(e.currentTarget.value)
+													}
+													onBlur={field.onBlur}
+													error={errors.baseSku?.message}
 												/>
-											</Grid.Col>
-											<Grid.Col span={{ base: 12, sm: 6 }}>
-												<Controller
-													name="collectionId"
-													control={control}
-													render={({ field }) => (
-														<Select
-															{...field}
-															value={field.value || null}
-															onChange={(val) => field.onChange(val ?? "")}
-															label="Collection"
-															placeholder="Select collection"
-															data={collectionOptions}
-															searchable
-															clearable
-															error={errors.collectionId?.message}
-														/>
-													)}
-												/>
-											</Grid.Col>
-										</Grid>
+											)}
+										/>
 
 										{/* Category + Status - side by side */}
 										<Grid gap="md">
