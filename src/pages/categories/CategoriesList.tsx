@@ -42,6 +42,7 @@ import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { StatusBadge } from "@/components/StatusBadge";
+import { STATUS } from "@/data/constants.ts";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useRoomTypeOptions } from "@/hooks/useRoomTypeOptions";
 
@@ -351,10 +352,7 @@ export function CategoriesList() {
 						/>
 						<Select
 							placeholder="Status"
-							data={[
-								{ label: "Published", value: "published" },
-								{ label: "Draft", value: "draft" },
-							]}
+							data={STATUS}
 							value={statusFilter}
 							onChange={(val) => handleFilterChange(() => setStatusFilter(val))}
 							clearable
