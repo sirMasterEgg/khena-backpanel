@@ -633,7 +633,8 @@ export function ProductEditor() {
 										{variantFields.map((field, idx) => {
 											const variantImages = variants?.[idx]?.images ?? [];
 											// Varian lama (punya id): backend mengabaikan
-											// initialStock → input stok di-disable.
+											// initialStock → input stok disembunyikan. Varian
+											// BARU (dari "Add Variant") tetap menampilkannya.
 											const isExistingVariant = Boolean(variants?.[idx]?.id);
 											// Compare price = harga sebelum diskon; profit =
 											// price - cost. Keduanya UI-only, tidak dikirim ke API.
@@ -866,28 +867,27 @@ export function ProductEditor() {
 																	)}
 																/>
 															</Grid.Col>
-															<Grid.Col span={{ base: 6, sm: 2 }}>
-																<Controller
-																	name={`variant.${idx}.initialStock`}
-																	control={control}
-																	render={({ field: { onChange, value } }) => (
-																		<NumberInput
-																			label="Initial Stock"
-																			placeholder="0"
-																			hideControls
-																			value={value || ""}
-																			onChange={onChange}
-																			// Backend mengabaikan initialStock
-																			// untuk varian lama.
-																			disabled={isExistingVariant}
-																			error={
-																				errors.variant?.[idx]?.initialStock
-																					?.message
-																			}
-																		/>
-																	)}
-																/>
-															</Grid.Col>
+															{!isExistingVariant && (
+																<Grid.Col span={{ base: 6, sm: 2 }}>
+																	<Controller
+																		name={`variant.${idx}.initialStock`}
+																		control={control}
+																		render={({ field: { onChange, value } }) => (
+																			<NumberInput
+																				label="Initial Stock"
+																				placeholder="0"
+																				hideControls
+																				value={value || ""}
+																				onChange={onChange}
+																				error={
+																					errors.variant?.[idx]?.initialStock
+																						?.message
+																				}
+																			/>
+																		)}
+																	/>
+																</Grid.Col>
+															)}
 														</Grid>
 
 														{/* Row 3: Images picker + preview */}
