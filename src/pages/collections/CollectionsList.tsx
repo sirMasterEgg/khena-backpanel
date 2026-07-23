@@ -2,10 +2,12 @@ import {
 	ActionIcon,
 	Button,
 	Card,
+	Center,
 	Checkbox,
 	Container,
 	Grid,
 	Group,
+	Loader,
 	Menu,
 	Pagination,
 	Select,
@@ -13,6 +15,8 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { useDebouncedValue } from "@mantine/hooks";
+import { modals } from "@mantine/modals";
 import {
 	IconBox,
 	IconDots,
@@ -21,104 +25,178 @@ import {
 	IconSearch,
 	IconStack2,
 } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useNavigate } from "react-router";
+import { getApiErrorMessage } from "@/api/client";
+import {
+	type CollectionListParams,
+	type CollectionStatus,
+	deleteCollection,
+	getCollectionStats,
+	listCollections,
+	patchCollection,
+} from "@/api/collections";
+import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { StatusBadge } from "@/components/StatusBadge";
-import { dummyCollections } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
+
+/** Nilai dropdown sort UI → pasangan `sort` + `orderDir` untuk query API. */
+const SORT_PARAMS: Record<
+	string,
+	{ sort: CollectionListParams["sort"]; orderDir: "asc" | "desc" }
+> = {
+	newest: { sort: "createdAt", orderDir: "desc" },
+	oldest: { sort: "createdAt", orderDir: "asc" },
+	"name-az": { sort: "name", orderDir: "asc" },
+};
+
+function isCollectionStatus(value: string | null): value is CollectionStatus {
+	return value === "published" || value === "draft";
+}
 
 export function CollectionsList() {
 	usePageTitle("Collections");
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 
 	const [search, setSearch] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string | null>(null);
 	const [sortBy, setSortBy] = useState<string | null>(null);
 	const [page, setPage] = useState(1);
-	const [selectedIds, setSelectedIds] = useState<number[]>([]);
+	const [selectedIds, setSelectedIds] = useState<string[]>([]);
+	// Loop bulk berjalan manual (bukan useMutation) — flag ini untuk disable tombol.
+	const [bulkRunning, setBulkRunning] = useState(false);
 
-	const stats = useMemo(() => {
-		return {
-			total: dummyCollections.length,
-			published: dummyCollections.filter((c) => c.status === "published")
-				.length,
-			draft: dummyCollections.filter((c) => c.status === "draft").length,
-			productInCollections: dummyCollections.reduce(
-				(sum, c) => sum + c.productCount,
-				0,
-			),
-		};
-	}, []);
+	// Debounce supaya tidak request ke server tiap keystroke.
+	const [debouncedSearch] = useDebouncedValue(search, 300);
 
-	const filteredCollections = useMemo(() => {
-		let result = [...dummyCollections];
+	const params: CollectionListParams = {
+		search: debouncedSearch || undefined,
+		status: isCollectionStatus(statusFilter) ? statusFilter : undefined,
+		...(sortBy ? SORT_PARAMS[sortBy] : undefined),
+		page,
+		limit: 10,
+	};
 
-		if (statusFilter) {
-			result = result.filter((c) => c.status === statusFilter);
-		}
+	const { data, isLoading, isError, error } = useQuery({
+		queryKey: ["collections", params],
+		queryFn: () => listCollections(params),
+	});
 
-		if (search) {
-			const searchLower = search.toLowerCase();
-			result = result.filter((c) => c.name.toLowerCase().includes(searchLower));
-		}
+	const collections = data?.data ?? [];
+	const totalPages = data?.meta.totalPages ?? 1;
 
-		if (sortBy) {
-			switch (sortBy) {
-				case "newest":
-					result.sort(
-						(a, b) =>
-							new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-					);
-					break;
-				case "oldest":
-					result.sort(
-						(a, b) =>
-							new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime(),
-					);
-					break;
-				case "name-az":
-					result.sort((a, b) => a.name.localeCompare(b.name));
-					break;
-				case "products-high":
-					result.sort((a, b) => b.productCount - a.productCount);
-					break;
-			}
-		}
+	// Stats agregat untuk tile (GET /collections/stats).
+	// queryKey diawali "collections" supaya ikut ter-refresh saat ada mutasi.
+	const statsQuery = useQuery({
+		queryKey: ["collections", "stats"],
+		queryFn: getCollectionStats,
+	});
+	const stats = statsQuery.data;
 
-		return result;
-	}, [search, statusFilter, sortBy]);
+	const invalidateCollections = () =>
+		queryClient.invalidateQueries({ queryKey: ["collections"] });
 
-	const itemsPerPage = 10;
-	const paged = filteredCollections.slice(
-		(page - 1) * itemsPerPage,
-		page * itemsPerPage,
-	);
-	const totalPages = Math.ceil(filteredCollections.length / itemsPerPage);
-
+	// Reset page when filters change
 	const handleFilterChange = (callback: () => void) => {
 		setPage(1);
 		callback();
 	};
 
 	const toggleSelectAll = () => {
-		if (selectedIds.length === paged.length) {
+		if (selectedIds.length === collections.length) {
 			setSelectedIds([]);
 		} else {
-			setSelectedIds(paged.map((c) => c.id));
+			setSelectedIds(collections.map((c) => c.id));
 		}
 	};
 
-	const toggleSelectCollection = (id: number) => {
+	const toggleSelectCollection = (id: string) => {
 		setSelectedIds((prev) =>
 			prev.includes(id) ? prev.filter((cid) => cid !== id) : [...prev, id],
 		);
 	};
 
-	const handleBulkAction = (action: "publish" | "draft" | "delete") => {
-		console.log(`Bulk "${action}" pada collections:`, selectedIds);
+	const deleteMutation = useMutation({
+		mutationFn: (id: string) => deleteCollection(id),
+		onSuccess: () => {
+			notify.success("Collection dihapus");
+			invalidateCollections();
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
+
+	const confirmDeleteCollection = (collection: {
+		id: string;
+		name: string;
+	}) => {
+		modals.openConfirmModal({
+			title: "Delete collection",
+			children: (
+				<Text size="sm">
+					Delete <strong>{collection.name}</strong>? This action cannot be
+					undone.
+				</Text>
+			),
+			labels: { confirm: "Delete", cancel: "Cancel" },
+			confirmProps: { color: "red" },
+			onConfirm: () => deleteMutation.mutate(collection.id),
+		});
+	};
+
+	/**
+	 * Tidak ada endpoint bulk di API — dijalankan sebagai loop request per item,
+	 * berurutan, lalu tampilkan ringkasan sukses/gagal.
+	 */
+	const runBulkAction = async (action: "publish" | "draft" | "delete") => {
+		setBulkRunning(true);
+		let ok = 0;
+		let failed = 0;
+		for (const id of selectedIds) {
+			try {
+				if (action === "delete") {
+					await deleteCollection(id);
+				} else {
+					// PATCH partial: cukup kirim status saja.
+					await patchCollection(id, {
+						status: action === "publish" ? "published" : "draft",
+					});
+				}
+				ok++;
+			} catch {
+				failed++;
+			}
+		}
+		setBulkRunning(false);
 		setSelectedIds([]);
+		invalidateCollections();
+		if (failed === 0) {
+			notify.success(`${ok} collection berhasil diproses`);
+		} else {
+			notify.error(`${ok} berhasil, ${failed} gagal diproses`);
+		}
+	};
+
+	const handleBulkAction = (action: "publish" | "draft" | "delete") => {
+		if (action === "delete") {
+			modals.openConfirmModal({
+				title: "Delete collections",
+				children: (
+					<Text size="sm">
+						Delete <strong>{selectedIds.length}</strong> selected collection(s)?
+						This action cannot be undone.
+					</Text>
+				),
+				labels: { confirm: "Delete", cancel: "Cancel" },
+				confirmProps: { color: "red" },
+				onConfirm: () => void runBulkAction("delete"),
+			});
+			return;
+		}
+		void runBulkAction(action);
 	};
 
 	const clearSelection = () => setSelectedIds([]);
@@ -149,6 +227,8 @@ export function CollectionsList() {
 							<Button
 								size="xs"
 								variant="default"
+								loading={bulkRunning}
+								disabled={bulkRunning}
 								onClick={() => handleBulkAction("publish")}
 							>
 								Publish
@@ -156,6 +236,7 @@ export function CollectionsList() {
 							<Button
 								size="xs"
 								variant="default"
+								disabled={bulkRunning}
 								onClick={() => handleBulkAction("draft")}
 							>
 								Move to Draft
@@ -164,11 +245,17 @@ export function CollectionsList() {
 								size="xs"
 								color="red"
 								variant="light"
+								disabled={bulkRunning}
 								onClick={() => handleBulkAction("delete")}
 							>
 								Delete
 							</Button>
-							<Button size="xs" variant="subtle" onClick={clearSelection}>
+							<Button
+								size="xs"
+								variant="subtle"
+								disabled={bulkRunning}
+								onClick={clearSelection}
+							>
 								Clear
 							</Button>
 						</Group>
@@ -176,34 +263,34 @@ export function CollectionsList() {
 				</Card>
 			)}
 
-			{/* Stats Cards */}
+			{/* Stats Cards — dari GET /collections/stats. "—" selagi loading/gagal. */}
 			<Grid gap="md" mb="xl">
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconStack2 size={20} />}
 						label="Total Collections"
-						value={stats.total}
+						value={stats?.totalCollections ?? "—"}
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconStack2 size={20} />}
 						label="Published"
-						value={stats.published}
+						value={stats?.published ?? "—"}
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconPencil size={20} />}
 						label="Draft"
-						value={stats.draft}
+						value={stats?.draft ?? "—"}
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconBox size={20} />}
 						label="Product in Collections"
-						value={stats.productInCollections}
+						value={stats?.totalProductsInCollections ?? "—"}
 					/>
 				</Grid.Col>
 			</Grid>
@@ -230,17 +317,16 @@ export function CollectionsList() {
 						/>
 					</Group>
 
-					{/* KANAN: sort by */}
+					{/* KANAN: sort by — hanya opsi yang didukung API. */}
 					<Select
 						placeholder="Sort by"
 						data={[
 							{ value: "newest", label: "Newest" },
 							{ value: "oldest", label: "Oldest" },
 							{ value: "name-az", label: "Name A-Z" },
-							{ value: "products-high", label: "Most products" },
 						]}
 						value={sortBy}
-						onChange={setSortBy}
+						onChange={(val) => handleFilterChange(() => setSortBy(val))}
 						clearable
 					/>
 				</Group>
@@ -248,94 +334,101 @@ export function CollectionsList() {
 
 			{/* Table */}
 			<Card withBorder>
-				<Table striped>
-					<Table.Thead>
-						<Table.Tr>
-							<Table.Th style={{ width: 40 }}>
-								<Checkbox
-									checked={
-										selectedIds.length === paged.length && paged.length > 0
-									}
-									indeterminate={
-										selectedIds.length > 0 && selectedIds.length < paged.length
-									}
-									onChange={toggleSelectAll}
-								/>
-							</Table.Th>
-							<Table.Th style={{ width: 50 }}>No</Table.Th>
-							<Table.Th>Collection</Table.Th>
-							<Table.Th>Products</Table.Th>
-							<Table.Th>Status</Table.Th>
-							<Table.Th>Action</Table.Th>
-						</Table.Tr>
-					</Table.Thead>
-					<Table.Tbody>
-						{paged.length > 0 ? (
-							paged.map((collection, index) => (
-								<Table.Tr
-									key={collection.id}
-									style={{ cursor: "pointer" }}
-									onClick={() => navigate(`/collections/${collection.id}/edit`)}
-								>
-									<Table.Td onClick={(e) => e.stopPropagation()}>
-										<Checkbox
-											checked={selectedIds.includes(collection.id)}
-											onChange={() => toggleSelectCollection(collection.id)}
-										/>
-									</Table.Td>
-									<Table.Td>{(page - 1) * itemsPerPage + index + 1}</Table.Td>
-									<Table.Td>
-										<span style={{ fontWeight: 500 }}>{collection.name}</span>
-									</Table.Td>
-									<Table.Td>{collection.productCount}</Table.Td>
-									<Table.Td>
-										<StatusBadge status={collection.status} />
-									</Table.Td>
-									<Table.Td onClick={(e) => e.stopPropagation()}>
-										<Menu>
-											<Menu.Target>
-												<ActionIcon size="sm" variant="subtle">
-													<IconDots size={14} />
-												</ActionIcon>
-											</Menu.Target>
-											<Menu.Dropdown>
-												<Menu.Item
-													onClick={() =>
-														navigate(`/collections/${collection.id}/edit`)
-													}
-												>
-													Edit
-												</Menu.Item>
-												<Menu.Item
-													onClick={() =>
-														console.log(`Duplicate ${collection.id}`)
-													}
-												>
-													Duplicate
-												</Menu.Item>
-												<Menu.Item
-													color="red"
-													onClick={() => console.log(`Delete ${collection.id}`)}
-												>
-													Delete
-												</Menu.Item>
-											</Menu.Dropdown>
-										</Menu>
+				{isLoading ? (
+					<Center py="xl">
+						<Loader />
+					</Center>
+				) : isError ? (
+					<Text c="red" ta="center" py="xl">
+						{getApiErrorMessage(error)}
+					</Text>
+				) : (
+					<Table striped>
+						<Table.Thead>
+							<Table.Tr>
+								<Table.Th style={{ width: 40 }}>
+									<Checkbox
+										checked={
+											selectedIds.length === collections.length &&
+											collections.length > 0
+										}
+										indeterminate={
+											selectedIds.length > 0 &&
+											selectedIds.length < collections.length
+										}
+										onChange={toggleSelectAll}
+									/>
+								</Table.Th>
+								<Table.Th style={{ width: 50 }}>No</Table.Th>
+								<Table.Th>Collection</Table.Th>
+								<Table.Th>Products</Table.Th>
+								<Table.Th>Status</Table.Th>
+								<Table.Th>Action</Table.Th>
+							</Table.Tr>
+						</Table.Thead>
+						<Table.Tbody>
+							{collections.length > 0 ? (
+								collections.map((collection, index) => (
+									<Table.Tr
+										key={collection.id}
+										style={{ cursor: "pointer" }}
+										onClick={() =>
+											navigate(`/collections/${collection.id}/edit`)
+										}
+									>
+										<Table.Td onClick={(e) => e.stopPropagation()}>
+											<Checkbox
+												checked={selectedIds.includes(collection.id)}
+												onChange={() => toggleSelectCollection(collection.id)}
+											/>
+										</Table.Td>
+										<Table.Td>{(page - 1) * 10 + index + 1}</Table.Td>
+										<Table.Td>
+											<span style={{ fontWeight: 500 }}>{collection.name}</span>
+										</Table.Td>
+										<Table.Td>{collection.totalProducts}</Table.Td>
+										<Table.Td>
+											<StatusBadge status={collection.status} />
+										</Table.Td>
+										<Table.Td onClick={(e) => e.stopPropagation()}>
+											<Menu>
+												<Menu.Target>
+													<ActionIcon size="sm" variant="subtle">
+														<IconDots size={14} />
+													</ActionIcon>
+												</Menu.Target>
+												<Menu.Dropdown>
+													<Menu.Item
+														onClick={() =>
+															navigate(`/collections/${collection.id}/edit`)
+														}
+													>
+														Edit
+													</Menu.Item>
+													<Menu.Item
+														color="red"
+														onClick={() => confirmDeleteCollection(collection)}
+													>
+														Delete
+													</Menu.Item>
+												</Menu.Dropdown>
+											</Menu>
+										</Table.Td>
+									</Table.Tr>
+								))
+							) : (
+								<Table.Tr>
+									<Table.Td
+										colSpan={6}
+										style={{ textAlign: "center", padding: "2rem" }}
+									>
+										No collections found
 									</Table.Td>
 								</Table.Tr>
-							))
-						) : (
-							<Table.Tr>
-								<Table.Td
-									colSpan={6}
-									style={{ textAlign: "center", padding: "2rem" }}
-								>
-									No collections found
-								</Table.Td>
-							</Table.Tr>
-						)}
-					</Table.Tbody>
-				</Table>
+							)}
+						</Table.Tbody>
+					</Table>
+				)}
 
 				{/* Pagination */}
 				{totalPages > 1 && (
