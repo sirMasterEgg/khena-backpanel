@@ -117,28 +117,3 @@ export function openAddCustomerModal(onSubmit: (customer: Customer) => void) {
 		),
 	});
 }
-
-/**
- * Buka modal "Edit customer" dengan form terisi awal dari `customer`.
- * `onSubmit` menerima customer yang sudah digabung dengan perubahan form.
- */
-export function openEditCustomerModal(
-	customer: Customer,
-	onSubmit: (updated: Customer) => void,
-) {
-	const id = modals.open({
-		title: "Edit customer",
-		centered: true,
-		children: (
-			<AddCustomerForm
-				initial={customer}
-				submitLabel="Save changes"
-				onSubmit={(updated) => {
-					onSubmit(updated);
-					modals.close(id);
-				}}
-				onCancel={() => modals.close(id)}
-			/>
-		),
-	});
-}

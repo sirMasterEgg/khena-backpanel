@@ -1,5 +1,4 @@
 import {
-	ActionIcon,
 	Anchor,
 	Badge,
 	Breadcrumbs,
@@ -9,6 +8,7 @@ import {
 	Container,
 	Grid,
 	Group,
+	Loader,
 	Pagination,
 	Select,
 	Stack,
@@ -17,6 +17,7 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { useDebouncedValue } from "@mantine/hooks";
 import {
 	IconAlertTriangle,
 	IconChevronRight,
@@ -28,15 +29,22 @@ import {
 	IconUserPlus,
 	IconUsers,
 } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useNavigate } from "react-router";
+import { getApiErrorMessage, getBlobApiErrorMessage } from "@/api/client";
+import {
+	type CustomerListParams,
+	exportCustomersCsv,
+	getCustomerStats,
+	listCustomers,
+} from "@/api/customers";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
-import { type Customer, dummyCustomers } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { openAddCustomerModal } from "./AddCustomerModal";
 import { CustomerAvatar } from "./CustomerAvatar";
+import { CustomerFormModal } from "./CustomerFormModal";
 import { formatCurrency, formatDate } from "./format";
 import { SegmentBadge } from "./SegmentBadge";
 
@@ -53,114 +61,83 @@ const SEGMENT_DEFINITIONS: Record<SegmentTab, string> = {
 
 const SORT_OPTIONS = [
 	{ value: "ltv-desc", label: "Highest LTV" },
-	{ value: "ltv-asc", label: "Lowest LTV" },
-	{ value: "recent", label: "Most recent order" },
 	{ value: "orders-desc", label: "Most orders" },
+	{ value: "newest-joined", label: "Newest joined" },
+	{ value: "name-az", label: "Name A-Z" },
 ];
 
-/** Waktu (ms) sebuah lastOrderAt untuk pengurutan; null → paling lama. */
-function orderTime(iso: string | null): number {
-	return iso ? new Date(iso).getTime() : 0;
-}
+/** Nilai dropdown sort UI → pasangan `sort` + `orderDir` untuk query API. */
+const SORT_PARAMS: Record<
+	string,
+	{ sort: CustomerListParams["sort"]; orderDir: "asc" | "desc" }
+> = {
+	"ltv-desc": { sort: "ltv", orderDir: "desc" },
+	"orders-desc": { sort: "totalOrder", orderDir: "desc" },
+	"newest-joined": { sort: "joinedAt", orderDir: "desc" },
+	"name-az": { sort: "name", orderDir: "asc" },
+};
 
 export function CustomersList() {
 	usePageTitle("Customers");
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 
-	// Mirror data dummy di state supaya "Add customer" bisa menambah baris.
-	const [customers, setCustomers] = useState<Customer[]>(() => [
-		...dummyCustomers,
-	]);
 	const [search, setSearch] = useState("");
 	const [segmentTab, setSegmentTab] = useState<SegmentTab>("all");
 	const [sortBy, setSortBy] = useState<string>("ltv-desc");
 	const [page, setPage] = useState(1);
+	const [formOpened, setFormOpened] = useState(false);
 
-	const stats = useMemo(() => {
-		const total = customers.length;
-		const vip = customers.filter((c) => c.segment === "vip").length;
-		const now = new Date();
-		const newThisMonth = customers.filter((c) => {
-			const joined = new Date(c.joinedAt);
-			return (
-				joined.getFullYear() === now.getFullYear() &&
-				joined.getMonth() === now.getMonth()
-			);
-		}).length;
-		const totalLtv = customers.reduce((sum, c) => sum + c.lifetimeValue, 0);
-		const avgLtv = total > 0 ? Math.round(totalLtv / total) : 0;
-		return { total, vip, newThisMonth, avgLtv };
-	}, [customers]);
+	// Debounce supaya tidak request ke server tiap keystroke.
+	const [debouncedSearch] = useDebouncedValue(search, 300);
 
-	const segmentCounts = useMemo(
-		() => ({
-			all: customers.length,
-			vip: customers.filter((c) => c.segment === "vip").length,
-			loyal: customers.filter((c) => c.segment === "loyal").length,
-			new: customers.filter((c) => c.segment === "new").length,
-		}),
-		[customers],
-	);
+	const params: CustomerListParams = {
+		search: debouncedSearch || undefined,
+		segment: segmentTab === "all" ? undefined : segmentTab,
+		...SORT_PARAMS[sortBy],
+		page,
+		limit: ITEMS_PER_PAGE,
+	};
 
-	const filtered = useMemo(() => {
-		let result = [...customers];
+	const { data, isLoading, isError, error } = useQuery({
+		queryKey: ["customers", params],
+		queryFn: () => listCustomers(params),
+	});
 
-		if (segmentTab !== "all") {
-			result = result.filter((c) => c.segment === segmentTab);
-		}
+	const customers = data?.data ?? [];
+	const totalPages = data?.meta.totalPages ?? 1;
 
-		if (search.trim()) {
-			const q = search.trim().toLowerCase();
-			result = result.filter(
-				(c) =>
-					c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q),
-			);
-		}
+	// Stats agregat untuk tile (GET /customers/stats).
+	// queryKey diawali "customers" supaya ikut ter-refresh saat ada mutasi.
+	const statsQuery = useQuery({
+		queryKey: ["customers", "stats"],
+		queryFn: getCustomerStats,
+	});
+	const stats = statsQuery.data;
 
-		switch (sortBy) {
-			case "ltv-asc":
-				result.sort((a, b) => a.lifetimeValue - b.lifetimeValue);
-				break;
-			case "recent":
-				result.sort(
-					(a, b) => orderTime(b.lastOrderAt) - orderTime(a.lastOrderAt),
-				);
-				break;
-			case "orders-desc":
-				result.sort((a, b) => b.ordersCount - a.ordersCount);
-				break;
-			default:
-				result.sort((a, b) => b.lifetimeValue - a.lifetimeValue);
-				break;
-		}
-
-		return result;
-	}, [customers, search, segmentTab, sortBy]);
-
-	const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-	const paged = filtered.slice(
-		(page - 1) * ITEMS_PER_PAGE,
-		page * ITEMS_PER_PAGE,
-	);
+	const invalidateCustomers = () =>
+		queryClient.invalidateQueries({ queryKey: ["customers"] });
 
 	const handleFilterChange = (callback: () => void) => {
 		setPage(1);
 		callback();
 	};
 
-	const handleAddCustomer = (customer: Customer) => {
-		// Mutasikan sumber dummy supaya halaman detail juga menemukannya.
-		dummyCustomers.unshift(customer);
-		setCustomers([...dummyCustomers]);
-		setSegmentTab("all");
-		setPage(1);
-		notify.success(`${customer.name} added`, "Customer added");
-	};
-
-	const handleExport = () => {
-		// Placeholder: export belum diimplementasikan.
-		notify.info("Export belum tersedia", "Export");
-	};
+	const exportMutation = useMutation({
+		mutationFn: exportCustomersCsv,
+		onSuccess: ({ blob, filename }) => {
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = filename;
+			a.click();
+			URL.revokeObjectURL(url);
+			notify.success("Customers berhasil di-export");
+		},
+		// responseType "blob" membuat body error juga berupa Blob — pakai helper
+		// async khusus supaya pesan asli dari server tetap terbaca.
+		onError: async (err) => notify.error(await getBlobApiErrorMessage(err)),
+	});
 
 	return (
 		<Container size="xl">
@@ -181,13 +158,14 @@ export function CustomersList() {
 						<Button
 							variant="default"
 							leftSection={<IconDownload size={16} />}
-							onClick={handleExport}
+							loading={exportMutation.isPending}
+							onClick={() => exportMutation.mutate()}
 						>
 							Export
 						</Button>
 						<Button
 							leftSection={<IconPlus size={16} />}
-							onClick={() => openAddCustomerModal(handleAddCustomer)}
+							onClick={() => setFormOpened(true)}
 						>
 							Add Customer
 						</Button>
@@ -195,13 +173,13 @@ export function CustomersList() {
 				}
 			/>
 
-			{/* Stats Cards */}
+			{/* Stats Cards — dari GET /customers/stats. "—" selagi loading/gagal. */}
 			<Grid gap="md" mb="xl">
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconUsers size={20} />}
 						label="Total Customers"
-						value={stats.total}
+						value={stats?.totalCustomers ?? "—"}
 						subtitle="All time"
 					/>
 				</Grid.Col>
@@ -209,7 +187,7 @@ export function CustomersList() {
 					<StatTile
 						icon={<IconStar size={20} />}
 						label="VIP Customers"
-						value={stats.vip}
+						value={stats?.vipCustomers ?? "—"}
 						subtitle="High value"
 					/>
 				</Grid.Col>
@@ -217,15 +195,15 @@ export function CustomersList() {
 					<StatTile
 						icon={<IconUserPlus size={20} />}
 						label="New This Month"
-						value={stats.newThisMonth}
-						delta={12}
+						value={stats?.newThisMonth ?? "—"}
+						subtitle="Last 30 days"
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
 						icon={<IconCoin size={20} />}
 						label="Avg. Lifetime Value"
-						value={formatCurrency(stats.avgLtv)}
+						value={stats ? formatCurrency(stats.avgLifetimeValue) : "—"}
 						subtitle="Per customer"
 					/>
 				</Grid.Col>
@@ -240,23 +218,37 @@ export function CustomersList() {
 				mb="xs"
 			>
 				<Tabs.List>
-					{(Object.keys(SEGMENT_DEFINITIONS) as SegmentTab[]).map((tab) => (
-						<Tabs.Tab
-							key={tab}
-							value={tab}
-							rightSection={
-								<Badge size="sm" variant="light" circle>
-									{segmentCounts[tab]}
-								</Badge>
-							}
-						>
-							{tab === "all"
-								? "All"
+					{(Object.keys(SEGMENT_DEFINITIONS) as SegmentTab[]).map((tab) => {
+						// API tidak menyediakan hitungan per segment. Hanya tampilkan
+						// badge untuk tab yang angkanya benar-benar ada dari /stats.
+						const badgeValue =
+							tab === "all"
+								? stats?.totalCustomers
 								: tab === "vip"
-									? "VIP"
-									: tab[0].toUpperCase() + tab.slice(1)}
-						</Tabs.Tab>
-					))}
+									? stats?.vipCustomers
+									: tab === "new"
+										? stats?.newThisMonth
+										: undefined;
+						return (
+							<Tabs.Tab
+								key={tab}
+								value={tab}
+								rightSection={
+									badgeValue !== undefined ? (
+										<Badge size="sm" variant="light" circle>
+											{badgeValue}
+										</Badge>
+									) : undefined
+								}
+							>
+								{tab === "all"
+									? "All"
+									: tab === "vip"
+										? "VIP"
+										: tab[0].toUpperCase() + tab.slice(1)}
+							</Tabs.Tab>
+						);
+					})}
 				</Tabs.List>
 			</Tabs>
 			<Text size="sm" c="dimmed" mb="md">
@@ -267,7 +259,7 @@ export function CustomersList() {
 			<Card withBorder mb="md">
 				<Group justify="space-between">
 					<TextInput
-						placeholder="Search by name or email"
+						placeholder="Search by name, email, or phone"
 						leftSection={<IconSearch size={16} />}
 						value={search}
 						onChange={(e) =>
@@ -278,7 +270,9 @@ export function CustomersList() {
 					<Select
 						data={SORT_OPTIONS}
 						value={sortBy}
-						onChange={(val) => setSortBy(val ?? "ltv-desc")}
+						onChange={(val) =>
+							handleFilterChange(() => setSortBy(val ?? "ltv-desc"))
+						}
 						allowDeselect={false}
 						leftSection={
 							<Text size="sm" c="dimmed">
@@ -293,94 +287,100 @@ export function CustomersList() {
 
 			{/* Table */}
 			<Card withBorder>
-				<Table.ScrollContainer minWidth={900}>
-					<Table striped highlightOnHover verticalSpacing="sm">
-						<Table.Thead>
-							<Table.Tr>
-								<Table.Th>Customer</Table.Th>
-								<Table.Th>Email</Table.Th>
-								<Table.Th>Orders</Table.Th>
-								<Table.Th>Lifetime Value</Table.Th>
-								<Table.Th>Last order</Table.Th>
-								<Table.Th>Segment</Table.Th>
-								<Table.Th style={{ width: 48 }} />
-							</Table.Tr>
-						</Table.Thead>
-						<Table.Tbody>
-							{paged.length > 0 ? (
-								paged.map((customer) => (
-									<Table.Tr
-										key={customer.id}
-										style={{ cursor: "pointer" }}
-										onClick={() => navigate(`/customers/${customer.id}`)}
-									>
-										<Table.Td>
-											<Group gap="sm" wrap="nowrap">
-												<CustomerAvatar
-													name={customer.name}
-													color={customer.avatarColor}
-												/>
-												<Stack gap={2}>
-													<Group gap={6} wrap="nowrap">
-														<Text fw={500}>{customer.name}</Text>
-														{customer.hasDataIssue && (
-															<IconAlertTriangle
-																size={14}
-																color="var(--mantine-color-yellow-6)"
-															/>
-														)}
-													</Group>
-													<Text size="xs" c="dimmed">
-														Joined {formatDate(customer.joinedAt)}
-													</Text>
-												</Stack>
-											</Group>
-										</Table.Td>
-										<Table.Td>{customer.email || "—"}</Table.Td>
-										<Table.Td>{customer.ordersCount}</Table.Td>
-										<Table.Td>
-											<Text fw={700}>
-												{formatCurrency(customer.lifetimeValue)}
-											</Text>
-										</Table.Td>
-										<Table.Td>{formatDate(customer.lastOrderAt)}</Table.Td>
-										<Table.Td>
-											<SegmentBadge segment={customer.segment} />
-										</Table.Td>
-										<Table.Td>
-											<ActionIcon variant="subtle" color="gray">
-												<IconChevronRight size={16} />
-											</ActionIcon>
-										</Table.Td>
-									</Table.Tr>
-								))
-							) : (
+				{isLoading ? (
+					<Center py="xl">
+						<Loader />
+					</Center>
+				) : isError ? (
+					<Text c="red" ta="center" py="xl">
+						{getApiErrorMessage(error)}
+					</Text>
+				) : (
+					<Table.ScrollContainer minWidth={900}>
+						<Table striped highlightOnHover verticalSpacing="sm">
+							<Table.Thead>
 								<Table.Tr>
-									<Table.Td colSpan={7}>
-										<Center py="xl">
-											<Stack align="center" gap="sm">
-												<IconUsers
-													size={36}
+									<Table.Th>Customer</Table.Th>
+									<Table.Th>Email</Table.Th>
+									<Table.Th>Orders</Table.Th>
+									<Table.Th>Lifetime Value</Table.Th>
+									<Table.Th>Last order</Table.Th>
+									<Table.Th>Segment</Table.Th>
+									<Table.Th style={{ width: 48 }} />
+								</Table.Tr>
+							</Table.Thead>
+							<Table.Tbody>
+								{customers.length > 0 ? (
+									customers.map((customer) => (
+										<Table.Tr
+											key={customer.id}
+											style={{ cursor: "pointer" }}
+											onClick={() => navigate(`/customers/${customer.id}`)}
+										>
+											<Table.Td>
+												<Group gap="sm" wrap="nowrap">
+													<CustomerAvatar name={customer.name} />
+													<Stack gap={2}>
+														<Group gap={6} wrap="nowrap">
+															<Text fw={500}>{customer.name}</Text>
+															{(!customer.email || !customer.phone) && (
+																<IconAlertTriangle
+																	size={14}
+																	color="var(--mantine-color-yellow-6)"
+																/>
+															)}
+														</Group>
+														<Text size="xs" c="dimmed">
+															Joined {formatDate(customer.joinedAt)}
+														</Text>
+													</Stack>
+												</Group>
+											</Table.Td>
+											<Table.Td>{customer.email || "—"}</Table.Td>
+											<Table.Td>{customer.totalOrder}</Table.Td>
+											<Table.Td>
+												<Text fw={700}>
+													{formatCurrency(customer.lifetimeValue)}
+												</Text>
+											</Table.Td>
+											<Table.Td>{formatDate(customer.lastOrderAt)}</Table.Td>
+											<Table.Td>
+												<SegmentBadge segment={customer.segment} />
+											</Table.Td>
+											<Table.Td>
+												<IconChevronRight
+													size={16}
 													color="var(--mantine-color-gray-5)"
 												/>
-												<Text c="dimmed">No customers found</Text>
-												<Button
-													variant="light"
-													leftSection={<IconPlus size={16} />}
-													onClick={() =>
-														openAddCustomerModal(handleAddCustomer)
-													}
-												>
-													Add Customer
-												</Button>
-											</Stack>
-										</Center>
-									</Table.Td>
-								</Table.Tr>
-							)}
-						</Table.Tbody>
-					</Table>
-				</Table.ScrollContainer>
+											</Table.Td>
+										</Table.Tr>
+									))
+								) : (
+									<Table.Tr>
+										<Table.Td colSpan={7}>
+											<Center py="xl">
+												<Stack align="center" gap="sm">
+													<IconUsers
+														size={36}
+														color="var(--mantine-color-gray-5)"
+													/>
+													<Text c="dimmed">No customers found</Text>
+													<Button
+														variant="light"
+														leftSection={<IconPlus size={16} />}
+														onClick={() => setFormOpened(true)}
+													>
+														Add Customer
+													</Button>
+												</Stack>
+											</Center>
+										</Table.Td>
+									</Table.Tr>
+								)}
+							</Table.Tbody>
+						</Table>
+					</Table.ScrollContainer>
+				)}
 
 				{totalPages > 1 && (
 					<Group justify="center" mt="md">
@@ -388,6 +388,12 @@ export function CustomersList() {
 					</Group>
 				)}
 			</Card>
+
+			<CustomerFormModal
+				opened={formOpened}
+				onClose={() => setFormOpened(false)}
+				onSuccess={invalidateCustomers}
+			/>
 		</Container>
 	);
 }

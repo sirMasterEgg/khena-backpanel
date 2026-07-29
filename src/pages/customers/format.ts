@@ -1,7 +1,5 @@
 // Helper format kecil khusus halaman Customers.
 
-import type { Customer } from "@/data/dummy";
-
 const currencyFormatter = new Intl.NumberFormat("id-ID", {
 	style: "currency",
 	currency: "IDR",
@@ -36,7 +34,10 @@ export type DataIssue = {
 };
 
 /** Kembalikan masalah data customer, atau null kalau tidak ada. */
-export function getDataIssue(customer: Customer): DataIssue | null {
+export function getDataIssue(customer: {
+	email: string;
+	phone?: string | null;
+}): DataIssue | null {
 	if (!customer.email) {
 		return {
 			level: "error",
@@ -50,13 +51,6 @@ export function getDataIssue(customer: Customer): DataIssue | null {
 			level: "warning",
 			title: "Incomplete contact info",
 			detail: "No phone number on file. Add one so the courier can reach them.",
-		};
-	}
-	if (customer.hasDataIssue) {
-		return {
-			level: "warning",
-			title: "Data needs review",
-			detail: "Some information looks incomplete. Please review and update.",
 		};
 	}
 	return null;
