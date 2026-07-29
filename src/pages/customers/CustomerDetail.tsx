@@ -8,6 +8,7 @@ import {
 	Container,
 	Grid,
 	Group,
+	Loader,
 	Stack,
 	Table,
 	Text,
@@ -22,15 +23,17 @@ import {
 	IconShoppingCart,
 	IconStar,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
+import { getApiErrorMessage } from "@/api/client";
+import { getCustomer, patchCustomer } from "@/api/customers";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { StatusBadge } from "@/components/StatusBadge";
-import { type Customer, dummyCustomers } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { openEditCustomerModal } from "./AddCustomerModal";
+import { CustomerFormModal } from "./CustomerFormModal";
 import { formatCurrency, formatDate, getDataIssue } from "./format";
 import { getCustomerOrders } from "./orders";
 
@@ -51,19 +54,62 @@ function ContactField({ label, value }: { label: string; value: string }) {
 export function CustomerDetail() {
 	const navigate = useNavigate();
 	const { id } = useParams();
+	const queryClient = useQueryClient();
 
-	// Simpan customer di state lokal supaya edit & notes bisa memperbarui tampilan.
-	const [customer, setCustomer] = useState(() =>
-		dummyCustomers.find((c) => String(c.id) === id),
-	);
-	const [notes, setNotes] = useState(customer?.notes ?? "");
+	const [notes, setNotes] = useState("");
+	const [editOpened, setEditOpened] = useState(false);
+
+	const {
+		data: customer,
+		isLoading,
+		isError,
+		error,
+	} = useQuery({
+		queryKey: ["customers", id],
+		queryFn: () => getCustomer(id as string),
+		enabled: Boolean(id),
+	});
 
 	usePageTitle(customer ? customer.name : "Customer");
 
-	if (!customer) {
+	// Prefill notes saat data detail datang / berganti.
+	useEffect(() => {
+		setNotes(customer?.internalNotes ?? "");
+	}, [customer?.internalNotes]);
+
+	const notesMutation = useMutation({
+		mutationFn: (internalNotes: string) =>
+			patchCustomer(id as string, { internalNotes }),
+		onSuccess: () => {
+			notify.success("Notes saved");
+			queryClient.invalidateQueries({ queryKey: ["customers"] });
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
+
+	const handleNotesBlur = () => {
+		// Tak berubah → jangan kirim request & jangan spam toast.
+		if (notes === (customer?.internalNotes ?? "")) return;
+		notesMutation.mutate(notes);
+	};
+
+	if (isLoading) {
+		return (
+			<Container size="lg">
+				<Center py="xl">
+					<Loader />
+				</Center>
+			</Container>
+		);
+	}
+
+	if (isError || !customer) {
 		return (
 			<Container size="lg">
 				<PageHeader title="Customer not found" />
+				<Text c="dimmed" mb="md">
+					{error ? getApiErrorMessage(error) : "Customer not found"}
+				</Text>
 				<Button
 					variant="default"
 					leftSection={<IconArrowLeft size={16} />}
@@ -76,29 +122,14 @@ export function CustomerDetail() {
 	}
 
 	const issue = getDataIssue(customer);
-	const orders = getCustomerOrders(customer);
-	const avgOrder =
-		customer.ordersCount > 0
-			? Math.round(customer.lifetimeValue / customer.ordersCount)
-			: 0;
+	const orders = getCustomerOrders({
+		id: customer.id,
+		totalOrders: customer.totalOrders,
+		lifetimeValue: customer.lifetimeValue,
+		joinedAt: customer.joinedAt,
+	});
 	const segmentLabel =
 		customer.segment[0].toUpperCase() + customer.segment.slice(1);
-
-	const handleEdit = (updated: Customer) => {
-		const idx = dummyCustomers.findIndex((c) => c.id === updated.id);
-		if (idx !== -1) dummyCustomers[idx] = updated; // mutasi sumber dummy
-		setCustomer(updated);
-		notify.success("Customer updated");
-	};
-
-	const handleNotesBlur = () => {
-		if (notes === (customer.notes ?? "")) return; // tak berubah → jangan spam toast
-		const updated = { ...customer, notes };
-		const idx = dummyCustomers.findIndex((c) => c.id === customer.id);
-		if (idx !== -1) dummyCustomers[idx] = updated;
-		setCustomer(updated);
-		notify.success("Notes saved");
-	};
 
 	return (
 		<Container size="lg">
@@ -122,9 +153,7 @@ export function CustomerDetail() {
 						>
 							Send email
 						</Button>
-						<Button onClick={() => openEditCustomerModal(customer, handleEdit)}>
-							Edit
-						</Button>
+						<Button onClick={() => setEditOpened(true)}>Edit</Button>
 					</Group>
 				}
 			/>
@@ -142,7 +171,7 @@ export function CustomerDetail() {
 							size="xs"
 							variant="white"
 							color={issue.level === "error" ? "red" : "yellow"}
-							onClick={() => openEditCustomerModal(customer, handleEdit)}
+							onClick={() => setEditOpened(true)}
 						>
 							Fix it
 						</Button>
@@ -155,7 +184,7 @@ export function CustomerDetail() {
 					<StatTile
 						icon={<IconShoppingCart size={20} />}
 						label="Total Orders"
-						value={customer.ordersCount}
+						value={customer.totalOrders}
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
@@ -169,7 +198,7 @@ export function CustomerDetail() {
 					<StatTile
 						icon={<IconReceipt size={20} />}
 						label="Avg. Order"
-						value={formatCurrency(avgOrder)}
+						value={formatCurrency(customer.averageOrder)}
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
@@ -187,6 +216,9 @@ export function CustomerDetail() {
 						<Title order={4} mb="md">
 							Order history
 						</Title>
+						<Text size="xs" c="dimmed" mb="md">
+							Data order di bawah masih dummy — modul order belum ada di API.
+						</Text>
 						{orders.length === 0 ? (
 							<Center py="xl">
 								<Stack align="center" gap="sm">
@@ -255,6 +287,7 @@ export function CustomerDetail() {
 								value={notes}
 								onChange={(e) => setNotes(e.currentTarget.value)}
 								onBlur={handleNotesBlur}
+								disabled={notesMutation.isPending}
 							/>
 							<Text size="xs" c="dimmed" mt="xs">
 								Notes save when you click away.
@@ -263,6 +296,20 @@ export function CustomerDetail() {
 					</Stack>
 				</Grid.Col>
 			</Grid>
+
+			<CustomerFormModal
+				opened={editOpened}
+				initial={{
+					id: customer.id,
+					name: customer.name,
+					email: customer.email,
+					phone: customer.phone,
+				}}
+				onClose={() => setEditOpened(false)}
+				onSuccess={() =>
+					queryClient.invalidateQueries({ queryKey: ["customers"] })
+				}
+			/>
 		</Container>
 	);
 }
