@@ -3,7 +3,6 @@ import {
 	ActionIcon,
 	Anchor,
 	Autocomplete,
-	Badge,
 	Breadcrumbs,
 	Button,
 	Card,
@@ -12,6 +11,7 @@ import {
 	Grid,
 	Group,
 	Image,
+	Loader,
 	NumberInput,
 	Select,
 	Stack,
@@ -29,26 +29,35 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
-import { listOrderSalesVariants } from "@/api/orderSales";
+import { getApiErrorMessage } from "@/api/client";
+import {
+	getOrderSalesShippingCost,
+	listOrderSalesVariants,
+} from "@/api/orderSales";
 import { PageHeader } from "@/components/PageHeader";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { CustomerAvatar } from "@/pages/customers/CustomerAvatar";
 import { CustomerPickerModal } from "@/pages/customers/CustomerPickerModal";
 import type { PickedCustomer } from "@/pages/customers/pickedCustomer";
 import { SegmentBadge } from "@/pages/customers/SegmentBadge";
+import { knownCities, knownProvinces } from "./addressSuggestions";
 import { formatCurrency } from "./format";
 import {
 	type OrderSalesFormData,
 	orderSalesSchema,
+	PAYMENT_METHODS,
 } from "./orderSalesSchema";
-import {
-	getShippingZoneByCity,
-	knownCities,
-	knownProvinces,
-} from "./shippingZones";
+
+const PAYMENT_METHOD_OPTIONS: { value: (typeof PAYMENT_METHODS)[number]; label: string }[] = [
+	{ value: "cash", label: "Cash" },
+	{ value: "transfer", label: "Transfer" },
+	{ value: "debit", label: "Debit card" },
+	{ value: "credit", label: "Credit card" },
+	{ value: "qris", label: "QRIS" },
+];
 
 const emptyFormValues: OrderSalesFormData = {
 	customerId: "",
@@ -125,24 +134,44 @@ export function OrderSales() {
 		0,
 	);
 
-	// ----- Shipping (masih memakai tarif dummy — diganti Tahap 7) -----
-	const [street, setStreet] = useState("");
-	const [shipCity, setShipCity] = useState("");
-	const [shipProvince, setShipProvince] = useState("");
-	const [shipPostCode, setShipPostCode] = useState("");
-	const [shippingCost, setShippingCost] = useState<number | "">("");
-	const [shippingManual, setShippingManual] = useState(false);
+	// ----- Estimasi ongkos kirim -----
+	const shippingAddress = watch("shippingAddress");
+	const shippingCity = watch("shippingCity");
+	const shippingProvince = watch("shippingProvince");
+	const shippingZipCode = watch("shippingZipCode");
 
-	const zone = getShippingZoneByCity(shipCity);
+	// Item yang sudah benar-benar terisi — hanya ini yang dikirim ke API.
+	const validItems = watchedItems
+		.filter((i) => i.detailProductId && i.quantity > 0)
+		.map((i) => ({ detailProductId: i.detailProductId, quantity: i.quantity }));
 
-	useEffect(() => {
-		if (shippingManual) return;
-		setShippingCost(
-			shipCity.trim() ? getShippingZoneByCity(shipCity).baseRate : "",
-		);
-	}, [shipCity, shippingManual]);
+	const shippingParams = {
+		shippingAddress: shippingAddress.trim(),
+		shippingCity: shippingCity.trim(),
+		shippingProvince: shippingProvince.trim(),
+		shippingZipCode: shippingZipCode.trim(),
+		items: validItems,
+	};
+	// Debounce agar Biteship tidak dipanggil tiap ketikan.
+	const [debouncedShippingParams] = useDebouncedValue(shippingParams, 600);
 
-	const total = subtotal + (Number(shippingCost) || 0);
+	const canEstimate =
+		Boolean(debouncedShippingParams.shippingAddress) &&
+		Boolean(debouncedShippingParams.shippingCity) &&
+		Boolean(debouncedShippingParams.shippingProvince) &&
+		Boolean(debouncedShippingParams.shippingZipCode) &&
+		debouncedShippingParams.items.length > 0;
+
+	const shippingQuery = useQuery({
+		queryKey: ["order-sales-shipping-cost", debouncedShippingParams],
+		queryFn: () => getOrderSalesShippingCost(debouncedShippingParams),
+		enabled: canEstimate,
+		// 502 dari Biteship biasanya bukan error sementara → jangan retry berkali-kali.
+		retry: false,
+	});
+
+	const shippingCost = shippingQuery.data ?? 0;
+	const total = subtotal + shippingCost;
 
 	// ----- Handler item -----
 	const addItem = () =>
@@ -158,11 +187,7 @@ export function OrderSales() {
 	const singleItem = fields.length <= 1;
 
 	// TODO(Tahap 8): ganti dengan useMutation ke POST /order-sales + modal ringkasan.
-	const onSubmit = (_data: OrderSalesFormData) => {
-		void street;
-		void shipProvince;
-		void shipPostCode;
-	};
+	const onSubmit = (_data: OrderSalesFormData) => {};
 
 	return (
 		<Container size="xl">
@@ -181,24 +206,40 @@ export function OrderSales() {
 			/>
 
 			<Grid gap="md">
-				{/* Kolom kiri: order date, item, ringkasan total */}
+				{/* Kolom kiri: order date, payment, item, ringkasan total */}
 				<Grid.Col span={{ base: 12, md: 8 }}>
 					<Stack gap="md">
 						<Card withBorder>
-							<Controller
-								control={control}
-								name="orderDate"
-								render={({ field }) => (
-									<DateInput
-										label="Order date"
-										valueFormat="DD MMM YYYY"
-										w={220}
-										value={field.value || null}
-										onChange={(val) => field.onChange(val ?? "")}
-										mb="md"
-									/>
-								)}
-							/>
+							<Group align="flex-start" gap="md" mb="md">
+								<Controller
+									control={control}
+									name="orderDate"
+									render={({ field }) => (
+										<DateInput
+											label="Order date"
+											valueFormat="DD MMM YYYY"
+											w={220}
+											value={field.value || null}
+											onChange={(val) => field.onChange(val ?? "")}
+										/>
+									)}
+								/>
+								<Controller
+									control={control}
+									name="paymentMethod"
+									render={({ field }) => (
+										<Select
+											label="Payment method"
+											w={220}
+											allowDeselect={false}
+											data={PAYMENT_METHOD_OPTIONS}
+											value={field.value}
+											onChange={(v) => field.onChange(v)}
+											error={errors.paymentMethod?.message}
+										/>
+									)}
+								/>
+							</Group>
 							<Divider mb="md" />
 							<Group justify="space-between" mb="md">
 								<Text fw={700} size="sm">
@@ -386,17 +427,30 @@ export function OrderSales() {
 								</Group>
 								<Group justify="space-between">
 									<Text size="sm" c="dimmed">
-										Shipping
+										Shipping (est.)
 									</Text>
-									<Text size="sm">
-										{formatCurrency(Number(shippingCost) || 0)}
-									</Text>
+									{!canEstimate ? (
+										<Text size="sm" c="dimmed">
+											Lengkapi alamat & item
+										</Text>
+									) : shippingQuery.isFetching ? (
+										<Loader size="xs" />
+									) : shippingQuery.isError ? (
+										<Text c="red" size="sm">
+											{getApiErrorMessage(shippingQuery.error)}
+										</Text>
+									) : (
+										<Text size="sm">{formatCurrency(shippingCost)}</Text>
+									)}
 								</Group>
 								<Divider />
 								<Group justify="space-between">
 									<Text fw={700}>Total</Text>
 									<Text fw={700}>{formatCurrency(total)}</Text>
 								</Group>
+								<Text size="xs" c="dimmed">
+									Ongkir final dihitung ulang server saat order dibuat.
+								</Text>
 							</Stack>
 						</Card>
 					</Stack>
@@ -458,77 +512,54 @@ export function OrderSales() {
 							)}
 						</Card>
 
-						{/* ---------- Shipping address (tarif dummy — Tahap 7 mengganti) ---------- */}
+						{/* ---------- Shipping address ---------- */}
 						<Card withBorder>
 							<Text fw={700} size="sm" mb="md">
 								Shipping address
 							</Text>
 							<Stack gap="sm">
 								<TextInput
-									label="Street / building / apartment"
+									label="Street / building / apartment *"
 									placeholder="Jl. Contoh No. 1, Blok A"
-									value={street}
-									onChange={(e) => setStreet(e.currentTarget.value)}
+									{...register("shippingAddress")}
+									error={errors.shippingAddress?.message}
 								/>
-								<Autocomplete
-									label="City"
-									placeholder="Jakarta"
-									data={knownCities}
-									value={shipCity}
-									onChange={setShipCity}
+								<Controller
+									control={control}
+									name="shippingCity"
+									render={({ field }) => (
+										<Autocomplete
+											label="City *"
+											placeholder="Jakarta"
+											data={knownCities}
+											value={field.value}
+											onChange={field.onChange}
+											error={errors.shippingCity?.message}
+										/>
+									)}
 								/>
 								<Group grow align="flex-start">
-									<Autocomplete
-										label="Province"
-										placeholder="DKI Jakarta"
-										data={knownProvinces}
-										value={shipProvince}
-										onChange={setShipProvince}
+									<Controller
+										control={control}
+										name="shippingProvince"
+										render={({ field }) => (
+											<Autocomplete
+												label="Province *"
+												placeholder="DKI Jakarta"
+												data={knownProvinces}
+												value={field.value}
+												onChange={field.onChange}
+												error={errors.shippingProvince?.message}
+											/>
+										)}
 									/>
 									<TextInput
-										label="Post code"
+										label="Post code *"
 										placeholder="12190"
 										inputMode="numeric"
-										value={shipPostCode}
-										onChange={(e) => setShipPostCode(e.currentTarget.value)}
+										{...register("shippingZipCode")}
+										error={errors.shippingZipCode?.message}
 									/>
-								</Group>
-								<NumberInput
-									label={
-										<Group gap="xs">
-											<Text size="sm" component="span">
-												Shipping cost (IDR)
-											</Text>
-											{shippingManual && (
-												<Anchor
-													size="xs"
-													onClick={() => setShippingManual(false)}
-												>
-													reset to auto
-												</Anchor>
-											)}
-										</Group>
-									}
-									min={0}
-									thousandSeparator="."
-									decimalSeparator=","
-									value={shippingCost}
-									onChange={(val) => {
-										setShippingManual(true);
-										setShippingCost(val === "" ? "" : Number(val));
-									}}
-								/>
-								<Group justify="space-between">
-									<Text size="xs" c="dimmed">
-										{zone.name} · {zone.etaDays} ·{" "}
-										{formatCurrency(zone.baseRate)}
-									</Text>
-									<Badge
-										variant="light"
-										color={shippingManual ? "orange" : "gray"}
-									>
-										{shippingManual ? "manual override" : "auto"}
-									</Badge>
 								</Group>
 							</Stack>
 						</Card>
