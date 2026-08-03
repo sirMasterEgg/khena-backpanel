@@ -9,22 +9,20 @@ import {
 	Title,
 } from "@mantine/core";
 import { IconCloudUpload, IconDownload } from "@tabler/icons-react";
-import { useRef, useState } from "react";
-import { downloadTemplateCsv } from "./stockCsv";
+import { useState } from "react";
 
 interface BulkUpdateCardProps {
-	onFile: (file: File) => void;
+	onOpenImport: () => void;
+	onDownloadTemplate: () => void;
+	downloadingTemplate: boolean;
 }
 
-/** Validasi tipe & ukuran file dipusatkan di StocksPage lewat onFile. */
-export function BulkUpdateCard({ onFile }: BulkUpdateCardProps) {
-	const inputRef = useRef<HTMLInputElement>(null);
+export function BulkUpdateCard({
+	onOpenImport,
+	onDownloadTemplate,
+	downloadingTemplate,
+}: BulkUpdateCardProps) {
 	const [dragActive, setDragActive] = useState(false);
-
-	const handleFiles = (files: FileList | null) => {
-		const file = files?.[0];
-		if (file) onFile(file);
-	};
 
 	return (
 		<Card withBorder h="100%">
@@ -38,7 +36,7 @@ export function BulkUpdateCard({ onFile }: BulkUpdateCardProps) {
 
 				{/* Area unggah bergaris putus-putus. */}
 				<Box
-					onClick={() => inputRef.current?.click()}
+					onClick={onOpenImport}
 					onDragOver={(e) => {
 						e.preventDefault();
 						setDragActive(true);
@@ -47,7 +45,7 @@ export function BulkUpdateCard({ onFile }: BulkUpdateCardProps) {
 					onDrop={(e) => {
 						e.preventDefault();
 						setDragActive(false);
-						handleFiles(e.dataTransfer.files);
+						onOpenImport();
 					}}
 					style={{
 						border: "1px dashed var(--mantine-color-gray-4)",
@@ -64,19 +62,9 @@ export function BulkUpdateCard({ onFile }: BulkUpdateCardProps) {
 						<IconCloudUpload size={36} color="var(--mantine-color-gray-5)" />
 						<Text fw={500}>Click to upload a CSV</Text>
 						<Text size="sm" c="dimmed">
-							or drag and drop · max 5MB
+							or drag and drop · max 10MB
 						</Text>
 					</Stack>
-					<input
-						ref={inputRef}
-						type="file"
-						accept=".csv"
-						hidden
-						onChange={(e) => {
-							handleFiles(e.currentTarget.files);
-							e.currentTarget.value = "";
-						}}
-					/>
 				</Box>
 
 				{/* Kotak expected columns. */}
@@ -87,18 +75,18 @@ export function BulkUpdateCard({ onFile }: BulkUpdateCardProps) {
 					<Table withTableBorder withColumnBorders>
 						<Table.Thead>
 							<Table.Tr>
-								<Table.Th>SKU</Table.Th>
-								<Table.Th>Action</Table.Th>
-								<Table.Th>Qty</Table.Th>
-								<Table.Th>Reason</Table.Th>
+								<Table.Th>sku</Table.Th>
+								<Table.Th>adjustment_type</Table.Th>
+								<Table.Th>quantity</Table.Th>
+								<Table.Th>reason</Table.Th>
 							</Table.Tr>
 						</Table.Thead>
 						<Table.Tbody>
 							<Table.Tr>
-								<Table.Td>SOFA-001</Table.Td>
+								<Table.Td>CHR-001-BLK</Table.Td>
 								<Table.Td>in</Table.Td>
-								<Table.Td>5</Table.Td>
-								<Table.Td>Received shipment</Table.Td>
+								<Table.Td>10</Table.Td>
+								<Table.Td>Stock correction</Table.Td>
 							</Table.Tr>
 						</Table.Tbody>
 					</Table>
@@ -108,7 +96,8 @@ export function BulkUpdateCard({ onFile }: BulkUpdateCardProps) {
 					<Button
 						variant="default"
 						leftSection={<IconDownload size={16} />}
-						onClick={downloadTemplateCsv}
+						loading={downloadingTemplate}
+						onClick={onDownloadTemplate}
 					>
 						Download template (Excel-compatible CSV)
 					</Button>

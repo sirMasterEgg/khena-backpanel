@@ -1,12 +1,4 @@
-import {
-	Anchor,
-	Breadcrumbs,
-	Button,
-	Container,
-	FileButton,
-	Grid,
-	Group,
-} from "@mantine/core";
+import { Anchor, Breadcrumbs, Button, Container, Grid, Group } from "@mantine/core";
 import {
 	IconAlertTriangle,
 	IconClock,
@@ -15,118 +7,47 @@ import {
 	IconStack2,
 	IconTrendingDown,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { getStockStats } from "@/api/stocks";
+import { getBlobApiErrorMessage } from "@/api/client";
+import { downloadStockCsvExample, getStockStats } from "@/api/stocks";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
-import { dummyProducts, type Product } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { BulkUpdateCard } from "./BulkUpdateCard";
+import { ImportStockCsvModal } from "./ImportStockCsvModal";
 import { RecentActivityCard } from "./RecentActivityCard";
 import { ReorderListCard } from "./ReorderListCard";
 import { SingleSkuAdjustCard } from "./SingleSkuAdjustCard";
-import { downloadTemplateCsv, parseStockCsv } from "./stockCsv";
-import { initialActivity } from "./stockData";
-import type { StockActivity } from "./stockTypes";
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-
-// Bandingkan bagian tanggal (yyyy-mm-dd) dua ISO string.
-function isSameDay(iso: string, ref: Date): boolean {
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return false;
-	return d.toDateString() === ref.toDateString();
-}
 
 export function StocksPage() {
 	usePageTitle("Stocks");
 	const navigate = useNavigate();
 
-	// Mirror data dummy ke state supaya perubahan langsung tampil.
-	const [products, setProducts] = useState<Product[]>(() => [...dummyProducts]);
-	const [activity, setActivity] = useState<StockActivity[]>(() => [
-		...initialActivity,
-	]);
+	const [importOpened, setImportOpened] = useState(false);
 
-	// Stat cards — dari GET /stocks/stats. "—" selagi loading/gagal.
 	const statsQuery = useQuery({
 		queryKey: ["stocks", "stats"],
 		queryFn: getStockStats,
 	});
 	const stats = statsQuery.data;
 
-	// Terapkan banyak baris dari CSV sekaligus (satu snapshot, akumulatif).
-	const applyImport = (
-		rows: { sku: string; action: "in" | "out"; qty: number; reason: string }[],
-	) => {
-		// Stok berjalan per id supaya baris dengan SKU sama terakumulasi benar.
-		const runningStock = new Map(products.map((p) => [p.id, p.stock]));
-		const bySku = new Map(products.map((p) => [p.sku.toLowerCase(), p]));
-		const newActivities: StockActivity[] = [];
-		const skipped: string[] = [];
-		let updated = 0;
-
-		for (const row of rows) {
-			const product = bySku.get(row.sku.toLowerCase());
-			if (!product) {
-				skipped.push(row.sku);
-				continue;
-			}
-			const change = row.action === "out" ? -row.qty : row.qty;
-			const current = runningStock.get(product.id) ?? product.stock;
-			const newStock = Math.max(0, current + change); // clamp ke 0
-			runningStock.set(product.id, newStock);
-			updated += 1;
-			newActivities.push({
-				id: crypto.randomUUID(),
-				source: "import",
-				sku: product.sku,
-				productName: product.name,
-				change,
-				reasonLabel: row.reason || "Imported",
-				by: "You",
-				at: new Date().toISOString(),
-			});
-		}
-
-		if (updated === 0 && skipped.length === 0) {
-			notify.error("No valid rows found in the file");
-			return;
-		}
-
-		if (updated > 0) {
-			setProducts((prev) =>
-				prev.map((p) =>
-					runningStock.has(p.id)
-						? { ...p, stock: runningStock.get(p.id) ?? p.stock }
-						: p,
-				),
-			);
-			setActivity((prev) => [...newActivities.reverse(), ...prev]);
-		}
-
-		const summary =
-			skipped.length > 0
-				? `${updated} updated, ${skipped.length} skipped`
-				: `${updated} updated`;
-		notify.success(summary, "Import complete");
-	};
-
-	const handleFile = (file: File | null) => {
-		if (!file) return;
-		if (!file.name.toLowerCase().endsWith(".csv")) {
-			notify.error("Please upload a .csv file");
-			return;
-		}
-		if (file.size > MAX_FILE_SIZE) {
-			notify.error("File is too large (max 5MB)");
-			return;
-		}
-		file.text().then((text) => applyImport(parseStockCsv(text)));
-	};
+	const downloadTemplateMutation = useMutation({
+		mutationFn: downloadStockCsvExample,
+		onSuccess: ({ blob, filename }) => {
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = filename;
+			a.click();
+			URL.revokeObjectURL(url);
+		},
+		// responseType "blob" membuat body error juga berupa Blob — pakai helper
+		// async khusus supaya pesan asli dari server tetap terbaca.
+		onError: async (err) => notify.error(await getBlobApiErrorMessage(err)),
+	});
 
 	return (
 		<Container size="xl">
@@ -144,26 +65,23 @@ export function StocksPage() {
 						<Button
 							variant="default"
 							leftSection={<IconDownload size={16} />}
-							onClick={downloadTemplateCsv}
+							loading={downloadTemplateMutation.isPending}
+							onClick={() => downloadTemplateMutation.mutate()}
 						>
 							Download template
 						</Button>
-						<FileButton onChange={handleFile} accept=".csv">
-							{(props) => (
-								<Button
-									{...props}
-									variant="filled"
-									leftSection={<IconFileImport size={16} />}
-								>
-									Import CSV
-								</Button>
-							)}
-						</FileButton>
+						<Button
+							variant="filled"
+							leftSection={<IconFileImport size={16} />}
+							onClick={() => setImportOpened(true)}
+						>
+							Import CSV
+						</Button>
 					</Group>
 				}
 			/>
 
-			{/* Stat cards */}
+			{/* Stat cards — dari GET /stocks/stats. "—" selagi loading/gagal. */}
 			<Grid gap="md" mb="xl">
 				<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
 					<StatTile
@@ -205,7 +123,11 @@ export function StocksPage() {
 					<SingleSkuAdjustCard />
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, md: 6 }}>
-					<BulkUpdateCard onFile={handleFile} />
+					<BulkUpdateCard
+						onOpenImport={() => setImportOpened(true)}
+						onDownloadTemplate={() => downloadTemplateMutation.mutate()}
+						downloadingTemplate={downloadTemplateMutation.isPending}
+					/>
 				</Grid.Col>
 			</Grid>
 
@@ -214,6 +136,11 @@ export function StocksPage() {
 
 			{/* Recent activity */}
 			<RecentActivityCard />
+
+			<ImportStockCsvModal
+				opened={importOpened}
+				onClose={() => setImportOpened(false)}
+			/>
 		</Container>
 	);
 }
