@@ -2,7 +2,10 @@ import { Button, Divider, Group, Stack, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { IconPrinter } from "@tabler/icons-react";
 import dayjs from "dayjs";
-import type { OrderSalesOrder, OrderSalesPaymentMethod } from "@/api/orderSales";
+import type {
+	OrderSalesOrder,
+	OrderSalesPaymentMethod,
+} from "@/api/orderSales";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatCurrency } from "./format";
 
@@ -49,8 +52,7 @@ function OrderCreatedBody({
 				</Text>
 				<Text size="sm">{order.shippingAddress}</Text>
 				<Text size="sm">
-					{order.shippingCity}, {order.shippingProvince}{" "}
-					{order.shippingZipCode}
+					{order.shippingCity}, {order.shippingProvince} {order.shippingZipCode}
 				</Text>
 			</Stack>
 

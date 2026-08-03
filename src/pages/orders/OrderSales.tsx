@@ -28,15 +28,18 @@ import {
 	IconUserPlus,
 	IconX,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
-import { getApiErrorMessage } from "@/api/client";
+import { getApiErrorMessage, getApiFieldErrors } from "@/api/client";
 import {
+	createOrderSalesOrder,
 	getOrderSalesShippingCost,
 	listOrderSalesVariants,
+	type OrderSalesInput,
 } from "@/api/orderSales";
+import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { CustomerAvatar } from "@/pages/customers/CustomerAvatar";
@@ -45,13 +48,17 @@ import type { PickedCustomer } from "@/pages/customers/pickedCustomer";
 import { SegmentBadge } from "@/pages/customers/SegmentBadge";
 import { knownCities, knownProvinces } from "./addressSuggestions";
 import { formatCurrency } from "./format";
+import { openOrderCreatedModal } from "./OrderCreatedModal";
 import {
 	type OrderSalesFormData,
 	orderSalesSchema,
-	PAYMENT_METHODS,
+	type PAYMENT_METHODS,
 } from "./orderSalesSchema";
 
-const PAYMENT_METHOD_OPTIONS: { value: (typeof PAYMENT_METHODS)[number]; label: string }[] = [
+const PAYMENT_METHOD_OPTIONS: {
+	value: (typeof PAYMENT_METHODS)[number];
+	label: string;
+}[] = [
 	{ value: "cash", label: "Cash" },
 	{ value: "transfer", label: "Transfer" },
 	{ value: "debit", label: "Debit card" },
@@ -83,6 +90,7 @@ const emptyFormValues: OrderSalesFormData = {
 export function OrderSales() {
 	usePageTitle("Create Order");
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 
 	// ----- Customer (tampilan kartu; nilai form ada di field customerId) -----
 	const [customer, setCustomer] = useState<PickedCustomer | null>(null);
@@ -92,7 +100,9 @@ export function OrderSales() {
 		control,
 		register,
 		handleSubmit,
+		reset,
 		setValue,
+		setError,
 		watch,
 		formState: { errors },
 	} = useForm<OrderSalesFormData>({
@@ -186,8 +196,52 @@ export function OrderSales() {
 
 	const singleItem = fields.length <= 1;
 
-	// TODO(Tahap 8): ganti dengan useMutation ke POST /order-sales + modal ringkasan.
-	const onSubmit = (_data: OrderSalesFormData) => {};
+	// ----- Submit -----
+	const createMutation = useMutation({
+		mutationFn: (body: OrderSalesInput) => createOrderSalesOrder(body),
+		onSuccess: (order) => {
+			notify.success(order.invoiceNumber, "Order created");
+			openOrderCreatedModal(order, customer?.name ?? "-");
+			// Stok varian sudah berkurang di server.
+			queryClient.invalidateQueries({ queryKey: ["order-sales-variants"] });
+			reset(emptyFormValues);
+			setCustomer(null);
+		},
+		onError: (error) => {
+			const fieldErrors = getApiFieldErrors(error);
+			if (Object.keys(fieldErrors).length > 0) {
+				for (const [field, message] of Object.entries(fieldErrors)) {
+					setError(field as keyof OrderSalesFormData, { message });
+				}
+				return;
+			}
+			const message = getApiErrorMessage(error);
+			notify.error(message);
+			if (message.includes("insufficient stock")) {
+				// Stok yang ditampilkan sudah basi.
+				queryClient.invalidateQueries({ queryKey: ["order-sales-variants"] });
+			}
+		},
+	});
+
+	const onSubmit = (data: OrderSalesFormData) => {
+		const note = data.internalNote.trim();
+		createMutation.mutate({
+			customerId: data.customerId,
+			orderDate: data.orderDate,
+			paymentMethod: data.paymentMethod,
+			shippingAddress: data.shippingAddress.trim(),
+			shippingCity: data.shippingCity.trim(),
+			shippingProvince: data.shippingProvince.trim(),
+			shippingZipCode: data.shippingZipCode.trim(),
+			// Omit kalau kosong — jangan kirim string kosong.
+			...(note ? { internalNote: note } : {}),
+			items: data.items.map((i) => ({
+				detailProductId: i.detailProductId,
+				quantity: i.quantity,
+			})),
+		});
+	};
 
 	return (
 		<Container size="xl">
@@ -322,7 +376,8 @@ export function OrderSales() {
 																(candidate) =>
 																	candidate.detailProductId === option.value,
 															);
-															if (!v) return <Text size="sm">{option.label}</Text>;
+															if (!v)
+																return <Text size="sm">{option.label}</Text>;
 															const outOfStock = v.stock <= 0;
 															return (
 																<Group gap="sm" wrap="nowrap" w="100%">
@@ -340,12 +395,17 @@ export function OrderSales() {
 																			style={{
 																				width: 40,
 																				height: 40,
-																				borderRadius: "var(--mantine-radius-sm)",
-																				background: "var(--mantine-color-gray-2)",
+																				borderRadius:
+																					"var(--mantine-radius-sm)",
+																				background:
+																					"var(--mantine-color-gray-2)",
 																			}}
 																		/>
 																	)}
-																	<Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
+																	<Stack
+																		gap={0}
+																		style={{ flex: 1, minWidth: 0 }}
+																	>
 																		<Text size="sm" fw={500} lineClamp={1}>
 																			{v.variantName}
 																		</Text>
@@ -355,7 +415,9 @@ export function OrderSales() {
 																			lineClamp={1}
 																		>
 																			{v.sku} ·{" "}
-																			{outOfStock ? "Out of stock" : `Stock ${v.stock}`}
+																			{outOfStock
+																				? "Out of stock"
+																				: `Stock ${v.stock}`}
 																		</Text>
 																	</Stack>
 																	<Text size="sm" fw={600}>
@@ -364,7 +426,9 @@ export function OrderSales() {
 																</Group>
 															);
 														}}
-														error={errors.items?.[index]?.detailProductId?.message}
+														error={
+															errors.items?.[index]?.detailProductId?.message
+														}
 													/>
 												)}
 											/>
@@ -579,6 +643,8 @@ export function OrderSales() {
 								type="button"
 								fullWidth
 								size="lg"
+								disabled={createMutation.isPending}
+								loading={createMutation.isPending}
 								onClick={handleSubmit(onSubmit)}
 							>
 								Create order · {formatCurrency(total)}
