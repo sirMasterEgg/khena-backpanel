@@ -1,5 +1,4 @@
-import { Button, SimpleGrid, Stack, Text } from "@mantine/core";
-import { modals } from "@mantine/modals";
+import { Button, Modal, SimpleGrid, Stack, Text } from "@mantine/core";
 import {
 	IconBuildingBank,
 	IconCash,
@@ -7,7 +6,7 @@ import {
 	IconQrcode,
 	type TablerIcon,
 } from "@tabler/icons-react";
-import type { Customer } from "@/data/dummy";
+import { useEffect, useState } from "react";
 import { formatCurrency } from "./format";
 import type { PaymentMethod } from "./posTypes";
 
@@ -18,85 +17,73 @@ const METHODS: { value: PaymentMethod; label: string; Icon: TablerIcon }[] = [
 	{ value: "transfer", label: "Transfer", Icon: IconBuildingBank },
 ];
 
-interface TakePaymentArgs {
+interface TakePaymentModalProps {
+	opened: boolean;
+	onClose: () => void;
 	total: number;
 	itemCount: number;
-	customer: Customer;
+	customerName: string | null;
+	loading: boolean;
 	onPaid: (method: PaymentMethod) => void;
 }
 
-interface TakePaymentBodyProps extends TakePaymentArgs {
-	onPaid: (method: PaymentMethod) => void;
-}
-
-function TakePaymentBody({
+/** Modal "Take payment": pilih metode bayar, terkunci selagi request berjalan. */
+export function TakePaymentModal({
+	opened,
+	onClose,
 	total,
 	itemCount,
-	customer,
+	customerName,
+	loading,
 	onPaid,
-}: TakePaymentBodyProps) {
+}: TakePaymentModalProps) {
+	const [pending, setPending] = useState<PaymentMethod | null>(null);
+
+	useEffect(() => {
+		if (opened) setPending(null);
+	}, [opened]);
+
+	const handlePaid = (method: PaymentMethod) => {
+		setPending(method);
+		onPaid(method);
+	};
+
 	return (
-		<Stack gap="md">
-			<Stack gap={0}>
-				<Text size="sm" c="dimmed">
-					Amount due
+		<Modal opened={opened} onClose={onClose} title="Take payment" centered>
+			<Stack gap="md">
+				<Stack gap={0}>
+					<Text size="sm" c="dimmed">
+						Amount due
+					</Text>
+					<Text fz={40} fw={700} lh={1.1}>
+						{formatCurrency(total)}
+					</Text>
+					<Text size="sm" c="dimmed" mt={4}>
+						{itemCount} items · {customerName ?? "Walk-in customer"}
+					</Text>
+				</Stack>
+
+				<Text size="sm" fw={500}>
+					Payment method
 				</Text>
-				<Text fz={40} fw={700} lh={1.1}>
-					{formatCurrency(total)}
-				</Text>
-				<Text size="sm" c="dimmed" mt={4}>
-					{itemCount} items · {customer.name}
-				</Text>
+				<SimpleGrid cols={2} spacing="sm">
+					{METHODS.map(({ value, label, Icon }) => (
+						<Button
+							key={value}
+							type="button"
+							variant="default"
+							size="lg"
+							h={64}
+							leftSection={<Icon size={22} />}
+							onClick={() => handlePaid(value)}
+							loading={pending === value}
+							disabled={loading}
+						>
+							{label}
+						</Button>
+					))}
+				</SimpleGrid>
 			</Stack>
-
-			<Text size="sm" fw={500}>
-				Payment method
-			</Text>
-			<SimpleGrid cols={2} spacing="sm">
-				{METHODS.map(({ value, label, Icon }) => (
-					<Button
-						key={value}
-						variant="default"
-						size="lg"
-						h={64}
-						leftSection={<Icon size={22} />}
-						onClick={() => onPaid(value)}
-					>
-						{label}
-					</Button>
-				))}
-			</SimpleGrid>
-
-			<Text size="xs" c="dimmed">
-				Payment is recorded immediately. No change calculation in this version.
-			</Text>
-		</Stack>
+		</Modal>
 	);
-}
-
-/**
- * Buka modal "Take payment". `onPaid` dipanggil dengan metode terpilih
- * sebelum modal ditutup.
- */
-export function openTakePaymentModal({
-	total,
-	itemCount,
-	customer,
-	onPaid,
-}: TakePaymentArgs) {
-	const id = modals.open({
-		title: "Take payment",
-		centered: true,
-		children: (
-			<TakePaymentBody
-				total={total}
-				itemCount={itemCount}
-				customer={customer}
-				onPaid={(method) => {
-					modals.close(id);
-					onPaid(method);
-				}}
-			/>
-		),
-	});
 }
