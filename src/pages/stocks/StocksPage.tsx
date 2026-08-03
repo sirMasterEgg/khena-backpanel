@@ -30,7 +30,7 @@ import { ReorderListCard } from "./ReorderListCard";
 import { SingleSkuAdjustCard } from "./SingleSkuAdjustCard";
 import { downloadTemplateCsv, parseStockCsv } from "./stockCsv";
 import { initialActivity } from "./stockData";
-import type { ApplyResult, StockActivity, StockSource } from "./stockTypes";
+import type { StockActivity } from "./stockTypes";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -57,41 +57,6 @@ export function StocksPage() {
 		queryFn: getStockStats,
 	});
 	const stats = statsQuery.data;
-
-	// Handler terpusat untuk penyesuaian satu SKU (dipakai kartu manual).
-	const applyChange = (
-		sku: string,
-		change: number,
-		reasonLabel: string,
-		source: StockSource,
-		by: string,
-	): ApplyResult => {
-		const product = products.find(
-			(p) => p.sku.toLowerCase() === sku.toLowerCase(),
-		);
-		if (!product) return { ok: false, reason: "not_found" };
-
-		const newStock = product.stock + change;
-		if (newStock < 0) return { ok: false, reason: "negative" };
-
-		setProducts((prev) =>
-			prev.map((p) => (p.id === product.id ? { ...p, stock: newStock } : p)),
-		);
-		setActivity((prev) => [
-			{
-				id: crypto.randomUUID(),
-				source,
-				sku: product.sku,
-				productName: product.name,
-				change,
-				reasonLabel,
-				by,
-				at: new Date().toISOString(),
-			},
-			...prev,
-		]);
-		return { ok: true, productName: product.name, newStock };
-	};
 
 	// Terapkan banyak baris dari CSV sekaligus (satu snapshot, akumulatif).
 	const applyImport = (
@@ -237,7 +202,7 @@ export function StocksPage() {
 			{/* Editor grid */}
 			<Grid gap="md" mb="xl">
 				<Grid.Col span={{ base: 12, md: 6 }}>
-					<SingleSkuAdjustCard products={products} onApply={applyChange} />
+					<SingleSkuAdjustCard />
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, md: 6 }}>
 					<BulkUpdateCard onFile={handleFile} />

@@ -12,34 +12,22 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
+import { useDebouncedValue } from "@mantine/hooks";
 import { IconAlertCircle, IconCircleCheck } from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { getApiErrorMessage, getApiFieldErrors } from "@/api/client";
+import { createStockAdjustment, getStockSkuStatus } from "@/api/stocks";
 import { notify } from "@/components/notify";
-import type { Product } from "@/data/dummy";
 import {
-	makeSingleSkuAdjustSchema,
 	type SingleSkuAdjustFormData,
+	singleSkuAdjustSchema,
 } from "./singleSkuAdjustSchema";
 import { STOCK_REASONS } from "./stockData";
-import type { ApplyResult, StockSource } from "./stockTypes";
 
-interface SingleSkuAdjustCardProps {
-	products: Product[];
-	onApply: (
-		sku: string,
-		change: number,
-		reasonLabel: string,
-		source: StockSource,
-		by: string,
-	) => ApplyResult;
-}
-
-export function SingleSkuAdjustCard({
-	products,
-	onApply,
-}: SingleSkuAdjustCardProps) {
-	const schema = useMemo(() => makeSingleSkuAdjustSchema(products), [products]);
+export function SingleSkuAdjustCard() {
+	const queryClient = useQueryClient();
 
 	const {
 		register,
@@ -48,9 +36,10 @@ export function SingleSkuAdjustCard({
 		reset,
 		watch,
 		setValue,
+		setError,
 		formState: { errors },
 	} = useForm<SingleSkuAdjustFormData>({
-		resolver: zodResolver(schema),
+		resolver: zodResolver(singleSkuAdjustSchema),
 		defaultValues: {
 			sku: "",
 			change: "",
@@ -69,46 +58,54 @@ export function SingleSkuAdjustCard({
 		[action],
 	);
 
-	// Pencocokan SKU case-insensitive, trim spasi (untuk baris status).
-	const trimmedSku = skuValue.trim();
-	const matched = useMemo(() => {
-		if (!trimmedSku) return null;
-		const q = trimmedSku.toLowerCase();
-		return products.find((p) => p.sku.toLowerCase() === q) ?? null;
-	}, [products, trimmedSku]);
+	// Debounce supaya tidak menembak API tiap ketukan keyboard.
+	const [debouncedSku] = useDebouncedValue(skuValue.trim(), 400);
+
+	const lookupQuery = useQuery({
+		queryKey: ["stocks", "sku-status", debouncedSku],
+		queryFn: () => getStockSkuStatus(debouncedSku),
+		enabled: debouncedSku.length > 0,
+		// WAJIB: "SKU tidak ketemu" dibalas 400. Tanpa ini React Query
+		// mengulang 3x dengan backoff → Alert merah baru muncul beberapa
+		// detik kemudian dan API dibanjiri request sia-sia.
+		retry: false,
+	});
+
+	const mutation = useMutation({
+		mutationFn: (data: SingleSkuAdjustFormData) =>
+			createStockAdjustment({
+				sku: data.sku.trim(),
+				// PENTING: mapping toggle UI → nilai API
+				adjustmentType: data.action === "out" ? "decrease" : "increase",
+				quantity: Number(data.change.trim()), // selalu positif
+				reason: data.reason.trim() || undefined,
+			}),
+		onSuccess: (result) => {
+			// Response adjustment tidak memuat nama varian; pakai hasil lookup
+			// bila ada supaya notifikasi sepersis versi lama.
+			const label = lookupQuery.data?.name ?? result.sku;
+			notify.success(
+				`${label} · ${result.stockAfter} in stock`,
+				"Stock updated",
+			);
+			reset({ sku: "", change: "", reason: "", action: "in" });
+			queryClient.invalidateQueries({ queryKey: ["stocks"] });
+			queryClient.invalidateQueries({ queryKey: ["products"] });
+		},
+		onError: (err) => {
+			const fieldErrors = getApiFieldErrors(err);
+			if (Object.keys(fieldErrors).length > 0) {
+				for (const [field, message] of Object.entries(fieldErrors)) {
+					setError(field as keyof SingleSkuAdjustFormData, { message });
+				}
+				return;
+			}
+			notify.error(getApiErrorMessage(err));
+		},
+	});
 
 	const onSubmit = (data: SingleSkuAdjustFormData) => {
-		const matchedProduct = products.find(
-			(p) => p.sku.toLowerCase() === data.sku.trim().toLowerCase(),
-		);
-		// Schema sudah menjamin ada kecocokan, ini hanya penjaga tipe.
-		if (!matchedProduct) return;
-
-		const qty = Number(data.change.trim());
-		// Toggle in/out menentukan tanda perubahan.
-		const signedChange = data.action === "out" ? -qty : qty;
-		const result = onApply(
-			matchedProduct.sku,
-			signedChange,
-			data.reason.trim(),
-			"manual",
-			"You",
-		);
-
-		if (!result.ok) {
-			notify.error(
-				result.reason === "negative"
-					? "Stock cannot go below zero"
-					: "No product with that SKU yet",
-			);
-			return;
-		}
-
-		notify.success(
-			`${matchedProduct.name} · ${result.newStock} in stock`,
-			"Stock updated",
-		);
-		reset({ sku: "", change: "", reason: "", action: "in" });
+		mutation.mutate(data);
 	};
 
 	return (
@@ -170,9 +167,15 @@ export function SingleSkuAdjustCard({
 					</Grid.Col>
 				</Grid>
 
-				{/* Baris status kecocokan: hanya setelah SKU diisi. */}
-				{trimmedSku &&
-					(matched ? (
+				{/* Baris status stok: hanya setelah SKU diisi. */}
+				{debouncedSku &&
+					(lookupQuery.isFetching ? (
+						<Alert color="gray" variant="light" p="xs">
+							<Text c="dimmed" size="sm">
+								Checking…
+							</Text>
+						</Alert>
+					) : lookupQuery.data ? (
 						<Alert
 							color="green"
 							variant="light"
@@ -180,10 +183,10 @@ export function SingleSkuAdjustCard({
 							p="xs"
 						>
 							<Text c="green" size="sm">
-								{matched.name} · {matched.stock} in stock
+								{lookupQuery.data.name} · {lookupQuery.data.inStock} in stock
 							</Text>
 						</Alert>
-					) : (
+					) : lookupQuery.isError ? (
 						<Alert
 							color="red"
 							variant="light"
@@ -194,7 +197,7 @@ export function SingleSkuAdjustCard({
 								No product with that SKU yet
 							</Text>
 						</Alert>
-					))}
+					) : null)}
 
 				<Controller
 					name="reason"
@@ -212,7 +215,13 @@ export function SingleSkuAdjustCard({
 				/>
 
 				<Group justify="flex-end">
-					<Button onClick={handleSubmit(onSubmit)}>Apply update</Button>
+					<Button
+						onClick={handleSubmit(onSubmit)}
+						loading={mutation.isPending}
+						disabled={mutation.isPending}
+					>
+						Apply update
+					</Button>
 				</Group>
 			</Stack>
 		</Card>
