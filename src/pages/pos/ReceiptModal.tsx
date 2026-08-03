@@ -1,17 +1,22 @@
 import { Button, Divider, Group, Stack, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { IconPrinter } from "@tabler/icons-react";
-import { formatCurrency, formatDate } from "./format";
-import type { CompletedSale, PaymentMethod } from "./posTypes";
+import dayjs from "dayjs";
+import type { PosPaymentMethod } from "@/api/pointOfSales";
+import { formatCurrency } from "./format";
+import type { CompletedSale } from "./posTypes";
 
-const METHOD_LABELS: Record<PaymentMethod, string> = {
+const METHOD_LABELS: Record<PosPaymentMethod, string> = {
 	cash: "Cash",
-	card: "Card",
-	qris: "QRIS",
 	transfer: "Transfer",
+	debit: "Debit card",
+	credit: "Credit card",
+	qris: "QRIS",
 };
 
 function ReceiptBody({ sale }: { sale: CompletedSale }) {
+	const { order } = sale;
+
 	return (
 		<Stack gap="md">
 			{/* Header struk */}
@@ -20,32 +25,41 @@ function ReceiptBody({ sale }: { sale: CompletedSale }) {
 					Khena Furniture
 				</Text>
 				<Text size="xs" c="dimmed">
-					{sale.id}
+					{order.invoiceNumber}
 				</Text>
 				<Text size="xs" c="dimmed">
-					{formatDate(sale.createdAt)}
+					{dayjs(order.orderDate).format("DD MMM YYYY")}
 				</Text>
 				<Text size="sm" mt={4}>
-					Customer: {sale.customer.name}
+					Customer: {sale.customerName ?? "Walk-in customer"}
 				</Text>
+				{order.cashierName && (
+					<Text size="xs" c="dimmed">
+						Cashier: {order.cashierName}
+					</Text>
+				)}
 			</Stack>
 
 			<Divider variant="dashed" />
 
 			{/* Daftar item */}
 			<Stack gap="xs">
-				{sale.items.map((item) => (
-					<Group key={item.product.id} justify="space-between" wrap="nowrap">
+				{order.items.map((item) => (
+					<Group
+						key={item.detailProductId}
+						justify="space-between"
+						wrap="nowrap"
+					>
 						<Stack gap={0} style={{ minWidth: 0 }}>
 							<Text size="sm" lineClamp={1}>
-								{item.product.name}
+								{item.productName}
 							</Text>
 							<Text size="xs" c="dimmed">
-								{item.qty} × {formatCurrency(item.product.price)}
+								{item.quantity} × {formatCurrency(item.unitPrice)}
 							</Text>
 						</Stack>
 						<Text size="sm" fw={500}>
-							{formatCurrency(item.product.price * item.qty)}
+							{formatCurrency(item.subtotal)}
 						</Text>
 					</Group>
 				))}
@@ -57,14 +71,14 @@ function ReceiptBody({ sale }: { sale: CompletedSale }) {
 			<Group justify="space-between">
 				<Text fw={700}>Total</Text>
 				<Text fw={700} fz="xl">
-					{formatCurrency(sale.total)}
+					{formatCurrency(order.total)}
 				</Text>
 			</Group>
 			<Group justify="space-between">
 				<Text size="sm" c="dimmed">
 					Payment method
 				</Text>
-				<Text size="sm">{METHOD_LABELS[sale.paymentMethod]}</Text>
+				<Text size="sm">{METHOD_LABELS[order.paymentMethod]}</Text>
 			</Group>
 		</Stack>
 	);

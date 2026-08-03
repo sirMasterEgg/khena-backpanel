@@ -9,6 +9,7 @@ import {
 	Divider,
 	Grid,
 	Group,
+	Loader,
 	ScrollArea,
 	Select,
 	SimpleGrid,
@@ -16,6 +17,7 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { useDebouncedValue } from "@mantine/hooks";
 import {
 	IconChevronRight,
 	IconSearch,
@@ -24,147 +26,187 @@ import {
 	IconUserPlus,
 	IconX,
 } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
+import {
+	useInfiniteQuery,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
+import { useState } from "react";
 import { useNavigate } from "react-router";
+import { listCategories } from "@/api/categories";
+import { getApiErrorMessage } from "@/api/client";
+import {
+	createPosOrder,
+	listPosVariants,
+	type PosVariant,
+} from "@/api/pointOfSales";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
-import { type Customer, dummyProducts, type Product } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { CustomerAvatar } from "@/pages/customers/CustomerAvatar";
+import { CustomerPickerModal } from "@/pages/customers/CustomerPickerModal";
+import type { PickedCustomer } from "@/pages/customers/pickedCustomer";
 import { SegmentBadge } from "@/pages/customers/SegmentBadge";
 import { CartItemRow } from "./CartItemRow";
-import { openCustomerPickerModal } from "./CustomerPickerModal";
 import { formatCurrency } from "./format";
 import { ProductCard } from "./ProductCard";
-import type { CartItem, CompletedSale, PaymentMethod } from "./posTypes";
+import {
+	type CartItem,
+	type CompletedSale,
+	type PaymentMethod,
+	POS_METHOD_MAP,
+} from "./posTypes";
 import { openReceiptModal } from "./ReceiptModal";
-import { openTakePaymentModal } from "./TakePaymentModal";
+import { TakePaymentModal } from "./TakePaymentModal";
+
+const PAGE_SIZE = 24;
 
 export function PointOfSalePage() {
 	usePageTitle("Point of Sale");
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 
-	// Stok produk ditampung di state supaya penjualan bisa mengurangi stok.
-	const [products, setProducts] = useState<Product[]>(() => [...dummyProducts]);
 	const [cart, setCart] = useState<CartItem[]>([]);
-	const [customer, setCustomer] = useState<Customer | null>(null);
+	const [customer, setCustomer] = useState<PickedCustomer | null>(null);
 	const [search, setSearch] = useState("");
-	const [category, setCategory] = useState<string>("all");
+	const [debouncedSearch] = useDebouncedValue(search, 300);
+	const [categoryId, setCategoryId] = useState<string | null>(null);
+	const [pickerOpened, setPickerOpened] = useState(false);
+	const [paymentOpened, setPaymentOpened] = useState(false);
 
-	// Kategori unik diturunkan dari data produk untuk dropdown filter.
-	const categoryOptions = useMemo(() => {
-		const unique = [...new Set(products.map((p) => p.category))].sort();
-		return [
-			{ value: "all", label: "All categories" },
-			...unique.map((c) => ({ value: c, label: c })),
-		];
-	}, [products]);
+	// ----- Katalog varian (paginasi "Load more") -----
 
-	// Katalog ter-filter berdasarkan search (nama/SKU) dan kategori.
-	const filteredProducts = useMemo(() => {
-		const q = search.trim().toLowerCase();
-		return products.filter((p) => {
-			const matchesSearch =
-				q.length === 0 ||
-				p.name.toLowerCase().includes(q) ||
-				p.sku.toLowerCase().includes(q);
-			const matchesCategory = category === "all" || p.category === category;
-			return matchesSearch && matchesCategory;
-		});
-	}, [products, search, category]);
+	const variantsQuery = useInfiniteQuery({
+		queryKey: ["pos-variants", { search: debouncedSearch, categoryId }],
+		queryFn: ({ pageParam }) =>
+			listPosVariants({
+				// Kontrak memisahkan pencarian nama produk dan SKU jadi dua param.
+				// Satu kolom search di UI → kirim ke `name` saja.
+				// TODO(backend): minta param gabungan (mis. `search`) yang mencari
+				// di nama ATAU SKU supaya kasir bisa scan/ketik SKU juga.
+				name: debouncedSearch || undefined,
+				categoryId: categoryId ?? undefined,
+				page: pageParam,
+				limit: PAGE_SIZE,
+			}),
+		initialPageParam: 1,
+		getNextPageParam: (lastPage) =>
+			lastPage.meta.page < lastPage.meta.totalPages
+				? lastPage.meta.page + 1
+				: undefined,
+	});
+	const variants = variantsQuery.data?.pages.flatMap((p) => p.data) ?? [];
+
+	// ----- Filter kategori -----
+
+	const categoriesQuery = useQuery({
+		queryKey: ["categories", { forFilter: true }],
+		// limit besar: dropdown butuh semua kategori, bukan 10 pertama.
+		queryFn: () => listCategories({ limit: 100 }),
+	});
+	const categoryOptions = (categoriesQuery.data?.data ?? []).map((c) => ({
+		value: c.id,
+		label: c.category, // PERHATIKAN: `category`, bukan `name`
+	}));
 
 	// Nilai turunan keranjang.
-	const itemCount = useMemo(
-		() => cart.reduce((sum, item) => sum + item.qty, 0),
-		[cart],
-	);
-	const total = useMemo(
-		() => cart.reduce((sum, item) => sum + item.product.price * item.qty, 0),
-		[cart],
+	const itemCount = cart.reduce((sum, item) => sum + item.qty, 0);
+	const total = cart.reduce(
+		(sum, item) => sum + item.variant.price * item.qty,
+		0,
 	);
 
-	/** Qty produk tertentu yang sudah ada di keranjang (untuk badge kartu). */
-	const qtyInCart = (productId: number) =>
-		cart.find((item) => item.product.id === productId)?.qty ?? 0;
+	/** Qty varian tertentu yang sudah ada di keranjang (untuk badge kartu). */
+	const qtyInCart = (detailProductId: string) =>
+		cart.find((item) => item.variant.detailProductId === detailProductId)
+			?.qty ?? 0;
 
 	// ----- Handler keranjang -----
 
-	const addToCart = (product: Product) => {
-		if (product.stock === 0) return;
+	const addToCart = (variant: PosVariant) => {
+		if (variant.stock === 0) return;
 		setCart((prev) => {
-			const existing = prev.find((item) => item.product.id === product.id);
+			const existing = prev.find(
+				(item) => item.variant.detailProductId === variant.detailProductId,
+			);
 			if (existing) {
 				// Jangan melebihi stok tersedia.
-				if (existing.qty >= product.stock) return prev;
+				if (existing.qty >= variant.stock) return prev;
 				return prev.map((item) =>
-					item.product.id === product.id
+					item.variant.detailProductId === variant.detailProductId
 						? { ...item, qty: item.qty + 1 }
 						: item,
 				);
 			}
-			return [...prev, { product, qty: 1 }];
+			return [...prev, { variant, qty: 1 }];
 		});
 	};
 
-	const incQty = (productId: number) => {
+	const incQty = (detailProductId: string) => {
 		setCart((prev) =>
 			prev.map((item) =>
-				item.product.id === productId && item.qty < item.product.stock
+				item.variant.detailProductId === detailProductId &&
+				item.qty < item.variant.stock
 					? { ...item, qty: item.qty + 1 }
 					: item,
 			),
 		);
 	};
 
-	const decQty = (productId: number) => {
+	const decQty = (detailProductId: string) => {
 		setCart((prev) =>
 			prev.flatMap((item) => {
-				if (item.product.id !== productId) return [item];
+				if (item.variant.detailProductId !== detailProductId) return [item];
 				// Qty turun ke 0 → hapus item.
 				return item.qty <= 1 ? [] : [{ ...item, qty: item.qty - 1 }];
 			}),
 		);
 	};
 
-	const removeItem = (productId: number) => {
-		setCart((prev) => prev.filter((item) => item.product.id !== productId));
+	const removeItem = (detailProductId: string) => {
+		setCart((prev) =>
+			prev.filter((item) => item.variant.detailProductId !== detailProductId),
+		);
 	};
 
 	const clearCart = () => setCart([]);
 
 	// ----- Proses pembayaran -----
 
+	const checkoutMutation = useMutation({
+		mutationFn: (method: PaymentMethod) =>
+			createPosOrder({
+				// Walk-in: field customerId di-OMIT, bukan dikirim null.
+				...(customer ? { customerId: customer.id } : {}),
+				paymentMethod: POS_METHOD_MAP[method],
+				items: cart.map((item) => ({
+					detailProductId: item.variant.detailProductId,
+					quantity: item.qty,
+				})),
+			}),
+		onSuccess: (order) => {
+			const customerName = customer?.name ?? null;
+			notify.success(order.invoiceNumber, "Sale completed");
+			setCart([]);
+			setCustomer(null);
+			setPaymentOpened(false);
+			// Stok di katalog sudah berubah di server — tarik ulang.
+			queryClient.invalidateQueries({ queryKey: ["pos-variants"] });
+			const sale: CompletedSale = { order, customerName };
+			openReceiptModal(sale);
+		},
+		onError: (error) => {
+			notify.error(getApiErrorMessage(error));
+			// "insufficient stock for ..." berarti stok yang ditampilkan sudah basi.
+			// Refresh katalog supaya kasir melihat angka terbaru sebelum mencoba lagi.
+			queryClient.invalidateQueries({ queryKey: ["pos-variants"] });
+		},
+	});
+
 	const handleCharge = () => {
-		if (cart.length === 0 || !customer) return;
-		openTakePaymentModal({
-			total,
-			itemCount,
-			customer,
-			onPaid: (method: PaymentMethod) => {
-				const sale: CompletedSale = {
-					id: `POS-${Date.now()}`,
-					items: cart,
-					customer,
-					total,
-					itemCount,
-					paymentMethod: method,
-					createdAt: new Date().toISOString(),
-				};
-
-				// Kurangi stok tiap produk yang terjual (kebalikan "Receive stock").
-				setProducts((prev) =>
-					prev.map((p) => {
-						const line = cart.find((item) => item.product.id === p.id);
-						return line ? { ...p, stock: p.stock - line.qty } : p;
-					}),
-				);
-
-				notify.success(sale.id, "Sale completed");
-				setCart([]);
-				setCustomer(null);
-				openReceiptModal(sale);
-			},
-		});
+		if (cart.length === 0) return;
+		setPaymentOpened(true);
 	};
 
 	return (
@@ -187,31 +229,54 @@ export function PointOfSalePage() {
 						<TextInput
 							flex={1}
 							leftSection={<IconSearch size={16} />}
-							placeholder="Search product or SKU"
+							placeholder="Search product"
 							value={search}
 							onChange={(e) => setSearch(e.currentTarget.value)}
 						/>
 						<Select
 							data={categoryOptions}
-							value={category}
-							onChange={(val) => setCategory(val ?? "all")}
+							value={categoryId}
+							onChange={setCategoryId}
 							placeholder="All categories"
 							w={200}
-							allowDeselect={false}
+							clearable
 						/>
 					</Group>
 
-					{filteredProducts.length > 0 ? (
-						<SimpleGrid cols={{ base: 2, sm: 3, lg: 4 }} spacing="sm">
-							{filteredProducts.map((product) => (
-								<ProductCard
-									key={product.id}
-									product={product}
-									qtyInCart={qtyInCart(product.id)}
-									onAdd={() => addToCart(product)}
-								/>
-							))}
-						</SimpleGrid>
+					{variantsQuery.isLoading ? (
+						<Center py={80}>
+							<Loader />
+						</Center>
+					) : variantsQuery.isError ? (
+						<Text c="red" ta="center" py={80}>
+							{getApiErrorMessage(variantsQuery.error)}
+						</Text>
+					) : variants.length > 0 ? (
+						<>
+							<SimpleGrid cols={{ base: 2, sm: 3, lg: 4 }} spacing="sm">
+								{variants.map((variant) => (
+									<ProductCard
+										key={variant.detailProductId}
+										variant={variant}
+										qtyInCart={qtyInCart(variant.detailProductId)}
+										onAdd={() => addToCart(variant)}
+									/>
+								))}
+							</SimpleGrid>
+
+							{variantsQuery.hasNextPage && (
+								<Center mt="md">
+									<Button
+										type="button"
+										variant="light"
+										onClick={() => variantsQuery.fetchNextPage()}
+										loading={variantsQuery.isFetchingNextPage}
+									>
+										Load more
+									</Button>
+								</Center>
+							)}
+						</>
 					) : (
 						<Center py={80}>
 							<Stack align="center" gap="sm">
@@ -229,16 +294,15 @@ export function PointOfSalePage() {
 							{/* A. Blok customer */}
 							{customer ? (
 								<Group gap="sm" wrap="nowrap">
-									<CustomerAvatar
-										name={customer.name}
-										color={customer.avatarColor}
-									/>
+									<CustomerAvatar name={customer.name} />
 									<Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
 										<Text size="sm" fw={500} lineClamp={1}>
 											{customer.name}
 										</Text>
 										<Group gap="xs">
-											<SegmentBadge segment={customer.segment} />
+											{customer.segment && (
+												<SegmentBadge segment={customer.segment} />
+											)}
 											{customer.phone && (
 												<Text size="xs" c="dimmed">
 													{customer.phone}
@@ -256,12 +320,13 @@ export function PointOfSalePage() {
 								</Group>
 							) : (
 								<Button
+									type="button"
 									variant="default"
 									fullWidth
 									justify="space-between"
 									leftSection={<IconUserPlus size={16} />}
 									rightSection={<IconChevronRight size={16} />}
-									onClick={() => openCustomerPickerModal(setCustomer)}
+									onClick={() => setPickerOpened(true)}
 								>
 									Add a customer
 								</Button>
@@ -275,11 +340,13 @@ export function PointOfSalePage() {
 									<Stack gap="sm">
 										{cart.map((item) => (
 											<CartItemRow
-												key={item.product.id}
+												key={item.variant.detailProductId}
 												item={item}
-												onInc={() => incQty(item.product.id)}
-												onDec={() => decQty(item.product.id)}
-												onRemove={() => removeItem(item.product.id)}
+												onInc={() => incQty(item.variant.detailProductId)}
+												onDec={() => decQty(item.variant.detailProductId)}
+												onRemove={() =>
+													removeItem(item.variant.detailProductId)
+												}
 											/>
 										))}
 									</Stack>
@@ -311,21 +378,17 @@ export function PointOfSalePage() {
 									<Text fw={700}>{formatCurrency(total)}</Text>
 								</Group>
 
-								{cart.length > 0 && !customer && (
-									<Text c="red" size="sm">
-										Add a customer to process payment
-									</Text>
-								)}
-
 								<Button
+									type="button"
 									fullWidth
 									size="lg"
-									disabled={cart.length === 0 || !customer}
+									disabled={cart.length === 0 || checkoutMutation.isPending}
 									onClick={handleCharge}
 								>
 									Charge {formatCurrency(total)}
 								</Button>
 								<Button
+									type="button"
 									variant="subtle"
 									color="gray"
 									fullWidth
@@ -340,6 +403,22 @@ export function PointOfSalePage() {
 					</Card>
 				</Grid.Col>
 			</Grid>
+
+			<CustomerPickerModal
+				opened={pickerOpened}
+				onClose={() => setPickerOpened(false)}
+				onSelect={setCustomer}
+			/>
+
+			<TakePaymentModal
+				opened={paymentOpened}
+				onClose={() => setPaymentOpened(false)}
+				total={total}
+				itemCount={itemCount}
+				customerName={customer?.name ?? null}
+				loading={checkoutMutation.isPending}
+				onPaid={(method) => checkoutMutation.mutate(method)}
+			/>
 		</Container>
 	);
 }

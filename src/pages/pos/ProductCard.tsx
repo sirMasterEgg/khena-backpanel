@@ -1,20 +1,18 @@
 import { Card, Group, Image, Indicator, Stack, Text } from "@mantine/core";
-import type { Product } from "@/data/dummy";
+import type { PosVariant } from "@/api/pointOfSales";
 import { formatCurrency } from "./format";
 
 interface ProductCardProps {
-	product: Product;
-	/** Berapa banyak produk ini sudah ada di keranjang (untuk badge). */
+	variant: PosVariant;
+	/** Berapa banyak varian ini sudah ada di keranjang (untuk badge). */
 	qtyInCart: number;
 	/** Dipanggil saat kartu diklik (kecuali stok habis). */
 	onAdd: () => void;
 }
 
-/** Kartu produk di katalog POS. Klik → tambah ke keranjang. */
-export function ProductCard({ product, qtyInCart, onAdd }: ProductCardProps) {
-	const outOfStock = product.stock === 0;
-	const lowStock =
-		product.lowStockAlert != null && product.stock <= product.lowStockAlert;
+/** Kartu varian di katalog POS. Klik → tambah ke keranjang. */
+export function ProductCard({ variant, qtyInCart, onAdd }: ProductCardProps) {
+	const outOfStock = variant.stock === 0;
 
 	return (
 		<Card
@@ -35,8 +33,9 @@ export function ProductCard({ product, qtyInCart, onAdd }: ProductCardProps) {
 					offset={16}
 				>
 					<Image
-						src={product.image}
-						alt={product.name}
+						src={variant.imageUrl}
+						fallbackSrc="https://placehold.co/300x200?text=No+image"
+						alt={variant.variantName}
 						height={120}
 						fit="cover"
 					/>
@@ -45,24 +44,20 @@ export function ProductCard({ product, qtyInCart, onAdd }: ProductCardProps) {
 
 			<Stack gap={2} mt="sm">
 				<Text fw={500} lineClamp={1}>
-					{product.name}
+					{variant.variantName}
 				</Text>
 				<Text size="xs" c="dimmed">
-					{product.sku}
+					{variant.sku}
 				</Text>
 				<Group justify="space-between" mt={4} wrap="nowrap">
-					<Text fw={600}>{formatCurrency(product.price)}</Text>
+					<Text fw={600}>{formatCurrency(variant.price)}</Text>
 					{outOfStock ? (
 						<Text size="xs" c="red" fw={500}>
 							Out of stock
 						</Text>
-					) : lowStock ? (
-						<Text size="xs" c="orange" fw={500}>
-							Low: {product.stock}
-						</Text>
 					) : (
 						<Text size="xs" c="dimmed">
-							In stock: {product.stock}
+							In stock: {variant.stock}
 						</Text>
 					)}
 				</Group>
