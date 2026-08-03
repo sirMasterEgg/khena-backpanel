@@ -245,7 +245,7 @@ export function StocksPage() {
 			</Grid>
 
 			{/* Reorder list (kondisional — komponen mengembalikan null bila kosong) */}
-			<ReorderListCard products={products} />
+			<ReorderListCard />
 
 			{/* Recent activity */}
 			<RecentActivityCard activity={activity} />
