@@ -2,32 +2,54 @@ import {
 	Avatar,
 	Badge,
 	Card,
+	Center,
 	Group,
+	Loader,
+	Pagination,
+	Select,
 	Stack,
 	Table,
 	Text,
 	Title,
 } from "@mantine/core";
-import { useNavigate } from "react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { getApiErrorMessage } from "@/api/client";
+import { getMediaPreviewUrl } from "@/api/media";
+import { listStockReorder, type StockReorderStatus } from "@/api/stocks";
 import { StatusBadge } from "@/components/StatusBadge";
-import type { Product } from "@/data/dummy";
 
-interface ReorderListCardProps {
-	products: Product[];
-}
+const STATUS_OPTIONS: { value: "all" | StockReorderStatus; label: string }[] = [
+	{ value: "all", label: "All" },
+	{ value: "OUT_OF_STOCK", label: "Out of stock" },
+	{ value: "RUNNING_LOW", label: "Running low" },
+];
 
-/**
- * Kartu kondisional — komponen ini hanya di-render oleh StocksPage bila ada
- * produk di bawah reorder point. Di sini tetap difilter agar mandiri.
- */
-export function ReorderListCard({ products }: ReorderListCardProps) {
-	const navigate = useNavigate();
-
-	const reorderProducts = products.filter(
-		(p) => p.lowStockAlert !== undefined && p.stock <= p.lowStockAlert,
+export function ReorderListCard() {
+	const [page, setPage] = useState(1);
+	const [statusFilter, setStatusFilter] = useState<"all" | StockReorderStatus>(
+		"all",
 	);
 
-	if (reorderProducts.length === 0) return null;
+	const params = {
+		page,
+		limit: 10,
+		status: statusFilter === "all" ? undefined : statusFilter,
+	};
+
+	const { data, isLoading, isError, error } = useQuery({
+		queryKey: ["stocks", "reorder-list", params],
+		queryFn: () => listStockReorder(params),
+	});
+
+	const items = data?.data ?? [];
+	const total = data?.meta.total ?? 0;
+	const totalPages = data?.meta.totalPages ?? 1;
+
+	// Sama seperti perilaku lama: kartu disembunyikan kalau memang tidak ada
+	// apa-apa untuk direorder. Kalau filter sedang aktif, tetap tampilkan
+	// kartu (dengan empty state) supaya user tidak bingung filternya hilang.
+	if (statusFilter === "all" && total === 0 && !isLoading) return null;
 
 	return (
 		<Card withBorder mb="xl">
@@ -35,58 +57,97 @@ export function ReorderListCard({ products }: ReorderListCardProps) {
 				<Group gap="xs">
 					<Title order={4}>Reorder list</Title>
 					<Badge variant="light" color="yellow">
-						{reorderProducts.length}
+						{total}
 					</Badge>
 				</Group>
-				<Text size="sm" c="dimmed">
-					click a row to open the product
-				</Text>
+				<Select
+					data={STATUS_OPTIONS}
+					value={statusFilter}
+					onChange={(val) => {
+						setStatusFilter((val as "all" | StockReorderStatus) ?? "all");
+						setPage(1);
+					}}
+					allowDeselect={false}
+					w={180}
+				/>
 			</Group>
 
-			<Table.ScrollContainer minWidth={600}>
-				<Table highlightOnHover verticalSpacing="sm">
-					<Table.Thead>
-						<Table.Tr>
-							<Table.Th>Product</Table.Th>
-							<Table.Th>In stock</Table.Th>
-							<Table.Th>Reorder at</Table.Th>
-							<Table.Th>Status</Table.Th>
-						</Table.Tr>
-					</Table.Thead>
-					<Table.Tbody>
-						{reorderProducts.map((product) => (
-							<Table.Tr
-								key={product.id}
-								style={{ cursor: "pointer" }}
-								onClick={() => navigate(`/products/${product.id}/edit`)}
-							>
-								<Table.Td>
-									<Group gap="sm" wrap="nowrap">
-										<Avatar src={product.image} radius="sm" size={40} />
-										<Stack gap={2}>
-											<Text size="sm" fw={500}>
-												{product.name}
-											</Text>
-											<Text size="xs" c="dimmed">
-												{product.sku}
-											</Text>
-										</Stack>
-									</Group>
-								</Table.Td>
-								<Table.Td>{product.stock}</Table.Td>
-								<Table.Td>{product.lowStockAlert}</Table.Td>
-								<Table.Td>
-									{product.stock === 0 ? (
-										<StatusBadge status="outofstock" />
-									) : (
-										<StatusBadge status="lowstock" />
-									)}
-								</Table.Td>
+			{isLoading ? (
+				<Center py="xl">
+					<Loader />
+				</Center>
+			) : isError ? (
+				<Text c="red" ta="center" py="xl">
+					{getApiErrorMessage(error)}
+				</Text>
+			) : (
+				<Table.ScrollContainer minWidth={600}>
+					<Table highlightOnHover verticalSpacing="sm">
+						<Table.Thead>
+							<Table.Tr>
+								<Table.Th>Product</Table.Th>
+								<Table.Th>In stock</Table.Th>
+								<Table.Th>Reorder at</Table.Th>
+								<Table.Th>Status</Table.Th>
 							</Table.Tr>
-						))}
-					</Table.Tbody>
-				</Table>
-			</Table.ScrollContainer>
+						</Table.Thead>
+						<Table.Tbody>
+							{items.length > 0 ? (
+								items.map((item) => (
+									<Table.Tr key={item.id}>
+										<Table.Td>
+											<Group gap="sm" wrap="nowrap">
+												<Avatar
+													src={
+														item.image
+															? getMediaPreviewUrl(item.image)
+															: undefined
+													}
+													radius="sm"
+													size={40}
+												/>
+												<Stack gap={2}>
+													<Text size="sm" fw={500}>
+														{item.name}
+													</Text>
+													<Text size="xs" c="dimmed">
+														{item.sku}
+													</Text>
+												</Stack>
+											</Group>
+										</Table.Td>
+										<Table.Td>{item.inStock}</Table.Td>
+										<Table.Td>{item.reorderAt ?? "—"}</Table.Td>
+										<Table.Td>
+											<StatusBadge
+												status={
+													item.status === "OUT_OF_STOCK"
+														? "outofstock"
+														: "lowstock"
+												}
+											/>
+										</Table.Td>
+									</Table.Tr>
+								))
+							) : (
+								<Table.Tr>
+									<Table.Td colSpan={4}>
+										<Center py="xl">
+											<Text c="dimmed">No items to reorder</Text>
+										</Center>
+									</Table.Td>
+								</Table.Tr>
+							)}
+						</Table.Tbody>
+					</Table>
+				</Table.ScrollContainer>
+			)}
+
+			{totalPages > 1 && (
+				<Group justify="center" mt="md">
+					<Pagination value={page} onChange={setPage} total={totalPages} />
+				</Group>
+			)}
 		</Card>
 	);
 }

@@ -1,4 +1,4 @@
-import type { StockActivity, StockReason } from "./stockTypes";
+import type { StockReason } from "./stockTypes";
 
 // Daftar reason. Grup pada dropdown ditentukan oleh field `action`.
 // Catatan: "Recount" sengaja ada di kedua grup (bisa nambah atau ngurang).
@@ -37,40 +37,5 @@ export const STOCK_REASON_GROUPS = [
 			value: r.value,
 			label: r.label,
 		})),
-	},
-];
-
-// Beberapa entri contoh bersumber "import" supaya empty-state tidak selalu
-// tampil dan badge sumber import bisa terlihat.
-export const initialActivity: StockActivity[] = [
-	{
-		id: "act-seed-1",
-		source: "import",
-		sku: "SOFA-001",
-		productName: "Modern Sofa Set",
-		change: 5,
-		reasonLabel: "Received shipment",
-		by: "Admin",
-		at: "2026-07-16T09:24:00.000Z",
-	},
-	{
-		id: "act-seed-2",
-		source: "import",
-		sku: "TABLE-001",
-		productName: "Dining Table",
-		change: -2,
-		reasonLabel: "Marketplace sale",
-		by: "Admin",
-		at: "2026-07-15T14:10:00.000Z",
-	},
-	{
-		id: "act-seed-3",
-		source: "import",
-		sku: "LAMP-001",
-		productName: "Floor Lamp",
-		change: 10,
-		reasonLabel: "Stock transfer in",
-		by: "Admin",
-		at: "2026-07-15T08:00:00.000Z",
 	},
 ];
