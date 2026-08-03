@@ -15,8 +15,10 @@ import {
 	IconStack2,
 	IconTrendingDown,
 } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { useNavigate } from "react-router";
+import { getStockStats } from "@/api/stocks";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
@@ -49,19 +51,12 @@ export function StocksPage() {
 		...initialActivity,
 	]);
 
-	const stats = useMemo(() => {
-		const totalInventory = products.reduce((sum, p) => sum + p.stock, 0);
-		const outOfStock = products.filter((p) => p.stock === 0).length;
-		const runningLow = products.filter(
-			(p) =>
-				p.lowStockAlert !== undefined &&
-				p.stock > 0 &&
-				p.stock <= p.lowStockAlert,
-		).length;
-		const today = new Date();
-		const updatesToday = activity.filter((a) => isSameDay(a.at, today)).length;
-		return { totalInventory, outOfStock, runningLow, updatesToday };
-	}, [products, activity]);
+	// Stat cards — dari GET /stocks/stats. "—" selagi loading/gagal.
+	const statsQuery = useQuery({
+		queryKey: ["stocks", "stats"],
+		queryFn: getStockStats,
+	});
+	const stats = statsQuery.data;
 
 	// Handler terpusat untuk penyesuaian satu SKU (dipakai kartu manual).
 	const applyChange = (
@@ -209,7 +204,7 @@ export function StocksPage() {
 					<StatTile
 						icon={<IconStack2 size={20} />}
 						label="Total Inventory"
-						value={stats.totalInventory}
+						value={stats?.totalInventory ?? "—"}
 						subtitle={`across all products`}
 					/>
 				</Grid.Col>
@@ -217,7 +212,7 @@ export function StocksPage() {
 					<StatTile
 						icon={<IconAlertTriangle size={20} />}
 						label="Out of Stock"
-						value={stats.outOfStock}
+						value={stats?.totalOutOfStock ?? "—"}
 						subtitle="need restock"
 					/>
 				</Grid.Col>
@@ -225,7 +220,7 @@ export function StocksPage() {
 					<StatTile
 						icon={<IconTrendingDown size={20} />}
 						label="Running Low"
-						value={stats.runningLow}
+						value={stats?.totalRunningLow ?? "—"}
 						subtitle="below reorder point"
 					/>
 				</Grid.Col>
@@ -233,7 +228,7 @@ export function StocksPage() {
 					<StatTile
 						icon={<IconClock size={20} />}
 						label="Updates Today"
-						value={stats.updatesToday}
+						value={stats?.totalUpdatesToday ?? "—"}
 						subtitle="stock changes today"
 					/>
 				</Grid.Col>
