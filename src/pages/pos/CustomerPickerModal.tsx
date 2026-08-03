@@ -1,128 +1,144 @@
 import {
 	Button,
+	Center,
 	Divider,
 	Group,
+	Loader,
+	Modal,
 	ScrollArea,
 	Stack,
 	Text,
 	TextInput,
 	UnstyledButton,
 } from "@mantine/core";
-import { modals } from "@mantine/modals";
+import { useDebouncedValue } from "@mantine/hooks";
 import { IconSearch, IconUserPlus } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
-import { type Customer, dummyCustomers } from "@/data/dummy";
-import { openAddCustomerModal } from "@/pages/customers/AddCustomerModal";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { getApiErrorMessage } from "@/api/client";
+import { listCustomers } from "@/api/customers";
 import { CustomerAvatar } from "@/pages/customers/CustomerAvatar";
+import { CustomerFormModal } from "@/pages/customers/CustomerFormModal";
+import type { PosCustomer } from "./posTypes";
 
-interface CustomerPickerProps {
-	onSelect: (customer: Customer) => void;
-	/** Buka form "Add new customer". */
-	onAddNew: () => void;
+interface CustomerPickerModalProps {
+	opened: boolean;
+	onClose: () => void;
+	onSelect: (customer: PosCustomer) => void;
 }
 
-/** Isi modal picker: cari customer dari dummyCustomers lalu pilih satu. */
-function CustomerPicker({ onSelect, onAddNew }: CustomerPickerProps) {
+/** Modal "Select customer": cari via API lalu pilih satu, atau tambah baru. */
+export function CustomerPickerModal({
+	opened,
+	onClose,
+	onSelect,
+}: CustomerPickerModalProps) {
 	const [search, setSearch] = useState("");
-	// Snapshot dummyCustomers saat modal dibuka (termasuk yang baru ditambah).
-	const [customers] = useState<Customer[]>(() => [...dummyCustomers]);
+	const [debouncedSearch] = useDebouncedValue(search, 300);
+	const [formOpened, setFormOpened] = useState(false);
 
-	const results = useMemo(() => {
-		const q = search.trim().toLowerCase();
-		if (!q) return customers;
-		return customers.filter(
-			(c) =>
-				c.name.toLowerCase().includes(q) ||
-				c.email.toLowerCase().includes(q) ||
-				(c.phone ?? "").toLowerCase().includes(q),
-		);
-	}, [customers, search]);
+	const { data, isLoading, isError, error } = useQuery({
+		queryKey: ["customers", { search: debouncedSearch, limit: 20 }],
+		queryFn: () =>
+			listCustomers({ search: debouncedSearch || undefined, limit: 20 }),
+		enabled: opened,
+	});
+	const customers = data?.data ?? [];
+
+	const handleSelect = (customer: PosCustomer) => {
+		onSelect(customer);
+		onClose();
+	};
 
 	return (
-		<Stack gap="md">
-			<TextInput
-				placeholder="Search customer..."
-				leftSection={<IconSearch size={16} />}
-				value={search}
-				onChange={(e) => setSearch(e.currentTarget.value)}
-				data-autofocus
-			/>
+		<>
+			<Modal opened={opened} onClose={onClose} title="Select customer" centered>
+				<Stack gap="md">
+					<TextInput
+						placeholder="Search customer..."
+						leftSection={<IconSearch size={16} />}
+						value={search}
+						onChange={(e) => setSearch(e.currentTarget.value)}
+						data-autofocus
+					/>
 
-			<ScrollArea.Autosize mah={320}>
-				<Stack gap={4}>
-					{results.length > 0 ? (
-						results.map((customer) => (
-							<UnstyledButton
-								key={customer.id}
-								onClick={() => onSelect(customer)}
-								p="xs"
-								style={{
-									borderRadius: "var(--mantine-radius-sm)",
-									width: "100%",
-								}}
-							>
-								<Group gap="sm" wrap="nowrap">
-									<CustomerAvatar
-										name={customer.name}
-										color={customer.avatarColor}
-									/>
-									<Stack gap={0} style={{ minWidth: 0 }}>
-										<Text size="sm" fw={500} lineClamp={1}>
-											{customer.name}
-										</Text>
-										<Text size="xs" c="dimmed" lineClamp={1}>
-											{customer.email}
-										</Text>
-									</Stack>
-								</Group>
-							</UnstyledButton>
-						))
-					) : (
-						<Text size="sm" c="dimmed" ta="center" py="md">
-							No customers found
-						</Text>
-					)}
+					<ScrollArea.Autosize mah={320}>
+						{isLoading ? (
+							<Center py="md">
+								<Loader size="sm" />
+							</Center>
+						) : isError ? (
+							<Text c="red" size="sm" ta="center" py="md">
+								{getApiErrorMessage(error)}
+							</Text>
+						) : (
+							<Stack gap={4}>
+								{customers.length > 0 ? (
+									customers.map((c) => (
+										<UnstyledButton
+											key={c.id}
+											onClick={() =>
+												handleSelect({
+													id: c.id,
+													name: c.name,
+													phone: c.phone,
+													segment: c.segment,
+												})
+											}
+											p="xs"
+											style={{
+												borderRadius: "var(--mantine-radius-sm)",
+												width: "100%",
+											}}
+										>
+											<Group gap="sm" wrap="nowrap">
+												<CustomerAvatar name={c.name} />
+												<Stack gap={0} style={{ minWidth: 0 }}>
+													<Text size="sm" fw={500} lineClamp={1}>
+														{c.name}
+													</Text>
+													<Text size="xs" c="dimmed" lineClamp={1}>
+														{c.email}
+													</Text>
+												</Stack>
+											</Group>
+										</UnstyledButton>
+									))
+								) : (
+									<Text size="sm" c="dimmed" ta="center" py="md">
+										No customers found
+									</Text>
+								)}
+							</Stack>
+						)}
+					</ScrollArea.Autosize>
+
+					<Divider />
+
+					<Button
+						type="button"
+						variant="light"
+						leftSection={<IconUserPlus size={16} />}
+						onClick={() => setFormOpened(true)}
+					>
+						Add new customer
+					</Button>
 				</Stack>
-			</ScrollArea.Autosize>
+			</Modal>
 
-			<Divider />
-
-			<Button
-				variant="light"
-				leftSection={<IconUserPlus size={16} />}
-				onClick={onAddNew}
-			>
-				Add new customer
-			</Button>
-		</Stack>
-	);
-}
-
-/**
- * Buka modal "Select customer" untuk memilih (atau menambah) customer.
- * `onSelect` dipanggil dengan customer terpilih sebelum modal ditutup.
- */
-export function openCustomerPickerModal(
-	onSelect: (customer: Customer) => void,
-) {
-	const id = modals.open({
-		title: "Select customer",
-		centered: true,
-		children: (
-			<CustomerPicker
-				onSelect={(customer) => {
-					onSelect(customer);
-					modals.close(id);
-				}}
-				onAddNew={() => {
-					modals.close(id);
-					// Pakai ulang form Add customer dari halaman Customers.
-					openAddCustomerModal((customer) => {
-						dummyCustomers.unshift(customer);
-						onSelect(customer);
+			<CustomerFormModal
+				opened={formOpened}
+				onClose={() => setFormOpened(false)}
+				onSuccess={(created) => {
+					// Response POST /customers tidak punya `segment` — biarkan undefined,
+					// SegmentBadge akan disembunyikan untuk customer yang baru dibuat.
+					handleSelect({
+						id: created.id,
+						name: created.name,
+						phone: created.phone,
 					});
 				}}
 			/>
-		),
-	});
+		</>
+	);
 }
