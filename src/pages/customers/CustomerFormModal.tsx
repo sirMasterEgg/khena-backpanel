@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { getApiErrorMessage, getApiFieldErrors } from "@/api/client";
-import { createCustomer, patchCustomer } from "@/api/customers";
+import { type Customer, createCustomer, patchCustomer } from "@/api/customers";
 import { notify } from "@/components/notify";
 import {
 	type CustomerFormData,
@@ -16,8 +16,8 @@ interface CustomerFormModalProps {
 	/** Ada → mode edit (PATCH). Tidak ada → mode create (POST). */
 	initial?: { id: string; name: string; email: string; phone: string };
 	onClose: () => void;
-	/** Dipanggil setelah sukses, mis. untuk invalidate query di parent. */
-	onSuccess?: () => void;
+	/** Dipanggil setelah sukses, membawa customer hasil POST/PATCH. */
+	onSuccess?: (customer: Customer) => void;
 }
 
 export function CustomerFormModal({
@@ -51,9 +51,9 @@ export function CustomerFormModal({
 	const mutation = useMutation({
 		mutationFn: (body: CustomerFormData) =>
 			initial ? patchCustomer(initial.id, body) : createCustomer(body),
-		onSuccess: () => {
+		onSuccess: (customer) => {
 			notify.success(isEditing ? "Customer diperbarui" : "Customer dibuat");
-			onSuccess?.();
+			onSuccess?.(customer);
 			onClose();
 		},
 		onError: (error) => {
