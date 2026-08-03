@@ -248,7 +248,7 @@ export function StocksPage() {
 			<ReorderListCard />
 
 			{/* Recent activity */}
-			<RecentActivityCard activity={activity} />
+			<RecentActivityCard />
 		</Container>
 	);
 }
