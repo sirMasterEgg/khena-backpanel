@@ -17,14 +17,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { getApiErrorMessage } from "@/api/client";
 import { listCustomers } from "@/api/customers";
-import { CustomerAvatar } from "@/pages/customers/CustomerAvatar";
-import { CustomerFormModal } from "@/pages/customers/CustomerFormModal";
-import type { PosCustomer } from "./posTypes";
+import { CustomerAvatar } from "./CustomerAvatar";
+import { CustomerFormModal } from "./CustomerFormModal";
+import type { PickedCustomer } from "./pickedCustomer";
 
 interface CustomerPickerModalProps {
 	opened: boolean;
 	onClose: () => void;
-	onSelect: (customer: PosCustomer) => void;
+	onSelect: (customer: PickedCustomer) => void;
 }
 
 /** Modal "Select customer": cari via API lalu pilih satu, atau tambah baru. */
@@ -45,7 +45,7 @@ export function CustomerPickerModal({
 	});
 	const customers = data?.data ?? [];
 
-	const handleSelect = (customer: PosCustomer) => {
+	const handleSelect = (customer: PickedCustomer) => {
 		onSelect(customer);
 		onClose();
 	};

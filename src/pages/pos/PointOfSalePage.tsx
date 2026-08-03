@@ -45,9 +45,10 @@ import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { CustomerAvatar } from "@/pages/customers/CustomerAvatar";
+import { CustomerPickerModal } from "@/pages/customers/CustomerPickerModal";
+import type { PickedCustomer } from "@/pages/customers/pickedCustomer";
 import { SegmentBadge } from "@/pages/customers/SegmentBadge";
 import { CartItemRow } from "./CartItemRow";
-import { CustomerPickerModal } from "./CustomerPickerModal";
 import { formatCurrency } from "./format";
 import { ProductCard } from "./ProductCard";
 import {
@@ -55,7 +56,6 @@ import {
 	type CompletedSale,
 	type PaymentMethod,
 	POS_METHOD_MAP,
-	type PosCustomer,
 } from "./posTypes";
 import { openReceiptModal } from "./ReceiptModal";
 import { TakePaymentModal } from "./TakePaymentModal";
@@ -68,7 +68,7 @@ export function PointOfSalePage() {
 	const queryClient = useQueryClient();
 
 	const [cart, setCart] = useState<CartItem[]>([]);
-	const [customer, setCustomer] = useState<PosCustomer | null>(null);
+	const [customer, setCustomer] = useState<PickedCustomer | null>(null);
 	const [search, setSearch] = useState("");
 	const [debouncedSearch] = useDebouncedValue(search, 300);
 	const [categoryId, setCategoryId] = useState<string | null>(null);

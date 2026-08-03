@@ -1,22 +1,8 @@
-import type { CustomerSegment } from "@/api/customers";
 import type {
 	PosOrder,
 	PosPaymentMethod,
 	PosVariant,
 } from "@/api/pointOfSales";
-
-/**
- * Customer terpilih di layar kasir. Sengaja tipe minimal (bukan
- * CustomerListItem utuh) karena customer bisa datang dari 2 sumber:
- * hasil pencarian list (punya `segment`) atau hasil POST create (tanpa
- * `segment`).
- */
-export type PosCustomer = {
-	id: string;
-	name: string;
-	phone: string;
-	segment?: CustomerSegment;
-};
 
 /** Satu baris keranjang. `qty` selalu >= 1. */
 export type CartItem = {
