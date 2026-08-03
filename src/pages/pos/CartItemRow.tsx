@@ -17,7 +17,7 @@ export function CartItemRow({
 	onDec,
 	onRemove,
 }: CartItemRowProps) {
-	const atMax = item.qty >= item.product.stock;
+	const atMax = item.qty >= item.variant.stock;
 
 	return (
 		<Group gap="xs" wrap="nowrap" align="center">
@@ -25,16 +25,17 @@ export function CartItemRow({
 				w={40}
 				h={40}
 				radius="sm"
-				src={item.product.image}
-				alt={item.product.name}
+				src={item.variant.imageUrl}
+				fallbackSrc="https://placehold.co/300x200?text=No+image"
+				alt={item.variant.variantName}
 				fit="cover"
 			/>
 			<Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
 				<Text size="sm" fw={500} lineClamp={1}>
-					{item.product.name}
+					{item.variant.variantName}
 				</Text>
 				<Text size="xs" c="dimmed">
-					{formatCurrency(item.product.price)}
+					{formatCurrency(item.variant.price)}
 				</Text>
 			</Stack>
 			<Group gap={4} wrap="nowrap">
