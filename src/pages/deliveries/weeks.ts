@@ -40,3 +40,14 @@ export function formatWeekRange(weekStart: Date): string {
 export function addWeeks(weekStart: Date, delta: number): Date {
 	return dayjs(weekStart).add(delta, "week").toDate();
 }
+
+/**
+ * Format tanggal untuk query API ("YYYY-MM-DD").
+ *
+ * JANGAN pakai `date.toISOString().slice(0, 10)`. Zona waktu Indonesia UTC+7:
+ * Senin 00:00 lokal = Minggu 17:00 UTC, sehingga hasilnya mundur satu hari dan
+ * server membalas `400 start must be a monday`.
+ */
+export function toApiDate(date: Date): string {
+	return dayjs(date).format("YYYY-MM-DD");
+}

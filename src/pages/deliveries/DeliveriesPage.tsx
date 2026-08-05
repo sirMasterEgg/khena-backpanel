@@ -5,9 +5,11 @@ import {
 	Breadcrumbs,
 	Button,
 	Card,
+	Center,
 	Container,
 	Grid,
 	Group,
+	Loader,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -19,20 +21,26 @@ import {
 	IconChevronRight,
 	IconTruck,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
+import { getApiErrorMessage } from "@/api/client";
+import {
+	getDeliveryStats,
+	listOverdueDeliveries,
+	listWeeklyDeliveries,
+} from "@/api/deliveries";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
-import { type Delivery, dummyDeliveries } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { DeliveryRow } from "./DeliveryRow";
 import {
 	addWeeks,
 	formatWeekRange,
-	getWeekDays,
 	getWeekStart,
 	isSameDay,
+	toApiDate,
 } from "./weeks";
 
 export function DeliveriesPage() {
@@ -42,42 +50,30 @@ export function DeliveriesPage() {
 	const today = useMemo(() => new Date(), []);
 	const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
 
-	const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
+	const start = toApiDate(weekStart);
+	const end = toApiDate(dayjs(weekStart).add(6, "day").toDate());
 
-	// Pengiriman yang tanggalnya jatuh di dalam minggu yang sedang dilihat.
-	const weekDeliveries = useMemo(() => {
-		const weekEnd = dayjs(weekStart).add(6, "day");
-		return dummyDeliveries.filter((d) => {
-			const date = dayjs(d.date);
-			return (
-				!date.isBefore(dayjs(weekStart), "day") && !date.isAfter(weekEnd, "day")
-			);
-		});
-	}, [weekStart]);
+	const statsQuery = useQuery({
+		queryKey: ["deliveries", "stats"],
+		queryFn: getDeliveryStats,
+	});
 
-	// Overdue = belum delivered dan tanggalnya sebelum hari ini. Global,
-	// tidak terikat minggu yang sedang dilihat.
-	const overdue = useMemo(
-		() =>
-			dummyDeliveries.filter(
-				(d) =>
-					d.status !== "delivered" &&
-					dayjs(d.date).isBefore(dayjs(today), "day"),
-			),
-		[today],
-	);
+	const overdueQuery = useQuery({
+		queryKey: ["deliveries", "overdue"],
+		queryFn: listOverdueDeliveries,
+	});
 
-	// Kelompokkan pengiriman minggu ini per hari (key = ISO tanggal).
-	const deliveriesByDay = useMemo(() => {
-		const map = new Map<string, Delivery[]>();
-		for (const d of weekDeliveries) {
-			const key = dayjs(d.date).format("YYYY-MM-DD");
-			const list = map.get(key) ?? [];
-			list.push(d);
-			map.set(key, list);
-		}
-		return map;
-	}, [weekDeliveries]);
+	const weekQuery = useQuery({
+		queryKey: ["deliveries", "week", start],
+		queryFn: () => listWeeklyDeliveries({ start, end }),
+		// Data minggu lama tetap terlihat saat pindah minggu (tidak berkedip kosong).
+		placeholderData: (prev) => prev,
+	});
+
+	const stats = statsQuery.data;
+	const overdue = overdueQuery.data ?? [];
+	// PERHATIKAN `.days` — response /deliveries adalah objek, bukan array.
+	const days = weekQuery.data?.days ?? [];
 
 	return (
 		<Container size="xl">
@@ -127,15 +123,15 @@ export function DeliveriesPage() {
 					<StatTile
 						icon={<IconTruck size={20} />}
 						label="This week"
-						value={weekDeliveries.length}
-						subtitle="Pengiriman terjadwal"
+						value={stats?.thisWeek ?? "—"}
+						subtitle="Minggu berjalan"
 					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
 					<StatTile
 						icon={<IconAlertTriangle size={20} />}
 						label="Overdue"
-						value={overdue.length}
+						value={stats?.overdue ?? "—"}
 						subtitle="Terlambat & belum dikirim"
 					/>
 				</Grid.Col>
@@ -161,7 +157,15 @@ export function DeliveriesPage() {
 					</Text>
 					<Stack gap="md">
 						{overdue.map((d) => (
-							<DeliveryRow key={d.id} delivery={d} />
+							<DeliveryRow
+								key={d.id}
+								orderId={d.id}
+								invoiceNumber={d.invoiceNumber}
+								customerName={d.customer.name}
+								city={d.city}
+								status={d.status}
+								daysOverdue={d.daysOverdue}
+							/>
 						))}
 					</Stack>
 				</Card>
@@ -172,38 +176,54 @@ export function DeliveriesPage() {
 				<Text fw={600} mb="md">
 					Week of {formatWeekRange(weekStart)}
 				</Text>
-				<SimpleGrid cols={{ base: 1, sm: 2, lg: 7 }} spacing="md">
-					{weekDays.map((day) => {
-						const key = dayjs(day).format("YYYY-MM-DD");
-						const items = deliveriesByDay.get(key) ?? [];
-						const isToday = isSameDay(day, today);
-						return (
-							<Stack key={key} gap="sm">
-								<Box
-									p="xs"
-									bg={isToday ? "dark" : "gray.1"}
-									c={isToday ? "white" : undefined}
-									style={{ borderRadius: "var(--mantine-radius-sm)" }}
-								>
-									<Text size="sm" fw={600} ta="center">
-										{dayjs(day).format("ddd D")}
-									</Text>
-								</Box>
-								{items.length > 0 ? (
-									<Stack gap="md">
-										{items.map((d) => (
-											<DeliveryRow key={d.id} delivery={d} />
-										))}
-									</Stack>
-								) : (
-									<Text c="dimmed" ta="center">
-										—
-									</Text>
-								)}
-							</Stack>
-						);
-					})}
-				</SimpleGrid>
+				{weekQuery.isLoading ? (
+					<Center py="xl">
+						<Loader />
+					</Center>
+				) : weekQuery.isError ? (
+					<Text c="red" ta="center" py="xl">
+						{getApiErrorMessage(weekQuery.error)}
+					</Text>
+				) : (
+					<SimpleGrid cols={{ base: 1, sm: 2, lg: 7 }} spacing="md">
+						{days.map((day) => {
+							const isToday = isSameDay(dayjs(day.date).toDate(), today);
+							return (
+								<Stack key={day.date} gap="sm">
+									<Box
+										p="xs"
+										bg={isToday ? "dark" : "gray.1"}
+										c={isToday ? "white" : undefined}
+										style={{ borderRadius: "var(--mantine-radius-sm)" }}
+									>
+										<Text size="sm" fw={600} ta="center">
+											{dayjs(day.date).format("ddd D")}
+										</Text>
+									</Box>
+									{day.deliveries.length > 0 ? (
+										<Stack gap="md">
+											{day.deliveries.map((d) => (
+												<DeliveryRow
+													key={d.id}
+													orderId={d.id}
+													invoiceNumber={d.invoiceNumber}
+													customerName={d.customer.name}
+													city={d.shippingDetail.city}
+													status={d.status}
+													timeSlot={d.shippingDetail.timeSlot}
+												/>
+											))}
+										</Stack>
+									) : (
+										<Text c="dimmed" ta="center">
+											—
+										</Text>
+									)}
+								</Stack>
+							);
+						})}
+					</SimpleGrid>
+				)}
 			</Card>
 		</Container>
 	);
