@@ -14,6 +14,7 @@ import {
 	Select,
 	Stack,
 	Stepper,
+	Switch,
 	Table,
 	Text,
 	Textarea,
@@ -141,12 +142,21 @@ export function OrderDetail() {
 	const [deliveryDate, setDeliveryDate] = useState<string | null>(null);
 	const [timeSlot, setTimeSlot] = useState<OrderSalesTimeSlot | null>(null);
 	const [deliveryNotes, setDeliveryNotes] = useState("");
+	// Delivery bersifat opsional — aktif otomatis bila order sudah punya data delivery.
+	const [deliveryEnabled, setDeliveryEnabled] = useState(false);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: sengaja hanya bergantung pada field delivery, bukan seluruh objek order — supaya ketikan user tidak tertimpa tiap kali order di-refetch karena alasan lain (mis. packing).
 	useEffect(() => {
 		if (!order) return;
 		setDeliveryDate(order.delivery?.deliveryDate ?? null);
 		setTimeSlot(order.delivery?.timeSlot ?? null);
 		setDeliveryNotes(order.delivery?.deliveryNotes ?? "");
+		setDeliveryEnabled(
+			Boolean(
+				order.delivery?.deliveryDate ||
+					order.delivery?.timeSlot ||
+					order.delivery?.deliveryNotes,
+			),
+		);
 	}, [
 		order?.id,
 		order?.delivery?.deliveryDate,
@@ -570,43 +580,56 @@ export function OrderDetail() {
 										)
 									) : (
 										<Stack gap="sm">
-											<Group grow align="flex-start">
-												<DateInput
-													label="Delivery date"
-													placeholder="Pick delivery date"
-													valueFormat="DD MMM YYYY"
-													leftSection={<IconCalendar size={16} />}
-													value={deliveryDate}
-													onChange={(val) => setDeliveryDate(val ?? null)}
-												/>
-												<Select
-													label="Time slot"
-													placeholder="Pick a slot"
-													data={TIME_SLOT_OPTIONS}
-													leftSection={<IconClock size={16} />}
-													value={timeSlot}
-													onChange={(val) =>
-														setTimeSlot((val as OrderSalesTimeSlot) ?? null)
-													}
-												/>
-											</Group>
-											<TextInput
-												label="Delivery notes"
-												placeholder="mis. Titip ke satpam"
-												value={deliveryNotes}
+											<Switch
+												label="Schedule delivery"
+												description="Langkah opsional — nonaktifkan bila pengiriman belum dijadwalkan."
+												checked={deliveryEnabled}
 												onChange={(e) =>
-													setDeliveryNotes(e.currentTarget.value)
+													setDeliveryEnabled(e.currentTarget.checked)
 												}
 											/>
-											<Group justify="flex-end">
-												<Button
-													variant="light"
-													loading={deliveryMutation.isPending}
-													onClick={handleSaveDelivery}
-												>
-													Save schedule
-												</Button>
-											</Group>
+
+											{deliveryEnabled && (
+												<Stack gap="sm">
+													<Group grow align="flex-start">
+														<DateInput
+															label="Delivery date"
+															placeholder="Pick delivery date"
+															valueFormat="DD MMM YYYY"
+															leftSection={<IconCalendar size={16} />}
+															value={deliveryDate}
+															onChange={(val) => setDeliveryDate(val ?? null)}
+														/>
+														<Select
+															label="Time slot"
+															placeholder="Pick a slot"
+															data={TIME_SLOT_OPTIONS}
+															leftSection={<IconClock size={16} />}
+															value={timeSlot}
+															onChange={(val) =>
+																setTimeSlot((val as OrderSalesTimeSlot) ?? null)
+															}
+														/>
+													</Group>
+													<TextInput
+														label="Delivery notes"
+														placeholder="mis. Titip ke satpam"
+														value={deliveryNotes}
+														onChange={(e) =>
+															setDeliveryNotes(e.currentTarget.value)
+														}
+													/>
+													<Group justify="flex-end">
+														<Button
+															variant="light"
+															loading={deliveryMutation.isPending}
+															onClick={handleSaveDelivery}
+														>
+															Save schedule
+														</Button>
+													</Group>
+												</Stack>
+											)}
 										</Stack>
 									)}
 								</Stack>
