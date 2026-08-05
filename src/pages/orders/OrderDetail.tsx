@@ -70,18 +70,18 @@ const TIME_SLOT_LABEL: Record<OrderSalesTimeSlot, string> = {
 	evening: "Evening",
 };
 
-/** Tombol aksi di akhir wizard, menyesuaikan status order saat ini. */
+/**
+ * Tombol aksi di akhir wizard, menyesuaikan status order saat ini. `pending`
+ * sengaja TIDAK ada di sini — transisi pending → processing sekarang hanya
+ * bisa dipicu dari langkah Pack (lihat tombol "Start processing" di sana),
+ * supaya packing selalu terkunci sampai order mulai diproses.
+ */
 const NEXT_STATUS_ACTION: Partial<
 	Record<
 		OrderSalesStatus,
 		{ label: string; icon: typeof IconTruck; next: OrderSalesStatus }
 	>
 > = {
-	pending: {
-		label: "Start processing",
-		icon: IconSettings,
-		next: "processing",
-	},
 	processing: { label: "Confirm & ship", icon: IconTruck, next: "shipped" },
 	shipped: {
 		label: "Mark as complete",
@@ -357,6 +357,30 @@ export function OrderDetail() {
 										{packedCount}/{totalItems} packed
 									</Badge>
 								</Group>
+								{order.status === "pending" && (
+									<Alert
+										mb="md"
+										color="blue"
+										icon={<IconSettings size={18} />}
+										title="Order belum diproses"
+									>
+										<Stack gap="sm">
+											<Text size="sm">
+												Klik "Start processing" dulu sebelum item bisa ditandai
+												packed.
+											</Text>
+											<Button
+												leftSection={<IconSettings size={16} />}
+												loading={statusMutation.isPending}
+												onClick={() =>
+													statusMutation.mutate({ status: "processing" })
+												}
+											>
+												Start processing
+											</Button>
+										</Stack>
+									</Alert>
+								)}
 								<PackChecklist
 									items={order.items}
 									onMarkPacked={
@@ -365,8 +389,9 @@ export function OrderDetail() {
 											: (itemId) => packMutation.mutate(itemId)
 									}
 									pendingItemId={pendingPackItemId}
+									disabled={order.status === "pending"}
 								/>
-								{isEditableWizard && !allPacked && (
+								{order.status === "processing" && !allPacked && (
 									<Text size="sm" c="dimmed" mt="md">
 										Tandai semua item sebagai packed untuk lanjut ke Review.
 									</Text>

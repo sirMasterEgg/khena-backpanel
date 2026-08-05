@@ -11,6 +11,8 @@ interface PackChecklistProps {
 	onMarkPacked?: (itemId: string) => void;
 	/** `itemId` yang sedang diproses — tombolnya menampilkan `loading`. */
 	pendingItemId?: string | null;
+	/** Tombol "Mark packed" tetap tampil tapi dinonaktifkan (order belum diproses). */
+	disabled?: boolean;
 }
 
 /**
@@ -22,6 +24,7 @@ export function PackChecklist({
 	items,
 	onMarkPacked,
 	pendingItemId,
+	disabled,
 }: PackChecklistProps) {
 	return (
 		<Stack gap="sm">
@@ -57,7 +60,7 @@ export function PackChecklist({
 							<Stack gap={2}>
 								<Text size="sm">{item.name}</Text>
 								<Text size="xs" c="dimmed">
-									{item.sku} · qty {item.quantity}
+									{item.sku} · Qty {item.quantity}
 								</Text>
 							</Stack>
 						</Group>
@@ -70,6 +73,7 @@ export function PackChecklist({
 								size="xs"
 								variant="light"
 								loading={pendingItemId === item.id}
+								disabled={disabled}
 								onClick={() => onMarkPacked(item.id)}
 							>
 								Mark packed
