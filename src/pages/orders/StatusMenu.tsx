@@ -1,24 +1,26 @@
 import { Group, Menu } from "@mantine/core";
 import { IconChevronDown } from "@tabler/icons-react";
+import {
+	ALLOWED_STATUS_TRANSITIONS,
+	type OrderSalesStatus,
+} from "@/api/orderSales";
 import { StatusBadge } from "@/components/StatusBadge";
-import type { OrderStatus } from "./orderTypes";
-
-/** Semua status yang bisa dipilih dari dropdown. */
-const STATUS_OPTIONS: OrderStatus[] = [
-	"pending",
-	"processing",
-	"shipped",
-	"completed",
-	"cancelled",
-];
 
 interface StatusMenuProps {
-	status: OrderStatus;
-	onChange: (status: OrderStatus) => void;
+	status: OrderSalesStatus;
+	onChange: (status: OrderSalesStatus) => void;
 }
 
 /** Badge status yang bisa diklik → dropdown untuk mengganti status order. */
 export function StatusMenu({ status, onChange }: StatusMenuProps) {
+	const options = ALLOWED_STATUS_TRANSITIONS[status];
+
+	// Status terminal (completed/cancelled) tidak punya transisi keluar —
+	// tampilkan badge polos tanpa dropdown.
+	if (options.length === 0) {
+		return <StatusBadge status={status} />;
+	}
+
 	return (
 		<Menu shadow="md" position="bottom-start" withinPortal>
 			<Menu.Target>
@@ -35,12 +37,8 @@ export function StatusMenu({ status, onChange }: StatusMenuProps) {
 			</Menu.Target>
 			<Menu.Dropdown onClick={(e) => e.stopPropagation()}>
 				<Menu.Label>Change status</Menu.Label>
-				{STATUS_OPTIONS.map((option) => (
-					<Menu.Item
-						key={option}
-						disabled={option === status}
-						onClick={() => onChange(option)}
-					>
+				{options.map((option) => (
+					<Menu.Item key={option} onClick={() => onChange(option)}>
 						<StatusBadge status={option} variant="light" />
 					</Menu.Item>
 				))}

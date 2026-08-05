@@ -5,11 +5,12 @@ import {
 	Breadcrumbs,
 	Button,
 	Card,
+	Center,
 	Container,
 	Divider,
 	Grid,
 	Group,
-	List,
+	Loader,
 	Select,
 	Stack,
 	Stepper,
@@ -30,23 +31,64 @@ import {
 	IconClock,
 	IconPrinter,
 	IconReceipt,
+	IconSettings,
 	IconTruck,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
+import { getApiErrorMessage } from "@/api/client";
+import {
+	getOrderSalesDetail,
+	markOrderItemPacked,
+	type OrderSalesStatus,
+	type OrderSalesTimeSlot,
+	type OrderSalesUpdateInput,
+	updateOrderSales,
+	updateOrderSalesStatus,
+} from "@/api/orderSales";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { canViewPrices } from "@/config/permissions";
-import { dummyOrders } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { CustomerAvatar } from "@/pages/customers/CustomerAvatar";
 import { formatCurrency, formatDate } from "./format";
-import type { Order } from "./orderTypes";
 import { PackChecklist } from "./PackChecklist";
+import { PrintDocumentModal } from "./PrintDocumentModal";
+import { ShipOrderModal } from "./ShipOrderModal";
 
-// Opsi slot waktu pengiriman.
-const TIME_SLOTS = ["09:00 - 12:00", "12:00 - 15:00", "15:00 - 18:00"];
+const TIME_SLOT_OPTIONS = [
+	{ value: "morning", label: "Morning" },
+	{ value: "afternoon", label: "Afternoon" },
+	{ value: "evening", label: "Evening" },
+];
+
+const TIME_SLOT_LABEL: Record<OrderSalesTimeSlot, string> = {
+	morning: "Morning",
+	afternoon: "Afternoon",
+	evening: "Evening",
+};
+
+/**
+ * Tombol aksi di akhir wizard, menyesuaikan status order saat ini. `pending`
+ * sengaja TIDAK ada di sini — transisi pending → processing sekarang hanya
+ * bisa dipicu dari langkah Pack (lihat tombol "Start processing" di sana),
+ * supaya packing selalu terkunci sampai order mulai diproses.
+ */
+const NEXT_STATUS_ACTION: Partial<
+	Record<
+		OrderSalesStatus,
+		{ label: string; icon: typeof IconTruck; next: OrderSalesStatus }
+	>
+> = {
+	processing: { label: "Confirm & ship", icon: IconTruck, next: "shipped" },
+	shipped: {
+		label: "Mark as complete",
+		icon: IconCircleCheck,
+		next: "completed",
+	},
+};
 
 /** Satu baris field: label tebal di atas nilainya. */
 function InfoField({ label, value }: { label: string; value: string }) {
@@ -65,42 +107,140 @@ function InfoField({ label, value }: { label: string; value: string }) {
 export function OrderDetail() {
 	const navigate = useNavigate();
 	const { id } = useParams();
+	const queryClient = useQueryClient();
 
-	// Simpan order di state lokal supaya perubahan status/packing/notes langsung tampil.
-	const [order, setOrder] = useState<Order | undefined>(() =>
-		dummyOrders.find((o) => o.id === id),
-	);
-	const [notes, setNotes] = useState(order?.notes ?? "");
-	const [deliveryDate, setDeliveryDate] = useState(order?.delivery?.date ?? "");
-	const [timeSlot, setTimeSlot] = useState(order?.delivery?.timeSlot ?? "");
-	const [driverNotes, setDriverNotes] = useState(order?.delivery?.notes ?? "");
-	// Delivery bersifat opsional — aktif otomatis bila order sudah punya data delivery.
-	const [deliveryEnabled, setDeliveryEnabled] = useState(
-		Boolean(
-			order?.delivery?.date ||
-				order?.delivery?.timeSlot ||
-				order?.delivery?.notes ||
-				order?.delivery?.deliveredAt,
-		),
-	);
-
-	// Langkah wizard aktif. Hitung awal dari status agar order lama langsung
-	// mendarat di langkah yang tepat.
-	const [active, setActive] = useState(() => {
-		if (!order) return 0;
-		const isEditable =
-			order.status === "pending" || order.status === "processing";
-		const packedAll = order.items.every((i) => i.packed);
-		if (isEditable) return packedAll ? 1 : 0;
-		return order.status === "completed" ? 3 : 2;
+	const {
+		data: order,
+		isLoading,
+		isError,
+		error,
+	} = useQuery({
+		queryKey: ["orders", id],
+		queryFn: () => getOrderSalesDetail(id as string),
+		enabled: Boolean(id),
 	});
 
-	usePageTitle(order ? `Order #${order.id}` : "Order not found");
+	usePageTitle(order ? `Order #${order.invoiceNumber}` : "Order");
 
-	if (!order) {
+	// Langkah wizard aktif — dihitung ulang dari status setiap kali statusnya
+	// berubah (bukan tiap render, supaya tidak mengganggu navigasi manual user).
+	const [active, setActive] = useState(0);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: sengaja hanya bergantung pada status, bukan seluruh objek order — supaya langkah wizard tidak ter-reset tiap kali order di-refetch (mis. setelah packing) tanpa status-nya berubah.
+	useEffect(() => {
+		if (!order) return;
+		const isEditable =
+			order.status === "pending" || order.status === "processing";
+		const packedAll = order.items.every((i) => i.isPacked ?? false);
+		if (isEditable) {
+			setActive(packedAll ? 1 : 0);
+		} else {
+			setActive(order.status === "completed" ? 3 : 2);
+		}
+	}, [order?.status]);
+
+	// Form jadwal delivery — di-seed ulang dari data server (bukan state independen).
+	const [deliveryDate, setDeliveryDate] = useState<string | null>(null);
+	const [timeSlot, setTimeSlot] = useState<OrderSalesTimeSlot | null>(null);
+	const [deliveryNotes, setDeliveryNotes] = useState("");
+	// Delivery bersifat opsional — aktif otomatis bila order sudah punya data delivery.
+	const [deliveryEnabled, setDeliveryEnabled] = useState(false);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: sengaja hanya bergantung pada field delivery, bukan seluruh objek order — supaya ketikan user tidak tertimpa tiap kali order di-refetch karena alasan lain (mis. packing).
+	useEffect(() => {
+		if (!order) return;
+		setDeliveryDate(order.delivery?.deliveryDate ?? null);
+		setTimeSlot(order.delivery?.timeSlot ?? null);
+		setDeliveryNotes(order.delivery?.deliveryNotes ?? "");
+		setDeliveryEnabled(
+			Boolean(
+				order.delivery?.deliveryDate ||
+					order.delivery?.timeSlot ||
+					order.delivery?.deliveryNotes,
+			),
+		);
+	}, [
+		order?.id,
+		order?.delivery?.deliveryDate,
+		order?.delivery?.timeSlot,
+		order?.delivery?.deliveryNotes,
+	]);
+
+	// Catatan internal — di-seed ulang dari data server.
+	const [notes, setNotes] = useState("");
+	// biome-ignore lint/correctness/useExhaustiveDependencies: sengaja hanya bergantung pada internalNote, bukan seluruh objek order — supaya ketikan user tidak tertimpa tiap kali order di-refetch karena alasan lain.
+	useEffect(() => {
+		if (!order) return;
+		setNotes(order.internalNote ?? "");
+	}, [order?.id, order?.internalNote]);
+
+	const [shipModalOpen, setShipModalOpen] = useState(false);
+	const [pendingPackItemId, setPendingPackItemId] = useState<string | null>(
+		null,
+	);
+	const [printKind, setPrintKind] = useState<"invoice" | "label" | null>(null);
+
+	const packMutation = useMutation({
+		mutationFn: (itemId: string) => {
+			setPendingPackItemId(itemId);
+			return markOrderItemPacked(id as string, { itemId, isPacked: true });
+		},
+		onSuccess: () =>
+			queryClient.invalidateQueries({ queryKey: ["orders", id] }),
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+		onSettled: () => setPendingPackItemId(null),
+	});
+
+	const statusMutation = useMutation({
+		mutationFn: (body: { status: OrderSalesStatus; trackingNumber?: string }) =>
+			updateOrderSalesStatus(id as string, body),
+		onSuccess: (updated) => {
+			queryClient.setQueryData(["orders", id], updated);
+			queryClient.invalidateQueries({ queryKey: ["orders"] });
+			notify.success(
+				`#${updated.invoiceNumber} → ${updated.status}`,
+				"Status updated",
+			);
+			setShipModalOpen(false);
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
+
+	const deliveryMutation = useMutation({
+		mutationFn: (body: OrderSalesUpdateInput) =>
+			updateOrderSales(id as string, body),
+		onSuccess: (updated) => {
+			queryClient.setQueryData(["orders", id], updated);
+			notify.success("Jadwal pengiriman tersimpan");
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
+
+	const notesMutation = useMutation({
+		mutationFn: (internalNote: string) =>
+			updateOrderSales(id as string, { internalNote }),
+		onSuccess: (updated) => {
+			queryClient.setQueryData(["orders", id], updated);
+			notify.success("Notes saved");
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
+
+	if (isLoading) {
 		return (
 			<Container size="lg">
-				<PageHeader title="Order not found" />
+				<Center py="xl">
+					<Loader />
+				</Center>
+			</Container>
+		);
+	}
+
+	if (isError || !order) {
+		return (
+			<Container size="lg">
+				<PageHeader
+					title="Order not found"
+					subtitle={error ? getApiErrorMessage(error) : undefined}
+				/>
 				<Button
 					variant="default"
 					leftSection={<IconArrowLeft size={16} />}
@@ -112,73 +252,43 @@ export function OrderDetail() {
 		);
 	}
 
-	// Persist perubahan ke sumber dummy + state lokal (pola CustomerDetail).
-	const persist = (updated: Order) => {
-		const idx = dummyOrders.findIndex((o) => o.id === updated.id);
-		if (idx !== -1) dummyOrders[idx] = updated;
-		setOrder(updated);
-	};
-
-	const packedCount = order.items.filter((i) => i.packed).length;
+	const packedCount = order.items.filter((i) => i.isPacked ?? false).length;
 	const totalItems = order.items.length;
 	const allPacked = packedCount === totalItems;
-	const editable = order.status === "pending" || order.status === "processing";
+	const isEditableWizard =
+		order.status === "pending" || order.status === "processing";
+	// Order di status terminal: packing, jadwal delivery, dan catatan internal
+	// semuanya read-only (server menolak PATCH/mark-as-packed dengan 400).
+	const readOnly = order.status === "completed" || order.status === "cancelled";
 
-	const subtotal =
-		order.subtotal ??
-		order.items.reduce((sum, i) => sum + (i.unitPrice ?? 0) * i.qty, 0);
-	const shippingCost = order.shipping ?? 0;
+	const nextAction = NEXT_STATUS_ACTION[order.status];
+	const NextActionIcon = nextAction?.icon;
 
-	// Kumpulkan data delivery dari form bila toggle aktif.
-	const collectDelivery = () =>
-		deliveryEnabled
-			? {
-					date: deliveryDate || order.delivery?.date,
-					timeSlot: timeSlot || order.delivery?.timeSlot,
-					notes: driverNotes || order.delivery?.notes,
-				}
-			: {};
-
-	const handleMarkPacked = (index: number) => {
-		const items = order.items.map((item, i) =>
-			i === index ? { ...item, packed: true } : item,
-		);
-		persist({ ...order, items });
+	const handleFinalAction = () => {
+		if (!nextAction) return;
+		if (nextAction.next === "shipped") {
+			setShipModalOpen(true);
+			return;
+		}
+		statusMutation.mutate({ status: nextAction.next });
 	};
 
-	// Simpan delivery (opsional) lalu ubah status jadi shipped (akhir langkah Delivery).
-	const handleConfirmShip = () => {
-		const items = order.items.map((item) => ({ ...item, packed: true }));
-		persist({
-			...order,
-			items,
-			status: "shipped",
-			delivery: { ...order.delivery, ...collectDelivery() },
-		});
-		setActive(3);
-		notify.success(`#${order.id} shipped — stock deducted`, "Order shipped");
+	const handleConfirmShip = (trackingNumber: string) => {
+		statusMutation.mutate({ status: "shipped", trackingNumber });
 	};
 
-	// Tandai order selesai (completed) + catat tanggal penyelesaian.
-	const handleMarkComplete = () => {
-		const deliveredAt = new Date().toISOString().slice(0, 10);
-		persist({
-			...order,
-			status: "completed",
-			delivery: { ...order.delivery, ...collectDelivery(), deliveredAt },
-		});
-		setActive(3);
-		notify.success(`#${order.id} marked as complete`, "Order completed");
+	const handleSaveDelivery = () => {
+		const body: OrderSalesUpdateInput = {};
+		if (deliveryDate) body.deliveryDate = deliveryDate;
+		if (timeSlot) body.deliveryTimeSlot = timeSlot;
+		if (deliveryNotes.trim()) body.deliveryNotes = deliveryNotes.trim();
+		deliveryMutation.mutate(body);
 	};
 
 	const handleNotesBlur = () => {
-		if (notes === (order.notes ?? "")) return; // tak berubah → jangan spam toast
-		persist({ ...order, notes });
-		notify.success("Notes saved");
+		if (notes === (order.internalNote ?? "")) return; // tak berubah → jangan spam request
+		notesMutation.mutate(notes);
 	};
-
-	const issues = order.dataIssues ?? [];
-	const deliveredAt = order.delivery?.deliveredAt;
 
 	return (
 		<Container size="lg">
@@ -187,12 +297,12 @@ export function OrderDetail() {
 					Orders
 				</Anchor>
 				<Text size="sm" c="dimmed">
-					#{order.id}
+					#{order.invoiceNumber}
 				</Text>
 			</Breadcrumbs>
 
 			<PageHeader
-				title={`Order #${order.id}`}
+				title={`Order #${order.invoiceNumber}`}
 				subtitle={`Placed ${formatDate(order.date)}`}
 				actions={
 					<Group gap="sm">
@@ -200,7 +310,7 @@ export function OrderDetail() {
 						<Button
 							variant="default"
 							leftSection={<IconPrinter size={16} />}
-							onClick={() => notify.info("Print label belum tersedia")}
+							onClick={() => setPrintKind("label")}
 						>
 							Print label
 						</Button>
@@ -208,43 +318,14 @@ export function OrderDetail() {
 							<Button
 								variant="default"
 								leftSection={<IconReceipt size={16} />}
-								onClick={() => notify.info("Print invoice belum tersedia")}
+								onClick={() => setPrintKind("invoice")}
 							>
 								Print invoice
-							</Button>
-						)}
-						{order.status === "shipped" && (
-							<Button
-								leftSection={<IconCircleCheck size={16} />}
-								onClick={handleMarkComplete}
-							>
-								Mark as complete
 							</Button>
 						)}
 					</Group>
 				}
 			/>
-
-			{(order.hasDataIssue || issues.length > 0) && (
-				<Alert
-					mb="lg"
-					color="yellow"
-					icon={<IconAlertTriangle size={18} />}
-					title="This order has data problems"
-				>
-					{issues.length > 0 ? (
-						<List size="sm" spacing={4}>
-							{issues.map((issue) => (
-								<List.Item key={issue}>{issue}</List.Item>
-							))}
-						</List>
-					) : (
-						<Text size="sm">
-							Order ini ditandai bermasalah. Periksa kembali datanya.
-						</Text>
-					)}
-				</Alert>
-			)}
 
 			{order.status === "cancelled" && (
 				<Alert
@@ -263,13 +344,10 @@ export function OrderDetail() {
 				{/* Kolom kiri — wizard pemenuhan order */}
 				<Grid.Col span={{ base: 12, md: 8 }}>
 					<Card withBorder>
-						{/* Order aktif: cegah lompat ke langkah berikutnya sebelum syaratnya
-						    terpenuhi. Order read-only (shipped/completed/cancelled): bebas
-						    ditinjau bolak-balik. */}
 						<Stepper
 							active={active}
 							onStepClick={setActive}
-							allowNextStepsSelect={!editable}
+							allowNextStepsSelect={!isEditableWizard}
 						>
 							{/* LANGKAH 1 — Pack */}
 							<Stepper.Step label="Pack" description="Pack items">
@@ -279,11 +357,41 @@ export function OrderDetail() {
 										{packedCount}/{totalItems} packed
 									</Badge>
 								</Group>
+								{order.status === "pending" && (
+									<Alert
+										mb="md"
+										color="blue"
+										icon={<IconSettings size={18} />}
+										title="Order belum diproses"
+									>
+										<Stack gap="sm">
+											<Text size="sm">
+												Klik "Start processing" dulu sebelum item bisa ditandai
+												packed.
+											</Text>
+											<Button
+												leftSection={<IconSettings size={16} />}
+												loading={statusMutation.isPending}
+												onClick={() =>
+													statusMutation.mutate({ status: "processing" })
+												}
+											>
+												Start processing
+											</Button>
+										</Stack>
+									</Alert>
+								)}
 								<PackChecklist
 									items={order.items}
-									onMarkPacked={editable ? handleMarkPacked : undefined}
+									onMarkPacked={
+										readOnly
+											? undefined
+											: (itemId) => packMutation.mutate(itemId)
+									}
+									pendingItemId={pendingPackItemId}
+									disabled={order.status === "pending"}
 								/>
-								{editable && !allPacked && (
+								{order.status === "processing" && !allPacked && (
 									<Text size="sm" c="dimmed" mt="md">
 										Tandai semua item sebagai packed untuk lanjut ke Review.
 									</Text>
@@ -293,90 +401,78 @@ export function OrderDetail() {
 							{/* LANGKAH 2 — Review */}
 							<Stepper.Step label="Review" description="Confirm details">
 								<Stack gap="lg" mt="md">
-									{/* Customer & Shipping address sejajar di atas */}
 									<Grid gap="md">
-										{order.customer && (
-											<Grid.Col span={{ base: 12, md: 6 }}>
-												<Card withBorder h="100%">
-													<Title order={4} mb="md">
-														Customer
-													</Title>
-													<Group gap="sm" mb="md" wrap="nowrap">
-														<CustomerAvatar
-															name={order.customer.name}
-															color={order.customerAvatarColor}
-														/>
-														<Stack gap={0}>
-															<Text size="sm" fw={500}>
-																{order.customer.name}
-															</Text>
-															<Text size="xs" c="dimmed">
-																{order.customer.email}
-															</Text>
-														</Stack>
-													</Group>
-													<Group gap="xl">
-														<InfoField
-															label="Phone"
-															value={order.customer.phone ?? ""}
-														/>
-														{canViewPrices && (
-															<InfoField
-																label="Total spend"
-																value={
-																	order.customer.totalSpend != null
-																		? formatCurrency(order.customer.totalSpend)
-																		: ""
-																}
-															/>
-														)}
-													</Group>
-													<Button
-														variant="light"
-														mt="md"
-														disabled={order.customer.id == null}
-														onClick={() =>
-															navigate(`/customers/${order.customer?.id}`)
-														}
-													>
-														View customer profile
-													</Button>
-												</Card>
-											</Grid.Col>
-										)}
-										{order.shippingInfo && (
-											<Grid.Col span={{ base: 12, md: 6 }}>
-												<Card withBorder h="100%">
-													<Title order={4} mb="md">
-														Shipping address
-													</Title>
-													<Stack gap={2} mb="md">
+										<Grid.Col span={{ base: 12, md: 6 }}>
+											<Card withBorder h="100%">
+												<Title order={4} mb="md">
+													Customer
+												</Title>
+												<Group gap="sm" mb="md" wrap="nowrap">
+													<CustomerAvatar name={order.customer.name} />
+													<Stack gap={0}>
 														<Text size="sm" fw={500}>
-															{order.shippingInfo.recipient}
+															{order.customer.name}
 														</Text>
-														{order.shippingInfo.addressLines.map((line) => (
-															<Text key={line} size="sm" c="dimmed">
-																{line}
-															</Text>
-														))}
+														<Text size="xs" c="dimmed">
+															{order.customer.email}
+														</Text>
 													</Stack>
-													<Group gap="xl" mb="md">
-														<InfoField
-															label="Province"
-															value={order.shippingInfo.province ?? ""}
-														/>
-														<InfoField
-															label="Post code"
-															value={order.shippingInfo.postCode ?? ""}
-														/>
-													</Group>
+												</Group>
+												<Group gap="xl">
 													<InfoField
-														label="Tracking"
-														value={order.shippingInfo.tracking ?? ""}
+														label="Phone"
+														value={order.customer.phone}
 													/>
-												</Card>
-											</Grid.Col>
-										)}
+													{canViewPrices && (
+														<InfoField
+															label="Total spend"
+															value={formatCurrency(order.customer.totalSpend)}
+														/>
+													)}
+												</Group>
+												<Button
+													variant="light"
+													mt="md"
+													onClick={() =>
+														navigate(`/customers/${order.customer.id}`)
+													}
+												>
+													View customer profile
+												</Button>
+											</Card>
+										</Grid.Col>
+										<Grid.Col span={{ base: 12, md: 6 }}>
+											<Card withBorder h="100%">
+												<Title order={4} mb="md">
+													Shipping address
+												</Title>
+												<Stack gap={2} mb="md">
+													<Text size="sm" fw={500}>
+														{order.customer.name}
+													</Text>
+													<Text size="sm" c="dimmed">
+														{order.shipping.address}
+													</Text>
+													<Text size="sm" c="dimmed">
+														{order.shipping.city}
+													</Text>
+												</Stack>
+												<Group gap="xl" mb="md">
+													<InfoField
+														label="Province"
+														value={order.shipping.province}
+													/>
+													<InfoField
+														label="Post code"
+														value={order.shipping.zipCode}
+													/>
+												</Group>
+												<InfoField
+													label="Tracking"
+													value={order.shipping.trackingNumber ?? ""}
+												/>
+											</Card>
+										</Grid.Col>
 									</Grid>
 
 									<div>
@@ -406,28 +502,24 @@ export function OrderDetail() {
 												</Table.Thead>
 												<Table.Tbody>
 													{order.items.map((item) => (
-														<Table.Tr key={item.sku ?? item.productName}>
+														<Table.Tr key={item.id}>
 															<Table.Td>
 																<Stack gap={2}>
-																	<Text size="sm">{item.productName}</Text>
-																	{item.sku && (
-																		<Text size="xs" c="dimmed">
-																			{item.sku}
-																		</Text>
-																	)}
+																	<Text size="sm">{item.name}</Text>
+																	<Text size="xs" c="dimmed">
+																		{item.sku}
+																	</Text>
 																</Stack>
 															</Table.Td>
-															<Table.Td ta="center">{item.qty}</Table.Td>
+															<Table.Td ta="center">{item.quantity}</Table.Td>
 															{canViewPrices && (
 																<Table.Td ta="right">
-																	{formatCurrency(item.unitPrice ?? 0)}
+																	{formatCurrency(item.price)}
 																</Table.Td>
 															)}
 															{canViewPrices && (
 																<Table.Td ta="right">
-																	{formatCurrency(
-																		(item.unitPrice ?? 0) * item.qty,
-																	)}
+																	{formatCurrency(item.price * item.quantity)}
 																</Table.Td>
 															)}
 														</Table.Tr>
@@ -446,7 +538,7 @@ export function OrderDetail() {
 															Subtotal
 														</Text>
 														<Text size="sm" w={140} ta="right">
-															{formatCurrency(subtotal)}
+															{formatCurrency(order.subtotal)}
 														</Text>
 													</Group>
 													<Group gap="xl">
@@ -454,9 +546,19 @@ export function OrderDetail() {
 															Shipping
 														</Text>
 														<Text size="sm" w={140} ta="right">
-															{formatCurrency(shippingCost)}
+															{formatCurrency(order.shippingCost)}
 														</Text>
 													</Group>
+													{order.discount > 0 && (
+														<Group gap="xl">
+															<Text size="sm" c="dimmed">
+																Discount
+															</Text>
+															<Text size="sm" w={140} ta="right">
+																-{formatCurrency(order.discount)}
+															</Text>
+														</Group>
+													)}
 												</>
 											)}
 											<Group gap="xl">
@@ -478,16 +580,31 @@ export function OrderDetail() {
 										<Title order={4}>Delivery</Title>
 									</Group>
 
-									{deliveredAt ? (
-										<Alert
-											color="green"
-											icon={<IconCircleCheck size={18} />}
-											title="Order delivered"
-										>
-											Delivered on {formatDate(deliveredAt)}
-										</Alert>
-									) : editable || order.status === "shipped" ? (
-										<>
+									{readOnly ? (
+										order.delivery ? (
+											<Group gap="xl">
+												<InfoField
+													label="Delivery date"
+													value={formatDate(order.delivery.deliveryDate)}
+												/>
+												<InfoField
+													label="Time slot"
+													value={
+														order.delivery.timeSlot
+															? TIME_SLOT_LABEL[order.delivery.timeSlot]
+															: ""
+													}
+												/>
+												<InfoField
+													label="Delivery notes"
+													value={order.delivery.deliveryNotes ?? ""}
+												/>
+											</Group>
+										) : (
+											<Text c="dimmed">Belum ada jadwal pengiriman.</Text>
+										)
+									) : (
+										<Stack gap="sm">
 											<Switch
 												label="Schedule delivery"
 												description="Langkah opsional — nonaktifkan bila pengiriman belum dijadwalkan."
@@ -505,45 +622,40 @@ export function OrderDetail() {
 															placeholder="Pick delivery date"
 															valueFormat="DD MMM YYYY"
 															leftSection={<IconCalendar size={16} />}
-															value={deliveryDate || null}
-															onChange={(val) => setDeliveryDate(val ?? "")}
+															value={deliveryDate}
+															onChange={(val) => setDeliveryDate(val ?? null)}
 														/>
 														<Select
 															label="Time slot"
 															placeholder="Pick a slot"
-															data={TIME_SLOTS}
+															data={TIME_SLOT_OPTIONS}
 															leftSection={<IconClock size={16} />}
-															value={timeSlot || null}
-															onChange={(val) => setTimeSlot(val ?? "")}
+															value={timeSlot}
+															onChange={(val) =>
+																setTimeSlot((val as OrderSalesTimeSlot) ?? null)
+															}
 														/>
 													</Group>
 													<TextInput
-														label="Driver / delivery notes"
+														label="Delivery notes"
 														placeholder="mis. Titip ke satpam"
-														value={driverNotes}
+														value={deliveryNotes}
 														onChange={(e) =>
-															setDriverNotes(e.currentTarget.value)
+															setDeliveryNotes(e.currentTarget.value)
 														}
 													/>
+													<Group justify="flex-end">
+														<Button
+															variant="light"
+															loading={deliveryMutation.isPending}
+															onClick={handleSaveDelivery}
+														>
+															Save schedule
+														</Button>
+													</Group>
 												</Stack>
 											)}
-										</>
-									) : (
-										// Order dibatalkan: tampilkan jadwal apa adanya (read-only).
-										<Group gap="xl">
-											<InfoField
-												label="Delivery date"
-												value={formatDate(order.delivery?.date ?? null)}
-											/>
-											<InfoField
-												label="Time slot"
-												value={order.delivery?.timeSlot ?? ""}
-											/>
-											<InfoField
-												label="Driver / delivery notes"
-												value={order.delivery?.notes ?? ""}
-											/>
-										</Group>
+										</Stack>
 									)}
 								</Stack>
 							</Stepper.Step>
@@ -555,11 +667,6 @@ export function OrderDetail() {
 										color="var(--mantine-color-green-6)"
 									/>
 									<Title order={4}>Order completed</Title>
-									{deliveredAt && (
-										<Text size="sm" c="dimmed">
-											Delivered on {formatDate(deliveredAt)}
-										</Text>
-									)}
 								</Stack>
 							</Stepper.Completed>
 						</Stepper>
@@ -579,29 +686,21 @@ export function OrderDetail() {
 									<Button
 										rightSection={<IconArrowRight size={16} />}
 										onClick={() => setActive((s) => s + 1)}
-										disabled={active === 0 && editable && !allPacked}
+										disabled={active === 0 && isEditableWizard && !allPacked}
 									>
 										Next
 									</Button>
 								)}
-								{/* Aksi akhir langkah Delivery, sejajar dengan tombol Back. */}
-								{active === 2 &&
-									!deliveredAt &&
-									(editable ? (
-										<Button
-											leftSection={<IconTruck size={16} />}
-											onClick={handleConfirmShip}
-										>
-											Confirm &amp; ship
-										</Button>
-									) : order.status === "shipped" ? (
-										<Button
-											leftSection={<IconCircleCheck size={16} />}
-											onClick={handleMarkComplete}
-										>
-											Mark as complete
-										</Button>
-									) : null)}
+								{/* Aksi akhir langkah Delivery — menyesuaikan status saat ini. */}
+								{active === 2 && nextAction && NextActionIcon && (
+									<Button
+										leftSection={<NextActionIcon size={16} />}
+										loading={statusMutation.isPending}
+										onClick={handleFinalAction}
+									>
+										{nextAction.label}
+									</Button>
+								)}
 							</Group>
 						)}
 					</Card>
@@ -620,6 +719,7 @@ export function OrderDetail() {
 							value={notes}
 							onChange={(e) => setNotes(e.currentTarget.value)}
 							onBlur={handleNotesBlur}
+							disabled={readOnly}
 						/>
 						<Text size="xs" c="dimmed" mt="xs">
 							Notes save when you click away.
@@ -627,6 +727,19 @@ export function OrderDetail() {
 					</Card>
 				</Grid.Col>
 			</Grid>
+
+			<ShipOrderModal
+				opened={shipModalOpen}
+				onClose={() => setShipModalOpen(false)}
+				onConfirm={handleConfirmShip}
+				loading={statusMutation.isPending}
+			/>
+			<PrintDocumentModal
+				opened={printKind !== null}
+				onClose={() => setPrintKind(null)}
+				kind={printKind ?? "invoice"}
+				orderIds={[order.id]}
+			/>
 		</Container>
 	);
 }
