@@ -30,6 +30,7 @@ import { ProductEditor } from "@/pages/products/ProductEditor";
 import { ProductsList } from "@/pages/products/ProductsList";
 import { PurchasingPage } from "@/pages/purchasing/PurchasingPage";
 import { SignIn } from "@/pages/SignIn";
+import { UsersRolesPage } from "@/pages/settings/users/UsersRolesPage";
 import { StocksPage } from "@/pages/stocks/StocksPage";
 
 const routes: RouteObject[] = [
@@ -194,7 +195,7 @@ const routes: RouteObject[] = [
 							},
 							{
 								path: "/settings/users",
-								element: <PlaceholderPage title="Users & Roles" />,
+								element: <UsersRolesPage />,
 							},
 						],
 					},
