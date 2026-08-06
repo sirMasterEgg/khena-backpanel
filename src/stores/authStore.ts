@@ -5,6 +5,7 @@ export type Admin = {
 	name: string;
 	email: string;
 	role: string | null;
+	permissions: string[];
 };
 
 type AuthStatus = "checking" | "authenticated" | "unauthenticated";
