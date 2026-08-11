@@ -1,21 +1,11 @@
 import { apiClient } from "@/api/client";
 import type { ApiListSuccess, ApiSuccess } from "@/api/types";
 
-/* ---------- GET /marketplace/orders (flat, 1 objek per ITEM) ---------- */
+/* ---------- GET /marketplace/orders (nested, 1 objek per ORDER) ---------- */
+/** Satu baris item. Bentuknya sama dipakai di GET /orders maupun POST /log. */
 export type MarketplaceOrderItem = {
 	/** sales_order_items.id — dipakai sebagai key React. BUKAN untuk DELETE. */
 	id: string;
-	/**
-	 * sales_orders.id — SATU-SATUNYA nilai yang sah untuk DELETE.
-	 * Opsional karena server belum mengirimkannya; lihat issue.md §3.1.
-	 */
-	salesOrderId?: string;
-	/** Nomor invoice yang dibaca manusia, mis. "SHP-2026-0001". BUKAN uuid. */
-	orderId: string;
-	/** Teks bebas dari server. Bandingkan selalu dengan .toLowerCase(). */
-	marketplace: string;
-	date: string; // "YYYY-MM-DD"
-	buyerName: string;
 	variantSku: string;
 	productName: string;
 	quantity: number;
@@ -23,9 +13,27 @@ export type MarketplaceOrderItem = {
 	revenue: number;
 };
 
+/** Satu order beserta seluruh itemnya. */
+export type MarketplaceOrder = {
+	/** sales_orders.id — SATU-SATUNYA nilai yang sah untuk DELETE. */
+	id: string;
+	/** Nomor invoice yang dibaca manusia, mis. "SHP-2026-0001". BUKAN uuid. */
+	orderId: string;
+	/** Teks bebas dari server. Bandingkan selalu dengan .toLowerCase(). */
+	marketplace: string;
+	date: string; // "YYYY-MM-DD"
+	buyerName: string;
+	totalRevenue: number;
+	items: MarketplaceOrderItem[];
+};
+
 export type MarketplaceOrderListParams = {
 	/** Cocok PERSIS (case-insensitive), bukan substring. */
 	marketplace?: string;
+	/**
+	 * Menghitung ORDER, bukan item — satu order dengan banyak item tidak
+	 * pernah "terpotong" antar halaman.
+	 */
 	page?: number;
 	limit?: number;
 };
@@ -64,22 +72,11 @@ export type MarketplaceLogInput = {
 	items: MarketplaceLogItemInput[]; // minimal 1
 };
 
-export type MarketplaceLogResponse = {
-	/** sales_orders.id — ini yang bisa dipakai DELETE. */
-	id: string;
-	orderId: string;
-	marketplace: string;
-	date: string;
-	buyerName: string;
-	totalRevenue: number;
-	items: {
-		id: string;
-		variantSku: string;
-		productName: string;
-		quantity: number;
-		revenue: number;
-	}[];
-};
+/**
+ * Response POST /marketplace/log bentuknya PERSIS SAMA dengan satu objek
+ * order di GET /marketplace/orders — pakai ulang MarketplaceOrder.
+ */
+export type MarketplaceLogResponse = MarketplaceOrder;
 
 /* ---------- POST /marketplace/import (PARTIAL SUCCESS) ---------- */
 export type MarketplaceImportRowResult = {
@@ -103,11 +100,11 @@ export type MarketplaceImportResponse = {
 export async function listMarketplaceOrders(
 	params?: MarketplaceOrderListParams,
 ) {
-	const res = await apiClient.get<ApiListSuccess<MarketplaceOrderItem>>(
+	const res = await apiClient.get<ApiListSuccess<MarketplaceOrder>>(
 		"/marketplace/orders",
 		{ params },
 	);
-	return res.data; // { data, meta } — meta dipakai untuk paginasi
+	return res.data; // { data, meta } — meta menghitung ORDER, bukan item
 }
 
 export async function getMarketplaceStats() {
@@ -126,12 +123,13 @@ export async function logMarketplaceOrder(body: MarketplaceLogInput) {
 
 /**
  * Menghapus SATU ORDER PENUH beserta semua itemnya (soft delete di server).
- * `salesOrderId` WAJIB `sales_orders.id` — BUKAN `row.id` (sales_order_items.id)
- * ataupun `row.orderId` (nomor invoice). Lihat issue.md §3.1.
+ * `id` WAJIB `sales_orders.id` (field `id` di objek order dari
+ * GET /marketplace/orders) — BUKAN `items[].id` (sales_order_items.id)
+ * ataupun `orderId` (nomor invoice).
  */
-export async function deleteMarketplaceOrder(salesOrderId: string) {
+export async function deleteMarketplaceOrder(id: string) {
 	const res = await apiClient.delete<ApiSuccess<string>>(
-		`/marketplace/orders/${salesOrderId}`,
+		`/marketplace/orders/${id}`,
 	);
 	return res.data.data;
 }

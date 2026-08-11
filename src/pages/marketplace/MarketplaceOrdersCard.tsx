@@ -11,7 +11,6 @@ import {
 	Table,
 	Tabs,
 	Text,
-	Tooltip,
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import {
@@ -26,6 +25,7 @@ import { getApiErrorMessage } from "@/api/client";
 import {
 	deleteMarketplaceOrder,
 	listMarketplaceOrders,
+	type MarketplaceOrder,
 	type MarketplaceOrderItem,
 } from "@/api/marketplace";
 import { notify } from "@/components/notify";
@@ -46,7 +46,11 @@ interface MarketplaceOrdersCardProps {
 	onDownloadTemplate: () => void;
 }
 
+/** Jumlah ORDER per halaman (bukan item) — lihat MarketplaceOrderListParams. */
 const ITEMS_PER_PAGE = 10;
+
+/** Satu baris tabel = satu item, tapi tetap membawa order induknya (untuk delete). */
+type OrderRow = { order: MarketplaceOrder; item: MarketplaceOrderItem };
 
 function channelColor(marketplace: string): string {
 	const key = normalizeChannel(marketplace);
@@ -77,8 +81,16 @@ export function MarketplaceOrdersCard({
 		queryFn: () => listMarketplaceOrders(params),
 		enabled: canRead,
 	});
-	const rows = data?.data ?? [];
+	const orders = data?.data ?? [];
 	const totalPages = data?.meta.totalPages ?? 1;
+
+	// GET /marketplace/orders sekarang nested (1 objek per order, dengan
+	// items[] di dalamnya) — diratakan lagi di sini jadi 1 baris tabel per
+	// item, sesuai desain awal ("flat per item, jangan digrup"). Order
+	// dengan 3 barang tetap tampil sebagai 3 baris.
+	const rows: OrderRow[] = orders.flatMap((order) =>
+		order.items.map((item) => ({ order, item })),
+	);
 
 	const handleTabChange = (val: string | null) => {
 		setPage(1);
@@ -86,7 +98,7 @@ export function MarketplaceOrdersCard({
 	};
 
 	const deleteMutation = useMutation({
-		mutationFn: (salesOrderId: string) => deleteMarketplaceOrder(salesOrderId),
+		mutationFn: (id: string) => deleteMarketplaceOrder(id),
 		onSuccess: () => {
 			notify.success("Marketplace order deleted");
 			queryClient.invalidateQueries({ queryKey: ["marketplace"] });
@@ -97,20 +109,19 @@ export function MarketplaceOrdersCard({
 		onError: (err) => notify.error(getApiErrorMessage(err)),
 	});
 
-	const confirmDelete = (row: MarketplaceOrderItem) => {
-		if (!row.salesOrderId) return;
+	const confirmDelete = (order: MarketplaceOrder) => {
 		modals.openConfirmModal({
 			title: "Delete marketplace order",
 			children: (
 				<Text size="sm">
-					Delete order <strong>{row.orderId}</strong> and{" "}
+					Delete order <strong>{order.orderId}</strong> and{" "}
 					<strong>all of its items</strong>? Stock will be returned. This action
 					cannot be undone.
 				</Text>
 			),
 			labels: { confirm: "Delete", cancel: "Cancel" },
 			confirmProps: { color: "red" },
-			onConfirm: () => deleteMutation.mutate(row.salesOrderId as string),
+			onConfirm: () => deleteMutation.mutate(order.id),
 		});
 	};
 
@@ -153,53 +164,49 @@ export function MarketplaceOrdersCard({
 						</Table.Thead>
 						<Table.Tbody>
 							{rows.length > 0 ? (
-								rows.map((row) => (
-									<Table.Tr key={row.id}>
+								rows.map(({ order, item }) => (
+									<Table.Tr key={item.id}>
 										<Table.Td>
 											<Badge
 												variant="light"
-												color={channelColor(row.marketplace)}
+												color={channelColor(order.marketplace)}
 											>
-												{channelLabel(row.marketplace)}
+												{channelLabel(order.marketplace)}
 											</Badge>
 										</Table.Td>
 										<Table.Td>
 											<Text ff="monospace" size="sm">
-												{row.orderId}
+												{order.orderId}
 											</Text>
 										</Table.Td>
 										<Table.Td>
 											<Stack gap={0}>
-												<Text size="sm">{row.productName}</Text>
+												<Text size="sm">{item.productName}</Text>
 												<Text size="xs" c="dimmed">
-													{row.variantSku}
+													{item.variantSku}
 												</Text>
 											</Stack>
 										</Table.Td>
-										<Table.Td>{row.buyerName}</Table.Td>
-										<Table.Td>{row.quantity}</Table.Td>
-										<Table.Td>{formatIDR(row.revenue)}</Table.Td>
+										<Table.Td>{order.buyerName}</Table.Td>
+										<Table.Td>{item.quantity}</Table.Td>
+										<Table.Td>{formatIDR(item.revenue)}</Table.Td>
 										<Table.Td>
 											{/* Response belum punya field status — semua order marketplace
 											yang tercatat memang sudah selesai (issue.md §3.3). */}
 											<StatusBadge status="completed" />
 										</Table.Td>
-										<Table.Td>{dayjs(row.date).format("DD MMM YYYY")}</Table.Td>
+										<Table.Td>
+											{dayjs(order.date).format("DD MMM YYYY")}
+										</Table.Td>
 										<Table.Td>
 											{canDelete && (
-												<Tooltip
-													label="Delete unavailable: server belum mengirim salesOrderId"
-													disabled={Boolean(row.salesOrderId)}
+												<ActionIcon
+													variant="subtle"
+													color="red"
+													onClick={() => confirmDelete(order)}
 												>
-													<ActionIcon
-														variant="subtle"
-														color="red"
-														disabled={!row.salesOrderId}
-														onClick={() => confirmDelete(row)}
-													>
-														<IconTrash size={16} />
-													</ActionIcon>
-												</Tooltip>
+													<IconTrash size={16} />
+												</ActionIcon>
 											)}
 										</Table.Td>
 									</Table.Tr>
