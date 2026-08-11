@@ -19,7 +19,7 @@ import { useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { getApiErrorMessage, getApiFieldErrors } from "@/api/client";
 import { logMarketplaceOrder } from "@/api/marketplace";
-import { listPosVariants } from "@/api/pointOfSales";
+import { listPosVariants, type PosVariant } from "@/api/pointOfSales";
 import { notify } from "@/components/notify";
 import { formatIDR } from "@/utils/format";
 import { type LogOrderFormData, logOrderSchema } from "./logOrderSchema";
@@ -67,7 +67,18 @@ export function LogOrderModal({
 	const items = watch("items");
 
 	// ----- Picker SKU -----
-	const [selectedSku, setSelectedSku] = useState<string | null>(null);
+	// Simpan OBJEK varian yang dipilih (bukan cuma SKU-nya) saat itu juga —
+	// Mantine Select menulis ulang search box dengan label opsi setelah
+	// dipilih, yang lewat onSearchChange balik mengganti debouncedSkuSearch
+	// dan MEMBUAT ULANG query dengan sku=<label lengkap> (bukan SKU asli).
+	// Query itu tidak match apa pun sehingga variantsQuery.data jadi kosong.
+	// Kalau addItem() mencari ulang ke variantsQuery.data saat itu (bukan
+	// saat dipilih), pencarian selalu gagal dan tombol "Add item" diam-diam
+	// tidak melakukan apa-apa. Simpan objeknya di sini supaya imun dari efek
+	// samping itu.
+	const [selectedVariant, setSelectedVariant] = useState<PosVariant | null>(
+		null,
+	);
 	const [skuSearch, setSkuSearch] = useState("");
 	const [debouncedSkuSearch] = useDebouncedValue(skuSearch, 300);
 
@@ -82,16 +93,15 @@ export function LogOrderModal({
 		.map((v) => ({ value: v.sku, label: `${v.sku} — ${v.variantName}` }));
 
 	const resetPicker = () => {
-		setSelectedSku(null);
+		setSelectedVariant(null);
 		setSkuSearch("");
 	};
 
 	const addItem = () => {
-		const variant = variantsQuery.data?.data.find((v) => v.sku === selectedSku);
-		if (!variant) return;
+		if (!selectedVariant) return;
 		append({
-			variantSku: variant.sku,
-			productName: variant.variantName,
+			variantSku: selectedVariant.sku,
+			productName: selectedVariant.variantName,
 			quantity: 1,
 			revenue: 0,
 		});
@@ -216,16 +226,21 @@ export function LogOrderModal({
 								searchable
 								flex={1}
 								data={variantOptions}
-								value={selectedSku}
+								value={selectedVariant?.sku ?? null}
 								searchValue={skuSearch}
 								onSearchChange={setSkuSearch}
-								onChange={setSelectedSku}
+								onChange={(val) => {
+									const variant = variantsQuery.data?.data.find(
+										(v) => v.sku === val,
+									);
+									setSelectedVariant(variant ?? null);
+								}}
 							/>
 							<Button
 								type="button"
 								variant="light"
 								leftSection={<IconPlus size={16} />}
-								disabled={!selectedSku}
+								disabled={!selectedVariant}
 								onClick={addItem}
 							>
 								Add item
@@ -290,6 +305,7 @@ export function LogOrderModal({
 															min={0}
 															allowDecimal={false}
 															thousandSeparator="."
+															decimalSeparator=","
 															description="Total for this item, not unit price"
 															value={f.value}
 															onChange={(val) =>
