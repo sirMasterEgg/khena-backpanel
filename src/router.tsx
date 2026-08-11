@@ -19,6 +19,7 @@ import { Dashboard } from "@/pages/Dashboard";
 import { PendingTasksPage } from "@/pages/dashboard/PendingTasksPage";
 import { DeliveriesPage } from "@/pages/deliveries/DeliveriesPage";
 import { DiscountsPage } from "@/pages/discounts/DiscountsPage";
+import { MarketplacesPage } from "@/pages/marketplace/MarketplacesPage";
 import { MediaLibrary } from "@/pages/media/MediaLibrary";
 import { OrderDetail } from "@/pages/orders/OrderDetail";
 import { OrderSales } from "@/pages/orders/OrderSales";
@@ -167,7 +168,7 @@ const routes: RouteObject[] = [
 							},
 							{
 								path: "/marketplaces",
-								element: <PlaceholderPage title="Marketplaces" />,
+								element: <MarketplacesPage />,
 							},
 							{
 								path: "/messages",
