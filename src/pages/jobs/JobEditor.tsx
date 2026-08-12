@@ -6,6 +6,7 @@ import {
 	Card,
 	Center,
 	Container,
+	Grid,
 	Group,
 	Loader,
 	Radio,
@@ -173,60 +174,70 @@ export function JobEditor() {
 						error={errors.jobTitle?.message}
 					/>
 
-					<Controller
-						name="departmentId"
-						control={control}
-						render={({ field }) => (
-							<Select
-								label="Department"
-								placeholder="Select department"
-								data={departmentOptions}
-								value={field.value || null}
-								onChange={(v) => field.onChange(v ?? "")}
-								error={errors.departmentId?.message}
+					<Grid gap="md">
+						<Grid.Col span={6}>
+							<Controller
+								name="departmentId"
+								control={control}
+								render={({ field }) => (
+									<Select
+										label="Department"
+										placeholder="Select department"
+										data={departmentOptions}
+										value={field.value || null}
+										onChange={(v) => field.onChange(v ?? "")}
+										error={errors.departmentId?.message}
+									/>
+								)}
 							/>
-						)}
-					/>
-
-					<TextInput
-						label="Location"
-						placeholder="e.g., Jakarta"
-						{...register("location")}
-						error={errors.location?.message}
-					/>
-
-					<Controller
-						name="employmentTypeId"
-						control={control}
-						render={({ field }) => (
-							<Select
-								label="Employment type"
-								placeholder="Select employment type"
-								data={employmentTypeOptions}
-								value={field.value || null}
-								onChange={(v) => field.onChange(v ?? "")}
-								error={errors.employmentTypeId?.message}
+						</Grid.Col>
+						<Grid.Col span={6}>
+							<TextInput
+								label="Location"
+								placeholder="e.g., Jakarta"
+								{...register("location")}
+								error={errors.location?.message}
 							/>
-						)}
-					/>
+						</Grid.Col>
+					</Grid>
 
-					<Controller
-						name="status"
-						control={control}
-						render={({ field }) => (
-							<Radio.Group
-								label="Status"
-								value={field.value}
-								onChange={field.onChange}
-							>
-								<Group gap="lg" mt="xs">
-									<Radio value="open" label="Open" />
-									<Radio value="closed" label="Closed" />
-									<Radio value="draft" label="Draft" />
-								</Group>
-							</Radio.Group>
-						)}
-					/>
+					<Grid gap="md">
+						<Grid.Col span={6}>
+							<Controller
+								name="employmentTypeId"
+								control={control}
+								render={({ field }) => (
+									<Select
+										label="Employment type"
+										placeholder="Select employment type"
+										data={employmentTypeOptions}
+										value={field.value || null}
+										onChange={(v) => field.onChange(v ?? "")}
+										error={errors.employmentTypeId?.message}
+									/>
+								)}
+							/>
+						</Grid.Col>
+						<Grid.Col span={6}>
+							<Controller
+								name="status"
+								control={control}
+								render={({ field }) => (
+									<Radio.Group
+										label="Status"
+										value={field.value}
+										onChange={field.onChange}
+									>
+										<Group gap="lg" mt="xs">
+											<Radio value="open" label="Open" />
+											<Radio value="closed" label="Closed" />
+											<Radio value="draft" label="Draft" />
+										</Group>
+									</Radio.Group>
+								)}
+							/>
+						</Grid.Col>
+					</Grid>
 
 					<Textarea
 						label="Role description"
