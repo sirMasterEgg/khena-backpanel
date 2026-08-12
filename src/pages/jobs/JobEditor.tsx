@@ -17,7 +17,7 @@ import {
 	TextInput,
 } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router";
 import { getApiErrorMessage } from "@/api/client";
@@ -45,11 +45,22 @@ export function JobEditor() {
 
 	usePageTitle(isEdit ? "Edit Position" : "Add Position");
 
-	const { data: job, isLoading } = useQuery({
+	const {
+		data: job,
+		isLoading,
+		isError,
+		error,
+	} = useQuery({
 		queryKey: ["jobs", id],
 		queryFn: () => getJob(id as string),
 		enabled: isEdit,
 	});
+
+	// ID ngawur / backend mati → tampilkan alasan gagalnya, jangan diam saja
+	// membiarkan form kosong seolah-olah mode create.
+	useEffect(() => {
+		if (isError) notify.error(getApiErrorMessage(error));
+	}, [isError, error]);
 
 	const { departmentOptions, employmentTypeOptions } = useJobMasterOptions();
 
