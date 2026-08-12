@@ -49,7 +49,7 @@ export function StatusBadge({ status, children, ...props }: StatusBadgeProps) {
 		received: { color: "green", label: "Received" },
 		expired: { color: "red", label: "Expired" },
 		open: { color: "green", label: "Open" },
-		closed: { color: "gray", label: "Closed" },
+		closed: { color: "red", label: "Closed" },
 	};
 
 	const config = statusConfig[status];
