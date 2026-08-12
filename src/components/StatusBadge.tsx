@@ -21,7 +21,9 @@ interface StatusBadgeProps extends Omit<BadgeProps, "color"> {
 		| "unread"
 		| "ordered"
 		| "received"
-		| "expired";
+		| "expired"
+		| "open"
+		| "closed";
 	children?: string;
 }
 
@@ -46,6 +48,8 @@ export function StatusBadge({ status, children, ...props }: StatusBadgeProps) {
 		ordered: { color: "blue", label: "Ordered" },
 		received: { color: "green", label: "Received" },
 		expired: { color: "red", label: "Expired" },
+		open: { color: "green", label: "Open" },
+		closed: { color: "red", label: "Closed" },
 	};
 
 	const config = statusConfig[status];

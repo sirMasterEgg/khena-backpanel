@@ -19,6 +19,8 @@ import { Dashboard } from "@/pages/Dashboard";
 import { PendingTasksPage } from "@/pages/dashboard/PendingTasksPage";
 import { DeliveriesPage } from "@/pages/deliveries/DeliveriesPage";
 import { DiscountsPage } from "@/pages/discounts/DiscountsPage";
+import { JobEditor } from "@/pages/jobs/JobEditor";
+import { JobsList } from "@/pages/jobs/JobsList";
 import { MarketplacesPage } from "@/pages/marketplace/MarketplacesPage";
 import { MediaLibrary } from "@/pages/media/MediaLibrary";
 import { OrderDetail } from "@/pages/orders/OrderDetail";
@@ -116,7 +118,15 @@ const routes: RouteObject[] = [
 							},
 							{
 								path: "/jobs",
-								element: <PlaceholderPage title="Jobs" />,
+								element: <JobsList />,
+							},
+							{
+								path: "/jobs/new",
+								element: <JobEditor />,
+							},
+							{
+								path: "/jobs/:id/edit",
+								element: <JobEditor />,
 							},
 							{
 								path: "/applications",
