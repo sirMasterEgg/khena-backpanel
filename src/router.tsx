@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { AuthBootstrap } from "@/components/AuthBootstrap";
 import { GuestOnly } from "@/components/GuestOnly";
 import { RequireAuth } from "@/components/RequireAuth";
+import { ApplicationsList } from "@/pages/applications/ApplicationsList";
 import { CategoriesList } from "@/pages/categories/CategoriesList";
 import { CategoryEditor } from "@/pages/categories/CategoryEditor";
 import { CollectionDetail } from "@/pages/collections/CollectionDetail";
@@ -130,7 +131,7 @@ const routes: RouteObject[] = [
 							},
 							{
 								path: "/applications",
-								element: <PlaceholderPage title="Applications" />,
+								element: <ApplicationsList />,
 							},
 							{
 								path: "/pages",
