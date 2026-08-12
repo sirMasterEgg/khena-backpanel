@@ -50,9 +50,22 @@ export type JobListParams = {
 	limit?: number;
 };
 
+/** Hitungan job aktif per status — seluruh data, tidak terpengaruh paginasi/search. */
+export type JobSummary = {
+	total: number;
+	open: number;
+	closed: number;
+	draft: number;
+};
+
 export async function listJobs(params?: JobListParams) {
 	const res = await apiClient.get<ApiListSuccess<Job>>("/jobs", { params });
 	return res.data; // { data, meta } — terurut createdAt desc
+}
+
+export async function getJobSummary() {
+	const res = await apiClient.get<ApiSuccess<JobSummary>>("/jobs/summary");
+	return res.data.data;
 }
 
 export async function getJob(id: string) {

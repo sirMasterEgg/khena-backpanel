@@ -21,7 +21,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { getApiErrorMessage } from "@/api/client";
-import { deleteJob, listJobs } from "@/api/jobs";
+import { deleteJob, getJobSummary, listJobs } from "@/api/jobs";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -31,8 +31,6 @@ import { usePermissions } from "@/hooks/usePermissions";
 const ITEMS_PER_PAGE = 10;
 /** Jeda sebelum ketikan di kolom search dikirim ke server. */
 const SEARCH_DEBOUNCE_MS = 400;
-/** Batas aman untuk query penghitung subtitle — akurat selama total job < 100. */
-const COUNT_LIMIT = 100;
 
 export function JobsList() {
 	usePageTitle("Jobs");
@@ -66,18 +64,16 @@ export function JobsList() {
 	const jobs = data?.data ?? [];
 	const totalPages = data?.meta.totalPages ?? 1;
 
-	// Penghitung subtitle — TIDAK ikut search/page, harus angka keseluruhan.
-	// Tidak ada endpoint /jobs/stats, jadi hitung manual dari satu halaman besar.
-	const { data: allJobs } = useQuery({
-		queryKey: ["jobs", "counts"],
-		queryFn: () => listJobs({ limit: COUNT_LIMIT }),
+	// Penghitung subtitle — TIDAK ikut search/page, dari GET /jobs/summary
+	// (hitungan seluruh job aktif, bukan dari halaman yang sedang tampil).
+	const { data: summary } = useQuery({
+		queryKey: ["jobs", "summary"],
+		queryFn: getJobSummary,
 		enabled: canRead,
 	});
 
-	const openCount =
-		allJobs?.data.filter((j) => j.status === "open").length ?? 0;
-	const closedCount =
-		allJobs?.data.filter((j) => j.status === "closed").length ?? 0;
+	const openCount = summary?.open ?? 0;
+	const closedCount = summary?.closed ?? 0;
 
 	const handleSearchChange = (value: string) => {
 		setPage(1);
