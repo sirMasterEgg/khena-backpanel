@@ -1,4 +1,5 @@
 import {
+	Alert,
 	Anchor,
 	Avatar,
 	Breadcrumbs,
@@ -7,12 +8,14 @@ import {
 	Container,
 	Group,
 	SimpleGrid,
+	Skeleton,
 	Stack,
 	Text,
 	ThemeIcon,
 	UnstyledButton,
 } from "@mantine/core";
 import {
+	IconAlertCircle,
 	IconAlertTriangle,
 	IconArrowLeft,
 	IconArrowRight,
@@ -20,20 +23,118 @@ import {
 	IconFileText,
 	IconMail,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
+import dayjs from "dayjs";
 import type { ComponentProps, ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
+import { getApiErrorMessage } from "@/api/client";
+import type { DashboardPending } from "@/api/dashboard";
+import { getDashboardPending } from "@/api/dashboard";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import {
-	getPendingTaskCategories,
-	LOW_STOCK_THRESHOLD,
-	type PendingTaskCategoryKey,
-	type PendingTaskItem,
-} from "./dashboardData";
+import { usePermissions } from "@/hooks/usePermissions";
+import { formatIDR } from "@/utils/format";
 
 /** Tipe status yang diterima StatusBadge — dipakai untuk mempersempit string. */
 type BadgeStatus = ComponentProps<typeof StatusBadge>["status"];
+
+/** Maksimal baris item yang ditampilkan per kategori sebelum "+ N more". */
+const MAX_PENDING_ITEMS = 8;
+
+/** Satu baris item yang sudah dinormalisasi supaya komponen gampang me-render. */
+type PendingTaskItem = {
+	id: string; // key unik lintas kategori, mis. order.id atau `product-${id}`
+	/** Cuma dikirim API untuk kategori stok (outOfStock/lowStock); kategori
+	 * lain tidak punya gambar → komponen fallback ke ThemeIcon kategori. */
+	thumbnail?: string;
+	primary: string; // teks utama (baris atas)
+	secondary: string; // keterangan (baris bawah)
+	status?: string; // untuk StatusBadge (mis. "pending", "outofstock", "unread")
+	value?: string; // nilai di ujung kanan (mis. total order)
+	to: string; // route saat baris diklik
+};
+
+type PendingTaskCategoryKey =
+	| "orders"
+	| "outOfStock"
+	| "lowStock"
+	| "unread"
+	| "drafts";
+
+type PendingTaskCategory = {
+	key: PendingTaskCategoryKey;
+	count: number; // TOTAL sebenarnya (bucket.total), bukan cuma yang tampil
+	items: PendingTaskItem[]; // sudah dipotong maksimal MAX_PENDING_ITEMS
+};
+
+/** Petakan response GET /dashboard/pending ke 5 kategori berurutan. */
+function toCategories(data: DashboardPending): PendingTaskCategory[] {
+	const orders: PendingTaskCategory = {
+		key: "orders",
+		count: data.orderAwaitingAction.total,
+		items: data.orderAwaitingAction.items.map((o) => ({
+			id: o.id,
+			primary: `${o.invoiceNumber} · ${o.customerName ?? "Guest"}`,
+			secondary: `${o.status} · ${o.orderDate}`,
+			status: o.status,
+			value: formatIDR(o.total),
+			to: `/orders/${o.id}`,
+		})),
+	};
+
+	const outOfStock: PendingTaskCategory = {
+		key: "outOfStock",
+		count: data.outOfStockProducts.total,
+		items: data.outOfStockProducts.items.map((p) => ({
+			id: `product-${p.detailProductId}`,
+			thumbnail: p.imageUrl ?? undefined,
+			primary: p.productName,
+			secondary: `${p.sku} · out of stock`,
+			status: "outofstock",
+			to: "/stocks",
+		})),
+	};
+
+	const lowStock: PendingTaskCategory = {
+		key: "lowStock",
+		count: data.lowStockProducts.total,
+		items: data.lowStockProducts.items.map((p) => ({
+			id: `product-${p.detailProductId}`,
+			thumbnail: p.imageUrl ?? undefined,
+			primary: p.productName,
+			secondary: `${p.sku} · ${p.quantity} left (alert at ${p.minStockAlert ?? "—"})`,
+			status: "lowstock",
+			to: "/stocks",
+		})),
+	};
+
+	const unread: PendingTaskCategory = {
+		key: "unread",
+		count: data.unreadMessages.total,
+		items: data.unreadMessages.items.map((m) => ({
+			id: `contact-${m.id}`,
+			primary: m.subject,
+			secondary: `From ${m.name} · ${dayjs(m.createdAt).format("MMM D, YYYY")}`,
+			status: "unread",
+			to: "/messages",
+		})),
+	};
+
+	const drafts: PendingTaskCategory = {
+		key: "drafts",
+		count: data.draftProducts.total,
+		items: data.draftProducts.items.map((p) => ({
+			id: `product-${p.id}`,
+			primary: p.name,
+			secondary: `${p.baseSku} · updated ${dayjs(p.updatedAt).format("MMM D, YYYY")}`,
+			status: "draft",
+			to: `/products/${p.id}/edit`,
+		})),
+	};
+
+	return [orders, outOfStock, lowStock, unread, drafts];
+}
 
 /** Konfigurasi tampilan per kategori — sumber kebenaran untuk kartu ringkasan
  * dan kartu per-kategori supaya keduanya konsisten. Urutan mengikuti data. */
@@ -64,7 +165,7 @@ const categoryConfig: Record<PendingTaskCategoryKey, CategoryConfig> = {
 		emptyMessage: "Nothing is out of stock right now.",
 	},
 	lowStock: {
-		label: `Running low (≤ ${LOW_STOCK_THRESHOLD} units)`,
+		label: "Running low",
 		icon: <IconAlertTriangle size={18} />,
 		color: "orange",
 		ctaLabel: "View low inventory",
@@ -152,12 +253,30 @@ function PendingItemRow({
 export function PendingTasksPage() {
 	usePageTitle("Pending Tasks");
 
-	const categories = getPendingTaskCategories();
+	const { can } = usePermissions();
+	const canRead = can("dashboard.read");
+
+	const pendingQuery = useQuery({
+		queryKey: ["dashboard", "pending", { limit: MAX_PENDING_ITEMS }],
+		queryFn: () => getDashboardPending(MAX_PENDING_ITEMS),
+		enabled: canRead,
+	});
+
+	if (!canRead) {
+		return (
+			<Container size="xl" px="0">
+				<Text c="dimmed">You don't have access to the dashboard.</Text>
+			</Container>
+		);
+	}
+
+	const categories = pendingQuery.data ? toCategories(pendingQuery.data) : [];
 	const totalItems = categories.reduce((sum, cat) => sum + cat.count, 0);
 	const activeCategories = categories.filter((cat) => cat.count > 0).length;
 
-	const subtitle =
-		totalItems > 0
+	const subtitle = pendingQuery.isLoading
+		? " "
+		: totalItems > 0
 			? `${totalItems} items across ${activeCategories} categories need attention`
 			: "You're all caught up — nothing needs attention right now.";
 
@@ -187,107 +306,137 @@ export function PendingTasksPage() {
 				}
 			/>
 
-			{/* Baris kartu ringkasan — klik → scroll ke kartu kategori. */}
-			<SimpleGrid cols={{ base: 1, xs: 2, sm: 3, md: 5 }} mb="xl">
-				{categories.map((cat) => {
-					const config = categoryConfig[cat.key];
-					return (
-						<UnstyledButton
-							key={cat.key}
-							onClick={() => scrollToCategory(cat.key)}
-							style={{ width: "100%" }}
-						>
-							<Card withBorder h="100%" style={{ cursor: "pointer" }}>
-								<Group wrap="nowrap" gap="sm">
-									<ThemeIcon variant="light" color={config.color} size="lg">
-										{config.icon}
-									</ThemeIcon>
-									<Text
-										size="sm"
-										fw={500}
-										style={{ minWidth: 0 }}
-										lineClamp={2}
-									>
-										{config.label}
-									</Text>
-								</Group>
-								<Text fw={700} size="xl" mt="sm">
-									{cat.count}
-								</Text>
-							</Card>
-						</UnstyledButton>
-					);
-				})}
-			</SimpleGrid>
+			{pendingQuery.isError && (
+				<Alert
+					icon={<IconAlertCircle size={16} />}
+					color="red"
+					mb="md"
+					title="Failed to load pending tasks"
+				>
+					{getApiErrorMessage(pendingQuery.error)}
+				</Alert>
+			)}
 
-			{/* Kartu per-kategori. */}
-			<Stack gap="md">
-				{categories.map((cat) => {
-					const config = categoryConfig[cat.key];
-					const remaining = cat.count - cat.items.length;
-					return (
-						<Card key={cat.key} withBorder id={`cat-${cat.key}`}>
-							<Card.Section inheritPadding py="md">
-								<Group justify="space-between" wrap="nowrap">
-									<Group wrap="nowrap" gap="sm" style={{ minWidth: 0 }}>
-										<ThemeIcon variant="light" color={config.color} size="lg">
-											{config.icon}
-										</ThemeIcon>
-										<Stack gap={0} style={{ minWidth: 0 }}>
-											<Text fw={600} truncate>
+			{pendingQuery.isLoading ? (
+				<Stack gap="md">
+					<SimpleGrid cols={{ base: 1, xs: 2, sm: 3, md: 5 }}>
+						{Array.from({ length: 5 }).map((_, i) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows, no stable id
+							<Skeleton key={i} h={92} radius="sm" />
+						))}
+					</SimpleGrid>
+					<Skeleton h={200} radius="sm" />
+					<Skeleton h={200} radius="sm" />
+				</Stack>
+			) : (
+				<>
+					{/* Baris kartu ringkasan — klik → scroll ke kartu kategori. */}
+					<SimpleGrid cols={{ base: 1, xs: 2, sm: 3, md: 5 }} mb="xl">
+						{categories.map((cat) => {
+							const config = categoryConfig[cat.key];
+							return (
+								<UnstyledButton
+									key={cat.key}
+									onClick={() => scrollToCategory(cat.key)}
+									style={{ width: "100%" }}
+								>
+									<Card withBorder h="100%" style={{ cursor: "pointer" }}>
+										<Group wrap="nowrap" gap="sm">
+											<ThemeIcon variant="light" color={config.color} size="lg">
+												{config.icon}
+											</ThemeIcon>
+											<Text
+												size="sm"
+												fw={500}
+												style={{ minWidth: 0 }}
+												lineClamp={2}
+											>
 												{config.label}
 											</Text>
-											{cat.count > 0 && (
-												<Text size="xs" c="dimmed">
-													{cat.count} {cat.count === 1 ? "item" : "items"}
-												</Text>
-											)}
-										</Stack>
-									</Group>
-									<Button
-										component={Link}
-										to={config.ctaTo}
-										variant="light"
-										size="xs"
-										rightSection={<IconArrowRight size={16} />}
-										style={{ flexShrink: 0 }}
-									>
-										{config.ctaLabel}
-									</Button>
-								</Group>
-							</Card.Section>
+										</Group>
+										<Text fw={700} size="xl" mt="sm">
+											{cat.count}
+										</Text>
+									</Card>
+								</UnstyledButton>
+							);
+						})}
+					</SimpleGrid>
 
-							<Card.Section inheritPadding pb="md">
-								{cat.items.length === 0 ? (
-									<Text c="dimmed" fs="italic" ta="center" py="lg">
-										{config.emptyMessage}
-									</Text>
-								) : (
-									<Stack gap="xs">
-										{cat.items.map((item) => (
-											<PendingItemRow
-												key={item.id}
-												item={item}
-												config={config}
-											/>
-										))}
-										{remaining > 0 && (
-											<Anchor
+					{/* Kartu per-kategori. */}
+					<Stack gap="md">
+						{categories.map((cat) => {
+							const config = categoryConfig[cat.key];
+							const remaining = cat.count - cat.items.length;
+							return (
+								<Card key={cat.key} withBorder id={`cat-${cat.key}`}>
+									<Card.Section inheritPadding py="md">
+										<Group justify="space-between" wrap="nowrap">
+											<Group wrap="nowrap" gap="sm" style={{ minWidth: 0 }}>
+												<ThemeIcon
+													variant="light"
+													color={config.color}
+													size="lg"
+												>
+													{config.icon}
+												</ThemeIcon>
+												<Stack gap={0} style={{ minWidth: 0 }}>
+													<Text fw={600} truncate>
+														{config.label}
+													</Text>
+													{cat.count > 0 && (
+														<Text size="xs" c="dimmed">
+															{cat.count} {cat.count === 1 ? "item" : "items"}
+														</Text>
+													)}
+												</Stack>
+											</Group>
+											<Button
 												component={Link}
 												to={config.ctaTo}
-												size="sm"
-												pl="xs"
+												variant="light"
+												size="xs"
+												rightSection={<IconArrowRight size={16} />}
+												style={{ flexShrink: 0 }}
 											>
-												+ {remaining} more
-											</Anchor>
+												{config.ctaLabel}
+											</Button>
+										</Group>
+									</Card.Section>
+
+									<Card.Section inheritPadding pb="md">
+										{cat.items.length === 0 ? (
+											<Text c="dimmed" fs="italic" ta="center" py="lg">
+												{config.emptyMessage}
+											</Text>
+										) : (
+											<Stack gap="xs">
+												{cat.items.map((item) => (
+													<PendingItemRow
+														key={item.id}
+														item={item}
+														config={config}
+													/>
+												))}
+												{remaining > 0 && (
+													<Anchor
+														component={Link}
+														to={config.ctaTo}
+														size="sm"
+														pl="xs"
+													>
+														+ {remaining} more
+													</Anchor>
+												)}
+											</Stack>
 										)}
-									</Stack>
-								)}
-							</Card.Section>
-						</Card>
-					);
-				})}
-			</Stack>
+									</Card.Section>
+								</Card>
+							);
+						})}
+					</Stack>
+				</>
+			)}
 		</Container>
 	);
 }

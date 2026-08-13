@@ -1,21 +1,23 @@
-import { Container, Grid } from "@mantine/core";
+import { Alert, Container, Grid, Skeleton, Text } from "@mantine/core";
 import {
+	IconAlertCircle,
 	IconCurrencyDollar,
-	IconEye,
 	IconMail,
 	IconShoppingCart,
 	IconUsers,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { getApiErrorMessage } from "@/api/client";
+import { type DashboardGroupBy, getDashboard } from "@/api/dashboard";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { canViewProfit } from "@/config/permissions";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
 	type DateRange,
-	getSummary,
-	periodFromRange,
 	rangeForPeriod,
 } from "@/pages/dashboard/dashboardData";
 import { PendingTasksCard } from "@/pages/dashboard/PendingTasksCard";
@@ -24,6 +26,7 @@ import { QuickActionsCard } from "@/pages/dashboard/QuickActionsCard";
 import { RecentOrdersCard } from "@/pages/dashboard/RecentOrdersCard";
 import { SalesOverviewCard } from "@/pages/dashboard/SalesOverviewCard";
 import { TopProductsCard } from "@/pages/dashboard/TopProductsCard";
+import { useAuthStore } from "@/stores/authStore";
 import { formatIDR } from "@/utils/format";
 
 export function Dashboard() {
@@ -32,16 +35,32 @@ export function Dashboard() {
 	const [dateRange, setDateRange] = useState<DateRange>(() =>
 		rangeForPeriod("week"),
 	);
-	const period = periodFromRange(dateRange);
-	const summary = getSummary(period);
-	const deltaLabel = "vs last period";
+	const [groupBy, setGroupBy] = useState<DashboardGroupBy>("day");
+	const [startDate, endDate] = dateRange;
+
+	const { can } = usePermissions();
+	const canRead = can("dashboard.read");
+	const adminName = useAuthStore((s) => s.admin?.name);
+
+	const summaryQuery = useQuery({
+		queryKey: ["dashboard", "summary", { startDate, endDate, groupBy }],
+		queryFn: () =>
+			getDashboard({
+				startDate: startDate ?? undefined,
+				endDate: endDate ?? undefined,
+				groupBy,
+			}),
+		// DatePickerInput type="range" sempat bernilai [tanggal, null] saat user
+		// baru klik ujung pertama. Jangan menembak API di keadaan setengah itu.
+		enabled: canRead && Boolean(startDate) && Boolean(endDate),
+	});
+	const summary = summaryQuery.data;
 
 	type Stat = {
 		key: string;
 		icon: ReactNode;
 		label: string;
 		value: string | number;
-		delta: number;
 	};
 
 	const stats: Stat[] = [
@@ -51,8 +70,7 @@ export function Dashboard() {
 						key: "revenue",
 						icon: <IconCurrencyDollar size={20} />,
 						label: "Total Revenue",
-						value: formatIDR(summary.revenue.value),
-						delta: summary.revenue.delta,
+						value: formatIDR(summary?.totalRevenue ?? 0),
 					},
 				]
 			: []),
@@ -60,42 +78,51 @@ export function Dashboard() {
 			key: "orders",
 			icon: <IconShoppingCart size={20} />,
 			label: "Orders",
-			value: summary.orders.value.toLocaleString("id-ID"),
-			delta: summary.orders.delta,
+			value: (summary?.totalOrders ?? 0).toLocaleString("id-ID"),
 		},
 		{
 			key: "customers",
 			icon: <IconUsers size={20} />,
 			label: "New Customers",
-			value: summary.newCustomers.value.toLocaleString("id-ID"),
-			delta: summary.newCustomers.delta,
-		},
-		{
-			key: "views",
-			icon: <IconEye size={20} />,
-			label: "Page Views",
-			value: summary.pageViews.value.toLocaleString("id-ID"),
-			delta: summary.pageViews.delta,
+			value: (summary?.totalNewCustomers ?? 0).toLocaleString("id-ID"),
 		},
 		{
 			key: "messages",
 			icon: <IconMail size={20} />,
 			label: "Contact Messages",
-			value: summary.contactMessages.value,
-			delta: summary.contactMessages.delta,
+			value: (summary?.totalContactMessages ?? 0).toLocaleString("id-ID"),
 		},
 	];
 
-	// Bagi rata di breakpoint besar: 5 kartu → span 2.4, 4 kartu → span 3.
+	// Bagi rata di breakpoint besar: 4 kartu → span 3, 3 kartu → span 4.
 	const lgSpan = 12 / stats.length;
+
+	if (!canRead) {
+		return (
+			<Container size="xl" px="0">
+				<Text c="dimmed">You don't have access to the dashboard.</Text>
+			</Container>
+		);
+	}
 
 	return (
 		<Container size="xl" px="0">
 			<PageHeader
-				title="Good morning, Knox"
+				title={`Good morning, ${adminName ?? "there"}`}
 				subtitle="Here's what's happening with your store today."
 				actions={<PeriodFilter value={dateRange} onChange={setDateRange} />}
 			/>
+
+			{summaryQuery.isError && (
+				<Alert
+					icon={<IconAlertCircle size={16} />}
+					color="red"
+					mb="md"
+					title="Failed to load dashboard"
+				>
+					{getApiErrorMessage(summaryQuery.error)}
+				</Alert>
+			)}
 
 			{/* Baris 2: kartu statistik */}
 			<Grid mb="xl">
@@ -104,13 +131,13 @@ export function Dashboard() {
 						key={stat.key}
 						span={{ base: 12, sm: 6, md: 4, lg: lgSpan }}
 					>
-						<StatTile
-							icon={stat.icon}
-							label={stat.label}
-							value={stat.value}
-							delta={stat.delta}
-							deltaLabel={deltaLabel}
-						/>
+						<Skeleton visible={summaryQuery.isLoading}>
+							<StatTile
+								icon={stat.icon}
+								label={stat.label}
+								value={stat.value}
+							/>
+						</Skeleton>
 					</Grid.Col>
 				))}
 			</Grid>
@@ -121,20 +148,35 @@ export function Dashboard() {
 			{/* Baris 4: chart + recent orders */}
 			<Grid mb="md">
 				<Grid.Col span={{ base: 12, lg: 8 }}>
-					<SalesOverviewCard dateRange={dateRange} />
+					<SalesOverviewCard
+						points={summary?.salesOverview ?? []}
+						dateRange={dateRange}
+						groupBy={groupBy}
+						onGroupByChange={setGroupBy}
+						isLoading={summaryQuery.isLoading}
+					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, lg: 4 }}>
-					<RecentOrdersCard />
+					<RecentOrdersCard
+						orders={summary?.recentOrders ?? []}
+						isLoading={summaryQuery.isLoading}
+					/>
 				</Grid.Col>
 			</Grid>
 
 			{/* Baris 4: dua kolom */}
 			<Grid>
 				<Grid.Col span={{ base: 12, md: 6 }}>
-					<TopProductsCard />
+					<TopProductsCard
+						products={summary?.topProducts ?? []}
+						isLoading={summaryQuery.isLoading}
+					/>
 				</Grid.Col>
 				<Grid.Col span={{ base: 12, md: 6 }}>
-					<PendingTasksCard />
+					<PendingTasksCard
+						counts={summary?.pendingTasks}
+						isLoading={summaryQuery.isLoading}
+					/>
 				</Grid.Col>
 			</Grid>
 		</Container>

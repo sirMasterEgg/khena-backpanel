@@ -1,14 +1,23 @@
-import { Avatar, Card, Group, Stack, Table, Text } from "@mantine/core";
-import { Link, useNavigate } from "react-router";
+import {
+	Avatar,
+	Card,
+	Group,
+	Skeleton,
+	Stack,
+	Table,
+	Text,
+} from "@mantine/core";
+import { Link } from "react-router";
+import type { DashboardTopProduct } from "@/api/dashboard";
 import { canViewPrices } from "@/config/permissions";
 import { formatIDR } from "@/utils/format";
-import { getTopProducts } from "./dashboardData";
 
-const topProducts = getTopProducts();
+interface TopProductsCardProps {
+	products: DashboardTopProduct[];
+	isLoading: boolean;
+}
 
-export function TopProductsCard() {
-	const navigate = useNavigate();
-
+export function TopProductsCard({ products, isLoading }: TopProductsCardProps) {
 	return (
 		<Card withBorder h="100%">
 			<Card.Section inheritPadding py="md">
@@ -21,7 +30,14 @@ export function TopProductsCard() {
 			</Card.Section>
 
 			<Card.Section inheritPadding pb="md">
-				{topProducts.length === 0 ? (
+				{isLoading ? (
+					<Stack gap="xs">
+						{Array.from({ length: 5 }).map((_, i) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows, no stable id
+							<Skeleton key={i} h={48} radius="sm" />
+						))}
+					</Stack>
+				) : products.length === 0 ? (
 					<Text c="dimmed" ta="center" py="xl">
 						No sales data yet
 					</Text>
@@ -30,36 +46,34 @@ export function TopProductsCard() {
 						<Table.Thead>
 							<Table.Tr>
 								<Table.Th>Product</Table.Th>
-								{canViewPrices && <Table.Th>Price</Table.Th>}
 								<Table.Th>Sales</Table.Th>
 								{canViewPrices && <Table.Th>Revenue</Table.Th>}
 							</Table.Tr>
 						</Table.Thead>
 						<Table.Tbody>
-							{topProducts.map(({ product, sales, revenue }) => (
-								<Table.Tr
-									key={product.id}
-									onClick={() => navigate(`/products/${product.id}/edit`)}
-									style={{ cursor: "pointer" }}
-								>
+							{products.map((product) => (
+								<Table.Tr key={product.detailProductId}>
 									<Table.Td>
 										<Group gap="sm" wrap="nowrap">
-											<Avatar src={product.image} size={36} radius="sm" />
+											<Avatar
+												src={product.imageUrl ?? undefined}
+												size={36}
+												radius="sm"
+											/>
 											<Stack gap={0} style={{ minWidth: 0 }}>
 												<Text size="sm" fw={500} truncate>
-													{product.name}
+													{product.productName}
 												</Text>
 												<Text size="xs" c="dimmed">
-													{product.category}
+													{product.colorName}
 												</Text>
 											</Stack>
 										</Group>
 									</Table.Td>
+									<Table.Td>{product.quantitySold}</Table.Td>
 									{canViewPrices && (
-										<Table.Td>{formatIDR(product.price)}</Table.Td>
+										<Table.Td>{formatIDR(product.revenue)}</Table.Td>
 									)}
-									<Table.Td>{sales}</Table.Td>
-									{canViewPrices && <Table.Td>{formatIDR(revenue)}</Table.Td>}
 								</Table.Tr>
 							))}
 						</Table.Tbody>
