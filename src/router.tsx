@@ -24,6 +24,7 @@ import { JobEditor } from "@/pages/jobs/JobEditor";
 import { JobsList } from "@/pages/jobs/JobsList";
 import { MarketplacesPage } from "@/pages/marketplace/MarketplacesPage";
 import { MediaLibrary } from "@/pages/media/MediaLibrary";
+import { ContactMessages } from "@/pages/messages/ContactMessages";
 import { OrderDetail } from "@/pages/orders/OrderDetail";
 import { OrderSales } from "@/pages/orders/OrderSales";
 import { OrdersList } from "@/pages/orders/OrdersList";
@@ -183,7 +184,7 @@ const routes: RouteObject[] = [
 							},
 							{
 								path: "/messages",
-								element: <PlaceholderPage title="Contact Messages" />,
+								element: <ContactMessages />,
 							},
 							{
 								path: "/newsletter",

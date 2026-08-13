@@ -19,6 +19,7 @@ interface StatusBadgeProps extends Omit<BadgeProps, "color"> {
 		| "outofstock"
 		| "read"
 		| "unread"
+		| "replied"
 		| "ordered"
 		| "received"
 		| "expired"
@@ -45,6 +46,7 @@ export function StatusBadge({ status, children, ...props }: StatusBadgeProps) {
 		outofstock: { color: "red", label: "Out of Stock" },
 		read: { color: "gray", label: "Read" },
 		unread: { color: "blue", label: "Unread" },
+		replied: { color: "green", label: "Replied" },
 		ordered: { color: "blue", label: "Ordered" },
 		received: { color: "green", label: "Received" },
 		expired: { color: "red", label: "Expired" },
