@@ -97,12 +97,6 @@ export function PagesPage() {
 		setEditingBlockId(null);
 	};
 
-	const handleDeleteBlock = () => {
-		setBlocks((prev) => prev.filter((b) => b.id !== editingBlockId));
-		notify.success("Block deleted");
-		setEditingBlockId(null);
-	};
-
 	// ------ Render isi tab ------
 
 	const renderSection = () => {
@@ -212,7 +206,6 @@ export function PagesPage() {
 				<LandingBlockEditor
 					block={editingBlock}
 					onSave={handleSaveBlock}
-					onDelete={handleDeleteBlock}
 					onCancel={() => setEditingBlockId(null)}
 				/>
 			) : (

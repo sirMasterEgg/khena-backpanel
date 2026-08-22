@@ -7,16 +7,14 @@ import {
 	Grid,
 	Group,
 	Image,
-	Select,
 	Stack,
 	Text,
 	Textarea,
 	TextInput,
 } from "@mantine/core";
-import { modals } from "@mantine/modals";
 import { IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { getMediaPreviewUrl } from "@/api/media";
 import type { LandingBlock } from "@/data/dummy";
 import { MediaPickerModal } from "@/pages/color/MediaPickerModal";
@@ -25,31 +23,20 @@ import {
 	landingBlockSchema,
 } from "./landingBlockSchema";
 
-// Tujuan tautan tombol yang tersedia di storefront.
-const BUTTON_DESTINATION_OPTIONS = [
-	{ value: "/products", label: "/products" },
-	{ value: "/collections", label: "/collections" },
-	{ value: "/contract-projects", label: "/contract-projects" },
-	{ value: "/contact", label: "/contact" },
-];
-
 interface LandingBlockEditorProps {
 	block: LandingBlock;
 	onSave: (data: LandingBlockFormData) => void;
-	onDelete: () => void;
 	onCancel: () => void;
 }
 
 export function LandingBlockEditor({
 	block,
 	onSave,
-	onDelete,
 	onCancel,
 }: LandingBlockEditorProps) {
 	const [pickerOpened, setPickerOpened] = useState(false);
 
 	const {
-		control,
 		register,
 		handleSubmit,
 		watch,
@@ -61,7 +48,7 @@ export function LandingBlockEditor({
 			name: block.name,
 			headline: block.headline,
 			buttonLabel: block.buttonLabel,
-			buttonDestination: block.buttonDestination,
+			buttonDestination: block.buttonDestination ?? "",
 			mediaUrl: block.mediaUrl,
 		},
 	});
@@ -69,20 +56,6 @@ export function LandingBlockEditor({
 	const mediaUrl = watch("mediaUrl");
 
 	const onSubmit = (data: LandingBlockFormData) => onSave(data);
-
-	const confirmDelete = () => {
-		modals.openConfirmModal({
-			title: "Delete block",
-			children: (
-				<Text size="sm">
-					Delete <strong>{block.name}</strong>? This action cannot be undone.
-				</Text>
-			),
-			labels: { confirm: "Delete", cancel: "Cancel" },
-			confirmProps: { color: "red" },
-			onConfirm: onDelete,
-		});
-	};
 
 	return (
 		<>
@@ -159,43 +132,24 @@ export function LandingBlockEditor({
 								{...register("buttonLabel")}
 								error={errors.buttonLabel?.message}
 							/>
-							<Controller
-								name="buttonDestination"
-								control={control}
-								render={({ field }) => (
-									<Select
-										label="Button destination"
-										placeholder="No destination set"
-										data={BUTTON_DESTINATION_OPTIONS}
-										value={field.value}
-										onChange={field.onChange}
-										clearable
-										error={errors.buttonDestination?.message}
-									/>
-								)}
+							<TextInput
+								label="Button destination"
+								placeholder="e.g. /products (leave blank for no destination)"
+								{...register("buttonDestination")}
+								error={errors.buttonDestination?.message}
 							/>
 						</Stack>
 					</Card>
 				</Grid.Col>
 			</Grid>
 
-			<Group justify="space-between" mt="lg">
-				<Button
-					type="button"
-					color="red"
-					variant="light"
-					onClick={confirmDelete}
-				>
-					Delete block
+			<Group justify="flex-end" mt="lg">
+				<Button type="button" variant="default" onClick={onCancel}>
+					Cancel
 				</Button>
-				<Group gap="sm">
-					<Button type="button" variant="default" onClick={onCancel}>
-						Cancel
-					</Button>
-					<Button type="button" onClick={handleSubmit(onSubmit)}>
-						Save changes
-					</Button>
-				</Group>
+				<Button type="button" onClick={handleSubmit(onSubmit)}>
+					Save changes
+				</Button>
 			</Group>
 
 			<MediaPickerModal

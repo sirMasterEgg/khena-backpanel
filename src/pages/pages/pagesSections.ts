@@ -30,7 +30,7 @@ export const PAGE_SECTIONS: {
 	},
 	{
 		value: "shipping",
-		label: "shipping",
+		label: "Shipping",
 		subtitle: "Manage the questions and answers shown on the shipping page",
 	},
 	{

@@ -100,15 +100,12 @@ export function LandingBlockCard({
 							</Text>
 						)}
 					</Group>
+
+					<Text size="xs" c="dimmed" mt="md">
+						{formatUpdatedAt(block.updatedAt)}
+					</Text>
 				</Grid.Col>
 			</Grid>
-
-			{/* BARIS PALING BAWAH */}
-			<Group justify="space-between" mt="md">
-				<Text size="xs" c="dimmed">
-					{formatUpdatedAt(block.updatedAt)}
-				</Text>
-			</Group>
 		</Card>
 	);
 }
