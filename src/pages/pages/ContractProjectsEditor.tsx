@@ -1,4 +1,5 @@
 import {
+	Badge,
 	Button,
 	Card,
 	Group,
@@ -113,11 +114,11 @@ export function ContractProjectsEditor({
 							</Card.Section>
 							<Stack gap={4} mt="sm">
 								<Text fw={600}>{project.title}</Text>
-								<Text size="sm" c="dimmed">
-									{project.client}
-								</Text>
-								<Text size="sm" c="dimmed">
-									{project.location} · {project.year}
+								<Badge variant="light" w="fit-content">
+									{project.field}
+								</Badge>
+								<Text size="sm" c="dimmed" lineClamp={2}>
+									{project.description}
 								</Text>
 								<Group justify="space-between" mt="xs">
 									<StatusBadge status={project.status} />

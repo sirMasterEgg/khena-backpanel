@@ -7,6 +7,7 @@ import {
 	Select,
 	Stack,
 	Text,
+	Textarea,
 	TextInput,
 } from "@mantine/core";
 import { useEffect, useState } from "react";
@@ -49,9 +50,8 @@ export function ContractProjectModal({
 		resolver: zodResolver(contractProjectSchema),
 		defaultValues: {
 			title: "",
-			client: "",
-			location: "",
-			year: "",
+			field: "",
+			description: "",
 			coverUrl: "",
 			status: "draft",
 		},
@@ -63,9 +63,8 @@ export function ContractProjectModal({
 		if (!opened) return;
 		reset({
 			title: project?.title ?? "",
-			client: project?.client ?? "",
-			location: project?.location ?? "",
-			year: project?.year ?? "",
+			field: project?.field ?? "",
+			description: project?.description ?? "",
 			coverUrl: project?.coverUrl ?? "",
 			status: project?.status ?? "draft",
 		});
@@ -110,19 +109,17 @@ export function ContractProjectModal({
 						error={errors.title?.message}
 					/>
 					<TextInput
-						label="Client"
-						{...register("client")}
-						error={errors.client?.message}
+						label="Field"
+						placeholder="e.g. Hospitality, Office, Residential"
+						{...register("field")}
+						error={errors.field?.message}
 					/>
-					<TextInput
-						label="Location"
-						{...register("location")}
-						error={errors.location?.message}
-					/>
-					<TextInput
-						label="Year"
-						{...register("year")}
-						error={errors.year?.message}
+					<Textarea
+						label="Short description"
+						autosize
+						minRows={2}
+						{...register("description")}
+						error={errors.description?.message}
 					/>
 					<Controller
 						name="status"
