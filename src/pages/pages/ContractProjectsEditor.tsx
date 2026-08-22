@@ -1,20 +1,6 @@
-import {
-	Accordion,
-	ActionIcon,
-	Button,
-	Card,
-	Group,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { Button, Card, Group, SimpleGrid, Stack, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import {
-	IconArrowDown,
-	IconArrowUp,
-	IconEdit,
-	IconPlus,
-	IconTrash,
-} from "@tabler/icons-react";
+import { IconEdit, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import { notify } from "@/components/notify";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -89,14 +75,6 @@ export function ContractProjectsEditor({
 		});
 	};
 
-	const move = (index: number, direction: "up" | "down") => {
-		const target = direction === "up" ? index - 1 : index + 1;
-		if (target < 0 || target >= projects.length) return;
-		const next = [...projects];
-		[next[index], next[target]] = [next[target], next[index]];
-		onChange(next);
-	};
-
 	return (
 		<Stack gap="md">
 			<Group justify="space-between" align="flex-start">
@@ -111,9 +89,6 @@ export function ContractProjectsEditor({
 					Add project
 				</Button>
 			</Group>
-			<Text size="xs" c="dimmed">
-				Projects appear on the storefront in the order listed below.
-			</Text>
 
 			{projects.length === 0 ? (
 				<Card withBorder>
@@ -122,66 +97,40 @@ export function ContractProjectsEditor({
 					</Text>
 				</Card>
 			) : (
-				<Accordion variant="separated">
-					{projects.map((project, index) => (
-						<Accordion.Item key={project.id} value={project.id}>
-							<Group gap={0} wrap="nowrap">
-								<Stack gap={2} px="xs">
-									<ActionIcon
-										size="sm"
-										variant="subtle"
-										color="gray"
-										disabled={index === 0}
-										aria-label="Move up"
-										onClick={() => move(index, "up")}
+				<SimpleGrid cols={{ base: 1, sm: 2, md: 3 }}>
+					{projects.map((project) => (
+						<Card key={project.id} withBorder padding="lg">
+							<Stack gap="xs">
+								<Group justify="space-between" align="flex-start">
+									<Text fw={600}>{project.field}</Text>
+									<StatusBadge status={project.status} />
+								</Group>
+								<Text size="sm" c="dimmed">
+									{project.description}
+								</Text>
+								<Group gap="xs" mt="sm">
+									<Button
+										size="xs"
+										variant="default"
+										leftSection={<IconEdit size={14} />}
+										onClick={() => handleEdit(project)}
 									>
-										<IconArrowUp size={14} />
-									</ActionIcon>
-									<ActionIcon
-										size="sm"
+										Edit
+									</Button>
+									<Button
+										size="xs"
+										color="red"
 										variant="subtle"
-										color="gray"
-										disabled={index === projects.length - 1}
-										aria-label="Move down"
-										onClick={() => move(index, "down")}
+										leftSection={<IconTrash size={14} />}
+										onClick={() => confirmDelete(project)}
 									>
-										<IconArrowDown size={14} />
-									</ActionIcon>
-								</Stack>
-								<Accordion.Control>
-									<Group justify="space-between" wrap="nowrap">
-										<Text>{project.field}</Text>
-										<StatusBadge status={project.status} />
-									</Group>
-								</Accordion.Control>
-							</Group>
-							<Accordion.Panel>
-								<Stack gap="sm">
-									<Text size="sm">{project.description}</Text>
-									<Group gap="xs">
-										<Button
-											size="xs"
-											variant="default"
-											leftSection={<IconEdit size={14} />}
-											onClick={() => handleEdit(project)}
-										>
-											Edit
-										</Button>
-										<Button
-											size="xs"
-											color="red"
-											variant="subtle"
-											leftSection={<IconTrash size={14} />}
-											onClick={() => confirmDelete(project)}
-										>
-											Delete
-										</Button>
-									</Group>
-								</Stack>
-							</Accordion.Panel>
-						</Accordion.Item>
+										Delete
+									</Button>
+								</Group>
+							</Stack>
+						</Card>
 					))}
-				</Accordion>
+				</SimpleGrid>
 			)}
 
 			<ContractProjectModal
