@@ -1,6 +1,6 @@
-import { Button, Card, Group, Table, Text } from "@mantine/core";
+import { Button, Card, Group, Table, Text, TextInput } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import { IconFileTypePdf, IconPlus } from "@tabler/icons-react";
+import { IconFileTypePdf, IconPlus, IconSearch } from "@tabler/icons-react";
 import { useState } from "react";
 import { notify } from "@/components/notify";
 import type { AssemblyManual } from "@/data/dummy";
@@ -20,6 +20,11 @@ export function AssemblyManualsEditor({
 	const [editingManual, setEditingManual] = useState<AssemblyManual | null>(
 		null,
 	);
+	const [search, setSearch] = useState("");
+
+	const filteredManuals = manuals.filter((m) =>
+		m.productName.toLowerCase().includes(search.trim().toLowerCase()),
+	);
 
 	const handleAdd = () => {
 		setEditingManual(null);
@@ -33,6 +38,7 @@ export function AssemblyManualsEditor({
 
 	const handleSave = (data: {
 		productName: string;
+		productSku?: string;
 		fileName: string;
 		fileSize: string;
 	}) => {
@@ -93,10 +99,19 @@ export function AssemblyManualsEditor({
 				</Button>
 			</Group>
 
-			{manuals.length === 0 ? (
+			<TextInput
+				placeholder="Search product..."
+				leftSection={<IconSearch size={16} />}
+				value={search}
+				onChange={(e) => setSearch(e.currentTarget.value)}
+				mb="md"
+				w={280}
+			/>
+
+			{filteredManuals.length === 0 ? (
 				<Card withBorder>
 					<Text c="dimmed" ta="center" py="xl">
-						No manuals yet
+						{search ? "No manuals match your search" : "No manuals yet"}
 					</Text>
 				</Card>
 			) : (
@@ -105,6 +120,7 @@ export function AssemblyManualsEditor({
 						<Table.Thead>
 							<Table.Tr>
 								<Table.Th>Product</Table.Th>
+								<Table.Th>SKU</Table.Th>
 								<Table.Th>File</Table.Th>
 								<Table.Th>Size</Table.Th>
 								<Table.Th>Updated</Table.Th>
@@ -112,9 +128,16 @@ export function AssemblyManualsEditor({
 							</Table.Tr>
 						</Table.Thead>
 						<Table.Tbody>
-							{manuals.map((manual) => (
+							{filteredManuals.map((manual) => (
 								<Table.Tr key={manual.id}>
 									<Table.Td>{manual.productName}</Table.Td>
+									<Table.Td>
+										{manual.productSku ?? (
+											<Text size="sm" c="dimmed">
+												—
+											</Text>
+										)}
+									</Table.Td>
 									<Table.Td>
 										<Group gap="xs" wrap="nowrap">
 											<IconFileTypePdf size={16} />

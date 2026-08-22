@@ -1,20 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-	Button,
-	Card,
-	Group,
-	Modal,
-	Stack,
-	Text,
-	TextInput,
-} from "@mantine/core";
-import { useDebouncedValue } from "@mantine/hooks";
-import { IconFileTypePdf, IconSearch } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { Button, Group, Modal, Stack, Text, TextInput } from "@mantine/core";
+import { IconFileTypePdf } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { MediaFile } from "@/api/media";
-import { listProducts } from "@/api/products";
 import type { AssemblyManual } from "@/data/dummy";
 import { MediaPickerModal } from "@/pages/color/MediaPickerModal";
 import {
@@ -44,8 +33,6 @@ export function AssemblyManualModal({
 	const isEdit = Boolean(manual);
 	const [pickerOpened, setPickerOpened] = useState(false);
 	const [fileSize, setFileSize] = useState("");
-	// Dropdown hasil pencarian produk cuma tampil selagi input sedang difokus.
-	const [searchFocused, setSearchFocused] = useState(false);
 
 	const {
 		register,
@@ -56,30 +43,16 @@ export function AssemblyManualModal({
 		formState: { errors },
 	} = useForm<AssemblyManualFormData>({
 		resolver: zodResolver(assemblyManualSchema),
-		defaultValues: { productName: "", fileName: "" },
+		defaultValues: { productName: "", productSku: "", fileName: "" },
 	});
-
-	const productNameField = register("productName");
 
 	const fileName = watch("fileName");
-	const productName = watch("productName");
-	const [debouncedProductName] = useDebouncedValue(productName, 300);
-
-	const productSearchQuery = useQuery({
-		queryKey: ["products", { search: debouncedProductName, forAssembly: true }],
-		queryFn: () => listProducts({ search: debouncedProductName, limit: 8 }),
-		enabled: debouncedProductName.trim().length > 0,
-	});
-	const productSuggestions = productSearchQuery.data?.data ?? [];
-	const showDropdown =
-		searchFocused &&
-		debouncedProductName.trim().length > 0 &&
-		productSuggestions.length > 0;
 
 	useEffect(() => {
 		if (!opened) return;
 		reset({
 			productName: manual?.productName ?? "",
+			productSku: manual?.productSku ?? "",
 			fileName: manual?.fileName ?? "",
 		});
 		setFileSize(manual?.fileSize ?? "");
@@ -105,53 +78,16 @@ export function AssemblyManualModal({
 				centered
 			>
 				<Stack gap="md">
-					<div style={{ position: "relative" }}>
-						<TextInput
-							label="Product name"
-							placeholder="Search product..."
-							leftSection={<IconSearch size={16} />}
-							{...productNameField}
-							onFocus={() => setSearchFocused(true)}
-							onBlur={(e) => {
-								productNameField.onBlur(e);
-								setTimeout(() => setSearchFocused(false), 150);
-							}}
-							error={errors.productName?.message}
-						/>
-						{showDropdown && (
-							<Card
-								withBorder
-								p="xs"
-								style={{
-									position: "absolute",
-									zIndex: 10,
-									width: "100%",
-									marginTop: 4,
-									maxHeight: 220,
-									overflowY: "auto",
-								}}
-							>
-								<Stack gap={4}>
-									{productSuggestions.map((product) => (
-										<Button
-											key={product.id}
-											type="button"
-											variant="subtle"
-											justify="flex-start"
-											fullWidth
-											onClick={() =>
-												setValue("productName", product.name, {
-													shouldValidate: true,
-												})
-											}
-										>
-											{product.name} ({product.baseSku})
-										</Button>
-									))}
-								</Stack>
-							</Card>
-						)}
-					</div>
+					<TextInput
+						label="Product name"
+						{...register("productName")}
+						error={errors.productName?.message}
+					/>
+					<TextInput
+						label="SKU (optional)"
+						{...register("productSku")}
+						error={errors.productSku?.message}
+					/>
 					<Stack gap="xs">
 						<Text size="sm" fw={500}>
 							PDF file
