@@ -38,8 +38,14 @@ export function LandingBlockCard({
 			<Grid>
 				{/* KOLOM KIRI — preview media */}
 				<Grid.Col span={{ base: 12, md: 4 }}>
-					<div style={{ position: "relative" }}>
-						<Image src={block.mediaUrl} radius="sm" h={160} fit="cover" />
+					<div style={{ position: "relative", height: "100%", minHeight: 160 }}>
+						<Image
+							src={block.mediaUrl}
+							radius="sm"
+							h="100%"
+							mih={160}
+							fit="cover"
+						/>
 						<Group gap="xs" style={{ position: "absolute", top: 8, left: 8 }}>
 							{block.isVideo && <Badge color="dark">Video</Badge>}
 							{block.type === "carousel" && (
