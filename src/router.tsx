@@ -29,6 +29,7 @@ import { OrderDetail } from "@/pages/orders/OrderDetail";
 import { OrderSales } from "@/pages/orders/OrderSales";
 import { OrdersList } from "@/pages/orders/OrdersList";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
+import { PagesPage } from "@/pages/pages/PagesPage";
 import { PointOfSalePage } from "@/pages/pos/PointOfSalePage";
 import { ProductDetail } from "@/pages/products/ProductDetail";
 import { ProductEditor } from "@/pages/products/ProductEditor";
@@ -136,7 +137,7 @@ const routes: RouteObject[] = [
 							},
 							{
 								path: "/pages",
-								element: <PlaceholderPage title="Pages" />,
+								element: <PagesPage />,
 							},
 							{
 								path: "/media",

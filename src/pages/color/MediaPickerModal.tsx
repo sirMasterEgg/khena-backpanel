@@ -14,7 +14,12 @@ import { IconFolder, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { getApiErrorMessage } from "@/api/client";
-import { browseMedia, getMediaPreviewUrl, type MediaFile } from "@/api/media";
+import {
+	browseMedia,
+	getMediaPreviewUrl,
+	type MediaFile,
+	type MediaFileType,
+} from "@/api/media";
 import { MediaBreadcrumb } from "@/pages/media/MediaBreadcrumb";
 
 const SEARCH_DEBOUNCE_MS = 400;
@@ -27,12 +32,15 @@ interface MediaPickerModalProps {
 	 * DAN URL preview, dan keduanya sudah ada di objek ini tanpa request tambahan.
 	 */
 	onSelect: (file: MediaFile) => void;
+	/** Batasi jenis file yang bisa dipilih. Default "image" (perilaku lama). */
+	type?: MediaFileType;
 }
 
 export function MediaPickerModal({
 	opened,
 	onClose,
 	onSelect,
+	type = "image",
 }: MediaPickerModalProps) {
 	const [currentPath, setCurrentPath] = useState("/");
 	const [search, setSearch] = useState("");
@@ -41,11 +49,10 @@ export function MediaPickerModal({
 	const isSearching = debouncedSearch.trim().length > 0;
 
 	const { data, isLoading, isError, error } = useQuery({
-		// Swatch tidak masuk akal berupa video/dokumen → batasi ke image saja.
-		queryKey: ["media", currentPath, { type: "image", search: debouncedSearch }],
+		queryKey: ["media", currentPath, { type, search: debouncedSearch }],
 		queryFn: () =>
 			browseMedia(currentPath, {
-				type: "image",
+				type,
 				search: debouncedSearch || undefined,
 			}),
 		enabled: opened,
