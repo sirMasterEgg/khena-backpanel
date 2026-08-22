@@ -1,22 +1,28 @@
 import {
+	Accordion,
+	ActionIcon,
 	Badge,
 	Button,
 	Card,
 	Group,
 	Image,
-	SimpleGrid,
 	Stack,
 	Text,
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import { IconPlus } from "@tabler/icons-react";
+import {
+	IconArrowDown,
+	IconArrowUp,
+	IconEdit,
+	IconPlus,
+	IconTrash,
+} from "@tabler/icons-react";
 import { useState } from "react";
 import { notify } from "@/components/notify";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { ContractProject } from "@/data/dummy";
 import { ContractProjectModal } from "./ContractProjectModal";
 import type { ContractProjectFormData } from "./contractProjectSchema";
-import { formatUpdatedAt } from "./format";
 
 interface ContractProjectsEditorProps {
 	projects: ContractProject[];
@@ -84,9 +90,17 @@ export function ContractProjectsEditor({
 		});
 	};
 
+	const move = (index: number, direction: "up" | "down") => {
+		const target = direction === "up" ? index - 1 : index + 1;
+		if (target < 0 || target >= projects.length) return;
+		const next = [...projects];
+		[next[index], next[target]] = [next[target], next[index]];
+		onChange(next);
+	};
+
 	return (
-		<>
-			<Group justify="space-between" mb="md">
+		<Stack gap="md">
+			<Group justify="space-between" align="flex-start">
 				<Text size="sm" c="dimmed">
 					Manage the projects shown on the trade / contract page.
 				</Text>
@@ -98,6 +112,9 @@ export function ContractProjectsEditor({
 					Add project
 				</Button>
 			</Group>
+			<Text size="xs" c="dimmed">
+				Projects appear on the storefront in the order listed below.
+			</Text>
 
 			{projects.length === 0 ? (
 				<Card withBorder>
@@ -106,47 +123,78 @@ export function ContractProjectsEditor({
 					</Text>
 				</Card>
 			) : (
-				<SimpleGrid cols={{ base: 1, sm: 2, md: 3 }}>
-					{projects.map((project) => (
-						<Card key={project.id} withBorder padding="lg">
-							<Card.Section>
-								<Image src={project.coverUrl} h={140} fit="cover" />
-							</Card.Section>
-							<Stack gap={4} mt="sm">
-								<Text fw={600}>{project.title}</Text>
-								<Badge variant="light" w="fit-content">
-									{project.field}
-								</Badge>
-								<Text size="sm" c="dimmed" lineClamp={2}>
-									{project.description}
-								</Text>
-								<Group justify="space-between" mt="xs">
-									<StatusBadge status={project.status} />
-									<Text size="xs" c="dimmed">
-										{formatUpdatedAt(project.updatedAt)}
-									</Text>
-								</Group>
-								<Group gap="xs" mt="sm">
-									<Button
-										size="xs"
-										variant="default"
-										onClick={() => handleEdit(project)}
-									>
-										Edit
-									</Button>
-									<Button
-										size="xs"
-										color="red"
+				<Accordion variant="separated">
+					{projects.map((project, index) => (
+						<Accordion.Item key={project.id} value={project.id}>
+							<Group gap={0} wrap="nowrap">
+								<Stack gap={2} px="xs">
+									<ActionIcon
+										size="sm"
 										variant="subtle"
-										onClick={() => confirmDelete(project)}
+										color="gray"
+										disabled={index === 0}
+										aria-label="Move up"
+										onClick={() => move(index, "up")}
 									>
-										Delete
-									</Button>
+										<IconArrowUp size={14} />
+									</ActionIcon>
+									<ActionIcon
+										size="sm"
+										variant="subtle"
+										color="gray"
+										disabled={index === projects.length - 1}
+										aria-label="Move down"
+										onClick={() => move(index, "down")}
+									>
+										<IconArrowDown size={14} />
+									</ActionIcon>
+								</Stack>
+								<Accordion.Control>
+									<Group justify="space-between" wrap="nowrap">
+										<Group gap="xs" wrap="nowrap">
+											<Text>{project.title}</Text>
+											<Badge variant="light">{project.field}</Badge>
+										</Group>
+										<StatusBadge status={project.status} />
+									</Group>
+								</Accordion.Control>
+							</Group>
+							<Accordion.Panel>
+								<Group gap="md" align="flex-start" wrap="nowrap">
+									<Image
+										src={project.coverUrl}
+										w={120}
+										h={80}
+										radius="sm"
+										fit="cover"
+									/>
+									<Stack gap="sm" style={{ flex: 1 }}>
+										<Text size="sm">{project.description}</Text>
+										<Group gap="xs">
+											<Button
+												size="xs"
+												variant="default"
+												leftSection={<IconEdit size={14} />}
+												onClick={() => handleEdit(project)}
+											>
+												Edit
+											</Button>
+											<Button
+												size="xs"
+												color="red"
+												variant="subtle"
+												leftSection={<IconTrash size={14} />}
+												onClick={() => confirmDelete(project)}
+											>
+												Delete
+											</Button>
+										</Group>
+									</Stack>
 								</Group>
-							</Stack>
-						</Card>
+							</Accordion.Panel>
+						</Accordion.Item>
 					))}
-				</SimpleGrid>
+				</Accordion>
 			)}
 
 			<ContractProjectModal
@@ -155,6 +203,6 @@ export function ContractProjectsEditor({
 				onSave={handleSave}
 				project={editingProject}
 			/>
-		</>
+		</Stack>
 	);
 }
