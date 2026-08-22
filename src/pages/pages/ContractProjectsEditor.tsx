@@ -1,11 +1,9 @@
 import {
 	Accordion,
 	ActionIcon,
-	Badge,
 	Button,
 	Card,
 	Group,
-	Image,
 	Stack,
 	Text,
 } from "@mantine/core";
@@ -78,7 +76,8 @@ export function ContractProjectsEditor({
 			title: "Delete project",
 			children: (
 				<Text size="sm">
-					Delete <strong>{project.title}</strong>? This action cannot be undone.
+					Delete <strong>{project.field}</strong> project? This action cannot be
+					undone.
 				</Text>
 			),
 			labels: { confirm: "Delete", cancel: "Cancel" },
@@ -151,46 +150,34 @@ export function ContractProjectsEditor({
 								</Stack>
 								<Accordion.Control>
 									<Group justify="space-between" wrap="nowrap">
-										<Group gap="xs" wrap="nowrap">
-											<Text>{project.title}</Text>
-											<Badge variant="light">{project.field}</Badge>
-										</Group>
+										<Text>{project.field}</Text>
 										<StatusBadge status={project.status} />
 									</Group>
 								</Accordion.Control>
 							</Group>
 							<Accordion.Panel>
-								<Group gap="md" align="flex-start" wrap="nowrap">
-									<Image
-										src={project.coverUrl}
-										w={120}
-										h={80}
-										radius="sm"
-										fit="cover"
-									/>
-									<Stack gap="sm" style={{ flex: 1 }}>
-										<Text size="sm">{project.description}</Text>
-										<Group gap="xs">
-											<Button
-												size="xs"
-												variant="default"
-												leftSection={<IconEdit size={14} />}
-												onClick={() => handleEdit(project)}
-											>
-												Edit
-											</Button>
-											<Button
-												size="xs"
-												color="red"
-												variant="subtle"
-												leftSection={<IconTrash size={14} />}
-												onClick={() => confirmDelete(project)}
-											>
-												Delete
-											</Button>
-										</Group>
-									</Stack>
-								</Group>
+								<Stack gap="sm">
+									<Text size="sm">{project.description}</Text>
+									<Group gap="xs">
+										<Button
+											size="xs"
+											variant="default"
+											leftSection={<IconEdit size={14} />}
+											onClick={() => handleEdit(project)}
+										>
+											Edit
+										</Button>
+										<Button
+											size="xs"
+											color="red"
+											variant="subtle"
+											leftSection={<IconTrash size={14} />}
+											onClick={() => confirmDelete(project)}
+										>
+											Delete
+										</Button>
+									</Group>
+								</Stack>
 							</Accordion.Panel>
 						</Accordion.Item>
 					))}

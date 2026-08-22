@@ -2189,10 +2189,8 @@ export const dummyAssemblyManuals: AssemblyManual[] = [
 
 export type ContractProject = {
 	id: string;
-	title: string;
 	field: string; // kategori/industri proyek, mis. "Hospitality"
 	description: string; // deskripsi singkat
-	coverUrl: string;
 	status: "published" | "draft";
 	updatedAt: string;
 };
@@ -2200,31 +2198,25 @@ export type ContractProject = {
 export const dummyContractProjects: ContractProject[] = [
 	{
 		id: "PRJ-001",
-		title: "Skyline Hotel Lobby Furnishing",
 		field: "Hospitality",
 		description:
 			"Custom lobby seating and reception furniture for a 5-star hotel chain.",
-		coverUrl: "https://placehold.co/600x400?text=Skyline+Hotel",
 		status: "published",
 		updatedAt: "2026-08-06",
 	},
 	{
 		id: "PRJ-002",
-		title: "Greenview Office Interior",
 		field: "Office",
 		description:
 			"Workstations and lounge furniture for a modern coworking space.",
-		coverUrl: "https://placehold.co/600x400?text=Greenview+Office",
 		status: "published",
 		updatedAt: "2026-08-02",
 	},
 	{
 		id: "PRJ-003",
-		title: "Harborfront Restaurant Fit-out",
 		field: "Hospitality",
 		description:
 			"Dining chairs, tables, and bar furniture for a waterfront restaurant.",
-		coverUrl: "https://placehold.co/600x400?text=Harborfront",
 		status: "draft",
 		updatedAt: "2026-07-25",
 	},
