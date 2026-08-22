@@ -23,6 +23,11 @@ import {
 	landingBlockSchema,
 } from "./landingBlockSchema";
 
+/** Buang "/" di depan supaya tidak dobel dengan leftSection input. */
+function stripLeadingSlash(value: string) {
+	return value.replace(/^\/+/, "");
+}
+
 interface LandingBlockEditorProps {
 	block: LandingBlock;
 	onSave: (data: LandingBlockFormData) => void;
@@ -48,14 +53,20 @@ export function LandingBlockEditor({
 			name: block.name,
 			headline: block.headline,
 			buttonLabel: block.buttonLabel,
-			buttonDestination: block.buttonDestination ?? "",
+			buttonDestination: stripLeadingSlash(block.buttonDestination ?? ""),
 			mediaUrl: block.mediaUrl,
 		},
 	});
 
 	const mediaUrl = watch("mediaUrl");
 
-	const onSubmit = (data: LandingBlockFormData) => onSave(data);
+	const onSubmit = (data: LandingBlockFormData) => {
+		const destination = stripLeadingSlash(data.buttonDestination.trim());
+		onSave({
+			...data,
+			buttonDestination: destination ? `/${destination}` : "",
+		});
+	};
 
 	return (
 		<>
@@ -134,7 +145,9 @@ export function LandingBlockEditor({
 							/>
 							<TextInput
 								label="Button destination"
-								placeholder="e.g. /products (leave blank for no destination)"
+								description="Leave blank for no destination"
+								placeholder="products"
+								leftSection="/"
 								{...register("buttonDestination")}
 								error={errors.buttonDestination?.message}
 							/>
