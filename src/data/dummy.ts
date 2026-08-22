@@ -2149,6 +2149,7 @@ export const FAQ_CATEGORIES = [
 export type AssemblyManual = {
 	id: string;
 	productName: string;
+	productSku?: string; // opsional, mis. "SOF-OAK-3S"
 	fileName: string; // mis. "sofa-assembly.pdf"
 	fileSize: string; // mis. "1.2 MB"
 	updatedAt: string;
@@ -2158,6 +2159,7 @@ export const dummyAssemblyManuals: AssemblyManual[] = [
 	{
 		id: "MAN-001",
 		productName: "Oakwood 3-Seater Sofa",
+		productSku: "SOF-OAK-3S",
 		fileName: "oakwood-sofa-assembly.pdf",
 		fileSize: "1.2 MB",
 		updatedAt: "2026-08-11",
@@ -2165,6 +2167,7 @@ export const dummyAssemblyManuals: AssemblyManual[] = [
 	{
 		id: "MAN-002",
 		productName: "Maple Dining Table",
+		productSku: "TBL-MPL-DN",
 		fileName: "maple-dining-table-assembly.pdf",
 		fileSize: "860 KB",
 		updatedAt: "2026-08-08",
@@ -2179,6 +2182,7 @@ export const dummyAssemblyManuals: AssemblyManual[] = [
 	{
 		id: "MAN-004",
 		productName: "Birchwood Bed Frame",
+		productSku: "BED-BIR-FR",
 		fileName: "birchwood-bed-frame-assembly.pdf",
 		fileSize: "2.1 MB",
 		updatedAt: "2026-07-30",
