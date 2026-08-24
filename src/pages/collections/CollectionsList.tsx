@@ -26,7 +26,7 @@ import {
 	IconStack2,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { getApiErrorMessage } from "@/api/client";
 import {
@@ -42,6 +42,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { StatusBadge } from "@/components/StatusBadge";
 import { STATUS } from "@/data/constants.ts";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
 /** Nilai dropdown sort UI → pasangan `sort` + `orderDir` untuk query API. */
@@ -53,6 +54,7 @@ const SORT_PARAMS: Record<
 	oldest: { sort: "createdAt", orderDir: "asc" },
 	"name-az": { sort: "name", orderDir: "asc" },
 };
+const SORT_VALUES = Object.keys(SORT_PARAMS);
 
 function isCollectionStatus(value: string | null): value is CollectionStatus {
 	return value === "published" || value === "draft";
@@ -63,22 +65,45 @@ export function CollectionsList() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 
-	const [search, setSearch] = useState("");
-	const [statusFilter, setStatusFilter] = useState<string | null>(null);
-	const [sortBy, setSortBy] = useState<string | null>(null);
-	const [page, setPage] = useState(1);
+	const [filters, setFilters] = useFilterParams({
+		q: "",
+		status: "",
+		sort: "",
+		page: 1,
+	});
+
+	// Aturan 2.5 — user bisa mengetik ?status=ngawur atau ?sort=ngawur di address bar.
+	const status = isCollectionStatus(filters.status) ? filters.status : "";
+	const sort = SORT_VALUES.includes(filters.sort) ? filters.sort : "";
+
+	// Resep search dari Batch 0.4.
+	const [searchInput, setSearchInput] = useState(filters.q);
+	const [debouncedInput] = useDebouncedValue(searchInput, 300);
+	useEffect(() => {
+		if (debouncedInput !== filters.q) {
+			setFilters({ q: debouncedInput }, { replace: true });
+		}
+	}, [debouncedInput, filters.q, setFilters]);
+	useEffect(() => {
+		setSearchInput(filters.q);
+	}, [filters.q]);
+
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
 	// Loop bulk berjalan manual (bukan useMutation) — flag ini untuk disable tombol.
 	const [bulkRunning, setBulkRunning] = useState(false);
 
-	// Debounce supaya tidak request ke server tiap keystroke.
-	const [debouncedSearch] = useDebouncedValue(search, 300);
+	// Bulk selection tidak relevan lagi begitu filter berubah — tapi TIDAK
+	// direset saat ganti halaman, supaya selection lintas halaman tetap awet.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: deps sengaja dipakai sebagai trigger, bukan dibaca di body.
+	useEffect(() => {
+		setSelectedIds([]);
+	}, [filters.status, filters.q]);
 
 	const params: CollectionListParams = {
-		search: debouncedSearch || undefined,
-		status: isCollectionStatus(statusFilter) ? statusFilter : undefined,
-		...(sortBy ? SORT_PARAMS[sortBy] : undefined),
-		page,
+		search: filters.q || undefined,
+		status: status || undefined,
+		...(sort ? SORT_PARAMS[sort] : undefined),
+		page: filters.page,
 		limit: 10,
 	};
 
@@ -101,17 +126,21 @@ export function CollectionsList() {
 	const invalidateCollections = () =>
 		queryClient.invalidateQueries({ queryKey: ["collections"] });
 
-	// Reset page when filters change
-	const handleFilterChange = (callback: () => void) => {
-		setPage(1);
-		callback();
-	};
-
+	// Selection dipertahankan lintas halaman, jadi "select all" harus dicek
+	// per-id item yang tampil di halaman ini — bukan sekadar bandingkan jumlah
+	// (selectedIds bisa berisi id dari halaman lain).
+	const allOnPageSelected =
+		collections.length > 0 &&
+		collections.every((c) => selectedIds.includes(c.id));
 	const toggleSelectAll = () => {
-		if (selectedIds.length === collections.length) {
-			setSelectedIds([]);
+		const pageIds = new Set(collections.map((c) => c.id));
+		if (allOnPageSelected) {
+			setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)));
 		} else {
-			setSelectedIds(collections.map((c) => c.id));
+			setSelectedIds((prev) => [
+				...prev,
+				...collections.map((c) => c.id).filter((id) => !prev.includes(id)),
+			]);
 		}
 	};
 
@@ -304,16 +333,14 @@ export function CollectionsList() {
 						<TextInput
 							placeholder="Search collections..."
 							leftSection={<IconSearch size={16} />}
-							value={search}
-							onChange={(e) =>
-								handleFilterChange(() => setSearch(e.currentTarget.value))
-							}
+							value={searchInput}
+							onChange={(e) => setSearchInput(e.currentTarget.value)}
 						/>
 						<Select
 							placeholder="Status"
 							data={STATUS}
-							value={statusFilter}
-							onChange={(val) => handleFilterChange(() => setStatusFilter(val))}
+							value={status || null}
+							onChange={(val) => setFilters({ status: val ?? "" })}
 							clearable
 						/>
 					</Group>
@@ -326,8 +353,8 @@ export function CollectionsList() {
 							{ value: "oldest", label: "Oldest" },
 							{ value: "name-az", label: "Name A-Z" },
 						]}
-						value={sortBy}
-						onChange={(val) => handleFilterChange(() => setSortBy(val))}
+						value={sort || null}
+						onChange={(val) => setFilters({ sort: val ?? "" })}
 						clearable
 					/>
 				</Group>
@@ -349,13 +376,10 @@ export function CollectionsList() {
 							<Table.Tr>
 								<Table.Th style={{ width: 40 }}>
 									<Checkbox
-										checked={
-											selectedIds.length === collections.length &&
-											collections.length > 0
-										}
+										checked={allOnPageSelected}
 										indeterminate={
-											selectedIds.length > 0 &&
-											selectedIds.length < collections.length
+											!allOnPageSelected &&
+											collections.some((c) => selectedIds.includes(c.id))
 										}
 										onChange={toggleSelectAll}
 									/>
@@ -383,7 +407,7 @@ export function CollectionsList() {
 												onChange={() => toggleSelectCollection(collection.id)}
 											/>
 										</Table.Td>
-										<Table.Td>{(page - 1) * 10 + index + 1}</Table.Td>
+										<Table.Td>{(filters.page - 1) * 10 + index + 1}</Table.Td>
 										<Table.Td>
 											<span style={{ fontWeight: 500 }}>{collection.name}</span>
 										</Table.Td>
@@ -434,7 +458,11 @@ export function CollectionsList() {
 				{/* Pagination */}
 				{totalPages > 1 && (
 					<Group justify="center" mt="md">
-						<Pagination value={page} onChange={setPage} total={totalPages} />
+						<Pagination
+							value={filters.page}
+							onChange={(p) => setFilters({ page: p })}
+							total={totalPages}
+						/>
 					</Group>
 				)}
 			</Card>

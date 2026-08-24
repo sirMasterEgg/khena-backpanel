@@ -26,7 +26,7 @@ import {
 	IconStack2,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
 	type Category,
@@ -43,6 +43,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { StatusBadge } from "@/components/StatusBadge";
 import { STATUS } from "@/data/constants.ts";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useRoomTypeOptions } from "@/hooks/useRoomTypeOptions";
 
@@ -50,8 +51,18 @@ const ITEMS_PER_PAGE = 10;
 /** Jeda sebelum ketikan di kolom search dikirim ke server. */
 const SEARCH_DEBOUNCE_MS = 400;
 
+const STATUS_VALUES = STATUS.map((s) => s.value) as string[];
+
+const SORT_OPTIONS = [
+	{ value: "newest", label: "Newest" },
+	{ value: "oldest", label: "Oldest" },
+	{ value: "name-az", label: "Name A-Z" },
+	{ value: "order", label: "Display order" },
+];
+const SORT_VALUES = SORT_OPTIONS.map((o) => o.value);
+
 /** Opsi sort di UI tidak sama dgn kolom sort API — petakan dulu. */
-function mapSortToApi(sortBy: string | null): CategorySortField {
+function mapSortToApi(sortBy: string): CategorySortField {
 	switch (sortBy) {
 		case "name-az":
 			return "name";
@@ -62,7 +73,7 @@ function mapSortToApi(sortBy: string | null): CategorySortField {
 	}
 }
 
-function mapOrderDirToApi(sortBy: string | null): "asc" | "desc" {
+function mapOrderDirToApi(sortBy: string): "asc" | "desc" {
 	switch (sortBy) {
 		case "oldest":
 		case "name-az":
@@ -95,32 +106,64 @@ export function CategoriesList() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 
-	// `search` = nilai input (langsung, biar ketikan responsif),
-	// `debouncedSearch` = yang dikirim ke server.
-	const [search, setSearch] = useState("");
-	const [debouncedSearch] = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
-	const [statusFilter, setStatusFilter] = useState<string | null>(null);
-	const [roomTypeFilter, setRoomTypeFilter] = useState<string | null>(null);
-	const [sortBy, setSortBy] = useState<string | null>(null);
-	const [page, setPage] = useState(1);
-	const [selectedIds, setSelectedIds] = useState<string[]>([]);
+	const [filters, setFilters] = useFilterParams({
+		q: "",
+		status: "all",
+		roomType: "all",
+		sort: "newest",
+		page: 1,
+	});
 
 	const { options: roomTypeOptions, nameById: roomTypeNameById } =
 		useRoomTypeOptions();
 
+	// Aturan 2.5 — user bisa mengetik ?status=ngawur, ?roomType=ngawur, atau
+	// ?sort=ngawur di address bar. Validasi sebelum dipakai di queryKey/API/Select.
+	const status = STATUS_VALUES.includes(filters.status)
+		? (filters.status as CategoryStatus)
+		: "all";
+	const roomTypeValues = ["all", ...roomTypeOptions.map((o) => o.value)];
+	const roomType = roomTypeValues.includes(filters.roomType)
+		? filters.roomType
+		: "all";
+	const sortBy = SORT_VALUES.includes(filters.sort) ? filters.sort : "newest";
+
+	// Resep search dari Batch 0.4 (OrdersList) — input tetap local state biar
+	// ketikan responsif, ditulis ke URL setelah debounce pakai replace.
+	const [searchInput, setSearchInput] = useState(filters.q);
+	const [debouncedInput] = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
+	useEffect(() => {
+		if (debouncedInput !== filters.q) {
+			setFilters({ q: debouncedInput }, { replace: true });
+		}
+	}, [debouncedInput, filters.q, setFilters]);
+	useEffect(() => {
+		setSearchInput(filters.q);
+	}, [filters.q]);
+
+	const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+	// Selection bukan bagian dari URL — direset saat filter berubah supaya
+	// tidak nyangkut ke baris yang sudah tidak tampil, TAPI TIDAK direset saat
+	// ganti halaman — selection sengaja dipertahankan lintas halaman.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: deps sengaja dipakai sebagai trigger, bukan dibaca di body.
+	useEffect(() => {
+		setSelectedIds([]);
+	}, [filters.status, filters.q, filters.roomType]);
+
 	const { data, isLoading, isError, error } = useQuery({
 		queryKey: [
 			"categories",
-			{ search: debouncedSearch, statusFilter, roomTypeFilter, sortBy, page },
+			{ search: filters.q, status, roomType, sortBy, page: filters.page },
 		],
 		queryFn: () =>
 			listCategories({
-				search: debouncedSearch || undefined,
-				status: (statusFilter as CategoryStatus | null) || undefined,
-				roomTypeId: roomTypeFilter || undefined,
+				search: filters.q || undefined,
+				status: status === "all" ? undefined : status,
+				roomTypeId: roomType === "all" ? undefined : roomType,
 				sort: mapSortToApi(sortBy),
 				orderDir: mapOrderDirToApi(sortBy),
-				page,
+				page: filters.page,
 				limit: ITEMS_PER_PAGE,
 			}),
 		placeholderData: (prev) => prev,
@@ -192,16 +235,21 @@ export function CategoriesList() {
 	const isBulkPending =
 		bulkDeleteMutation.isPending || bulkStatusMutation.isPending;
 
-	const handleFilterChange = (callback: () => void) => {
-		setPage(1);
-		callback();
-	};
-
+	// Selection dipertahankan lintas halaman, jadi "select all" harus dicek
+	// per-id item yang tampil di halaman ini — bukan sekadar bandingkan jumlah
+	// (selectedIds bisa berisi id dari halaman lain).
+	const allOnPageSelected =
+		categories.length > 0 &&
+		categories.every((c) => selectedIds.includes(c.id));
 	const toggleSelectAll = () => {
-		if (selectedIds.length === categories.length) {
-			setSelectedIds([]);
+		const pageIds = new Set(categories.map((c) => c.id));
+		if (allOnPageSelected) {
+			setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)));
 		} else {
-			setSelectedIds(categories.map((c) => c.id));
+			setSelectedIds((prev) => [
+				...prev,
+				...categories.map((c) => c.id).filter((id) => !prev.includes(id)),
+			]);
 		}
 	};
 
@@ -345,26 +393,22 @@ export function CategoriesList() {
 						<TextInput
 							placeholder="Search categories..."
 							leftSection={<IconSearch size={16} />}
-							value={search}
-							onChange={(e) =>
-								handleFilterChange(() => setSearch(e.currentTarget.value))
-							}
+							value={searchInput}
+							onChange={(e) => setSearchInput(e.currentTarget.value)}
 						/>
 						<Select
 							placeholder="Status"
 							data={STATUS}
-							value={statusFilter}
-							onChange={(val) => handleFilterChange(() => setStatusFilter(val))}
+							value={status === "all" ? null : status}
+							onChange={(val) => setFilters({ status: val ?? "all" })}
 							clearable
 						/>
 						{/* FILTER BARU: Room Type */}
 						<Select
 							placeholder="Room Type"
 							data={roomTypeOptions}
-							value={roomTypeFilter}
-							onChange={(val) =>
-								handleFilterChange(() => setRoomTypeFilter(val))
-							}
+							value={roomType === "all" ? null : roomType}
+							onChange={(val) => setFilters({ roomType: val ?? "all" })}
 							clearable
 						/>
 					</Group>
@@ -372,14 +416,9 @@ export function CategoriesList() {
 					{/* KANAN: sort by */}
 					<Select
 						placeholder="Sort by"
-						data={[
-							{ value: "newest", label: "Newest" },
-							{ value: "oldest", label: "Oldest" },
-							{ value: "name-az", label: "Name A-Z" },
-							{ value: "order", label: "Display order" },
-						]}
-						value={sortBy}
-						onChange={(val) => handleFilterChange(() => setSortBy(val))}
+						data={SORT_OPTIONS}
+						value={sortBy === "newest" ? null : sortBy}
+						onChange={(val) => setFilters({ sort: val ?? "newest" })}
 						clearable
 					/>
 				</Group>
@@ -392,13 +431,10 @@ export function CategoriesList() {
 						<Table.Tr>
 							<Table.Th style={{ width: 40 }}>
 								<Checkbox
-									checked={
-										selectedIds.length === categories.length &&
-										categories.length > 0
-									}
+									checked={allOnPageSelected}
 									indeterminate={
-										selectedIds.length > 0 &&
-										selectedIds.length < categories.length
+										!allOnPageSelected &&
+										categories.some((c) => selectedIds.includes(c.id))
 									}
 									onChange={toggleSelectAll}
 								/>
@@ -443,7 +479,9 @@ export function CategoriesList() {
 											onChange={() => toggleSelectCategory(category.id)}
 										/>
 									</Table.Td>
-									<Table.Td>{(page - 1) * ITEMS_PER_PAGE + index + 1}</Table.Td>
+									<Table.Td>
+										{(filters.page - 1) * ITEMS_PER_PAGE + index + 1}
+									</Table.Td>
 									<Table.Td>
 										<span style={{ fontWeight: 500 }}>{category.category}</span>
 									</Table.Td>
@@ -499,7 +537,11 @@ export function CategoriesList() {
 				{/* Pagination */}
 				{totalPages > 1 && (
 					<Group justify="center" mt="md">
-						<Pagination value={page} onChange={setPage} total={totalPages} />
+						<Pagination
+							value={filters.page}
+							onChange={(p) => setFilters({ page: p })}
+							total={totalPages}
+						/>
 					</Group>
 				)}
 			</Card>

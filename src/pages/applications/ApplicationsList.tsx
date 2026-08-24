@@ -18,13 +18,13 @@ import { modals } from "@mantine/modals";
 import { IconDots } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { useState } from "react";
 import { useNavigate } from "react-router";
 import { deleteApplicant, listApplicants } from "@/api/applicants";
 import { getApiErrorMessage } from "@/api/client";
 import { listJobs } from "@/api/jobs";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -39,25 +39,11 @@ export function ApplicationsList() {
 	const canRead = can("applicant.read");
 	const canDelete = can("applicant.delete");
 
-	// null = "All positions"
-	const [job, setJob] = useState<string | null>(null);
-	const [page, setPage] = useState(1);
-
-	const { data, isLoading, isError, error } = useQuery({
-		queryKey: ["applicants", { job, page }],
-		queryFn: () =>
-			listApplicants({
-				job: job ?? undefined,
-				page,
-				limit: ITEMS_PER_PAGE,
-			}),
-		placeholderData: (prev) => prev,
-		enabled: canRead,
+	// "" = "All positions"
+	const [filters, setFilters] = useFilterParams({
+		job: "",
+		page: 1,
 	});
-
-	const applicants = data?.data ?? [];
-	const total = data?.meta.total ?? 0;
-	const totalPages = data?.meta.totalPages ?? 1;
 
 	// Opsi dropdown posisi — limit besar: dropdown butuh semua job, bukan
 	// 10 pertama seperti paginasi default GET /jobs.
@@ -71,9 +57,33 @@ export function ApplicationsList() {
 		...(jobs?.data.map((j) => ({ value: j.id, label: j.jobTitle })) ?? []),
 	];
 
+	// Aturan 2.5 — user bisa mengetik ?job=ngawur di address bar. Validasi
+	// hanya setelah daftar job termuat, supaya id yang sah tidak sempat
+	// ditolak sebelum `jobs` selesai fetch.
+	const validJobIds = jobs ? new Set(jobs.data.map((j) => j.id)) : null;
+	const job =
+		validJobIds && filters.job !== "" && !validJobIds.has(filters.job)
+			? ""
+			: filters.job;
+
+	const { data, isLoading, isError, error } = useQuery({
+		queryKey: ["applicants", { job, page: filters.page }],
+		queryFn: () =>
+			listApplicants({
+				job: job || undefined,
+				page: filters.page,
+				limit: ITEMS_PER_PAGE,
+			}),
+		placeholderData: (prev) => prev,
+		enabled: canRead,
+	});
+
+	const applicants = data?.data ?? [];
+	const total = data?.meta.total ?? 0;
+	const totalPages = data?.meta.totalPages ?? 1;
+
 	const handleJobChange = (value: string | null) => {
-		setPage(1);
-		setJob(value || null);
+		setFilters({ job: value || "" });
 	};
 
 	const deleteMutation = useMutation({
@@ -126,7 +136,7 @@ export function ApplicationsList() {
 				<Group justify="space-between">
 					<Select
 						data={jobOptions}
-						value={job ?? ""}
+						value={job}
 						onChange={handleJobChange}
 						allowDeselect={false}
 						w={200}
@@ -242,7 +252,11 @@ export function ApplicationsList() {
 
 				{totalPages > 1 && (
 					<Group justify="center" mt="md">
-						<Pagination value={page} onChange={setPage} total={totalPages} />
+						<Pagination
+							value={filters.page}
+							onChange={(p) => setFilters({ page: p })}
+							total={totalPages}
+						/>
 					</Group>
 				)}
 			</Card>

@@ -7,8 +7,8 @@ import {
 	Tabs,
 	Text,
 } from "@mantine/core";
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import {
@@ -40,8 +40,19 @@ export function PagesPage() {
 	usePageTitle("Pages");
 	const navigate = useNavigate();
 
-	const [section, setSection] = useState<PageSection>("landing");
-	const [editingKey, setEditingKey] = useState<LandingSectionKey | null>(null);
+	const { section: sectionParam, sectionKey } = useParams();
+
+	const section: PageSection = PAGE_SECTIONS.some(
+		(s) => s.value === sectionParam,
+	)
+		? (sectionParam as PageSection)
+		: "landing";
+
+	// Editor hanya berlaku di tab landing.
+	const editingKey: LandingSectionKey | null =
+		section === "landing" && sectionKey
+			? (sectionKey as LandingSectionKey)
+			: null;
 	const isEditingSection = editingKey !== null;
 
 	const [sections, setSections] = useState(dummyLandingSections);
@@ -75,6 +86,15 @@ export function PagesPage() {
 
 	const editingSection = sections.find((s) => s.key === editingKey) ?? null;
 
+	useEffect(() => {
+		// URL menunjuk tab tidak dikenal, atau section yang tidak ada -> betulkan URL.
+		if (sectionParam && sectionParam !== section) {
+			navigate(`/pages/${section}`, { replace: true });
+		} else if (editingKey && !editingSection) {
+			navigate("/pages/landing", { replace: true });
+		}
+	}, [sectionParam, section, editingKey, editingSection, navigate]);
+
 	const subtitle =
 		isEditingSection && editingSection
 			? `Edit the ${editingSection.label} section`
@@ -82,9 +102,10 @@ export function PagesPage() {
 
 	// ------ Handler section landing ------
 
-	const closeEditor = () => setEditingKey(null);
+	const closeEditor = () => navigate("/pages/landing");
 
-	const handleEditSection = (key: LandingSectionKey) => setEditingKey(key);
+	const handleEditSection = (key: LandingSectionKey) =>
+		navigate(`/pages/landing/${key}`);
 
 	const handleTogglePublish = (key: LandingSectionKey) => {
 		const target = sections.find((s) => s.key === key);
@@ -272,9 +293,25 @@ export function PagesPage() {
 				<Anchor size="sm" c="dimmed" onClick={() => navigate("/pages")}>
 					Pages
 				</Anchor>
-				<Text size="sm" c="dimmed">
-					All Pages
-				</Text>
+				{isEditingSection && editingSection ? (
+					<>
+						<Anchor
+							size="sm"
+							c="dimmed"
+							onClick={() => navigate("/pages/landing")}
+						>
+							Landing Page
+						</Anchor>
+						<Text size="sm" c="dimmed">
+							{editingSection.label}
+						</Text>
+					</>
+				) : (
+					<Text size="sm" c="dimmed">
+						{PAGE_SECTIONS.find((s) => s.value === section)?.label ??
+							"All Pages"}
+					</Text>
+				)}
 			</Breadcrumbs>
 
 			<PageHeader
@@ -292,7 +329,7 @@ export function PagesPage() {
 			{!isEditingSection && (
 				<Tabs
 					value={section}
-					onChange={(v) => setSection((v as PageSection) ?? "landing")}
+					onChange={(v) => navigate(`/pages/${v ?? "landing"}`)}
 					mb="md"
 				>
 					<Tabs.List>

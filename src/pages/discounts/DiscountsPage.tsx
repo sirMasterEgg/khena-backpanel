@@ -33,7 +33,7 @@ import {
 	IconUsers,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { getApiErrorMessage } from "@/api/client";
 import {
@@ -47,6 +47,7 @@ import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { StatusBadge } from "@/components/StatusBadge";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { DiscountModal } from "./DiscountModal";
 import {
@@ -58,6 +59,14 @@ import {
 
 type DiscountsTab = "all" | "active" | "scheduled" | "expired" | "inactive";
 
+const TAB_ORDER: DiscountsTab[] = [
+	"all",
+	"active",
+	"scheduled",
+	"expired",
+	"inactive",
+];
+
 const ITEMS_PER_PAGE = 10;
 
 export function DiscountsPage() {
@@ -66,17 +75,36 @@ export function DiscountsPage() {
 	const clipboard = useClipboard({ timeout: 1500 });
 	const queryClient = useQueryClient();
 
-	const [tab, setTab] = useState<DiscountsTab>("all");
-	const [search, setSearch] = useState("");
-	const [debouncedSearch] = useDebouncedValue(search, 300);
-	const [page, setPage] = useState(1);
+	const [filters, setFilters] = useFilterParams({
+		q: "",
+		status: "all",
+		page: 1,
+	});
+
+	// Aturan 2.5 — user bisa mengetik ?status=ngawur di address bar.
+	const tab: DiscountsTab = TAB_ORDER.includes(filters.status as DiscountsTab)
+		? (filters.status as DiscountsTab)
+		: "all";
+
+	// Resep search dari Batch 0.4.
+	const [searchInput, setSearchInput] = useState(filters.q);
+	const [debouncedInput] = useDebouncedValue(searchInput, 300);
+	useEffect(() => {
+		if (debouncedInput !== filters.q) {
+			setFilters({ q: debouncedInput }, { replace: true });
+		}
+	}, [debouncedInput, filters.q, setFilters]);
+	useEffect(() => {
+		setSearchInput(filters.q);
+	}, [filters.q]);
+
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [formOpened, setFormOpened] = useState(false);
 
 	const params = {
-		search: debouncedSearch || undefined,
+		search: filters.q || undefined,
 		status: tab === "all" ? undefined : (tab as DiscountStatus),
-		page,
+		page: filters.page,
 		limit: ITEMS_PER_PAGE,
 	};
 
@@ -107,16 +135,6 @@ export function DiscountsPage() {
 	});
 
 	// ----- Handler -----
-
-	const handleTabChange = (val: string | null) => {
-		setPage(1);
-		setTab((val as DiscountsTab) ?? "all");
-	};
-
-	const handleSearchChange = (value: string) => {
-		setPage(1);
-		setSearch(value);
-	};
 
 	const handleAdd = () => setFormOpened(true);
 	const handleEdit = (id: string) => setEditingId(id);
@@ -202,7 +220,13 @@ export function DiscountsPage() {
 			</Grid>
 
 			{/* Section Tabs */}
-			<Tabs value={tab} onChange={handleTabChange} mb="md">
+			<Tabs
+				value={tab}
+				onChange={(val) =>
+					setFilters({ status: (val as DiscountsTab) ?? "all" })
+				}
+				mb="md"
+			>
 				<Tabs.List>
 					<Tabs.Tab
 						value="all"
@@ -273,8 +297,8 @@ export function DiscountsPage() {
 					<TextInput
 						placeholder="Search by code"
 						leftSection={<IconSearch size={16} />}
-						value={search}
-						onChange={(e) => handleSearchChange(e.currentTarget.value)}
+						value={searchInput}
+						onChange={(e) => setSearchInput(e.currentTarget.value)}
 						w={280}
 					/>
 				</Group>
@@ -375,11 +399,11 @@ export function DiscountsPage() {
 														color="var(--mantine-color-gray-5)"
 													/>
 													<Text c="dimmed">
-														{debouncedSearch || tab !== "all"
+														{filters.q || tab !== "all"
 															? "No discounts in this tab"
 															: "No discounts yet"}
 													</Text>
-													{!debouncedSearch && tab === "all" && (
+													{!filters.q && tab === "all" && (
 														<Button
 															variant="light"
 															leftSection={<IconPlus size={16} />}
@@ -400,7 +424,11 @@ export function DiscountsPage() {
 
 				{totalPages > 1 && (
 					<Center mt="md">
-						<Pagination value={page} onChange={setPage} total={totalPages} />
+						<Pagination
+							value={filters.page}
+							onChange={(p) => setFilters({ page: p })}
+							total={totalPages}
+						/>
 					</Center>
 				)}
 			</Card>

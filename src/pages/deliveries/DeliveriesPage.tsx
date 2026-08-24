@@ -23,7 +23,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { getApiErrorMessage } from "@/api/client";
 import {
@@ -33,6 +33,7 @@ import {
 } from "@/api/deliveries";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { DeliveryRow } from "./DeliveryRow";
 import {
@@ -48,7 +49,25 @@ export function DeliveriesPage() {
 	const navigate = useNavigate();
 
 	const today = useMemo(() => new Date(), []);
-	const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
+	// Default-nya dinamis (minggu berjalan) — bukan konstanta, jadi tidak bisa
+	// dibandingkan dengan default statis. `useFilterParams` tetap membersihkan
+	// URL karena setiap render menghitung ulang "minggu ini" yang sama.
+	const defaultWeek = useMemo(() => toApiDate(getWeekStart(new Date())), []);
+	const [filters, setFilters] = useFilterParams({ week: defaultWeek });
+
+	// Aturan 2.5 — ?week ngawur/tidak valid -> pakai minggu ini, koreksi URL.
+	const parsedWeek = dayjs(filters.week, "YYYY-MM-DD", true);
+	const weekStart = parsedWeek.isValid()
+		? getWeekStart(parsedWeek.toDate())
+		: getWeekStart(new Date());
+
+	// parsedWeek diturunkan dari filters.week di setiap render, jadi cukup depend ke situ.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <lihat komentar di atas>
+	useEffect(() => {
+		if (!parsedWeek.isValid()) {
+			setFilters({ week: defaultWeek }, { replace: true });
+		}
+	}, [filters.week, defaultWeek, setFilters]);
 
 	const start = toApiDate(weekStart);
 	const end = toApiDate(dayjs(weekStart).add(6, "day").toDate());
@@ -93,7 +112,7 @@ export function DeliveriesPage() {
 					<Group gap="xs">
 						<Button
 							variant="default"
-							onClick={() => setWeekStart(getWeekStart(new Date()))}
+							onClick={() => setFilters({ week: defaultWeek })}
 						>
 							Today
 						</Button>
@@ -101,7 +120,9 @@ export function DeliveriesPage() {
 							variant="default"
 							size="lg"
 							aria-label="Minggu sebelumnya"
-							onClick={() => setWeekStart((w) => addWeeks(w, -1))}
+							onClick={() =>
+								setFilters({ week: toApiDate(addWeeks(weekStart, -1)) })
+							}
 						>
 							<IconChevronLeft size={18} />
 						</ActionIcon>
@@ -109,7 +130,9 @@ export function DeliveriesPage() {
 							variant="default"
 							size="lg"
 							aria-label="Minggu berikutnya"
-							onClick={() => setWeekStart((w) => addWeeks(w, 1))}
+							onClick={() =>
+								setFilters({ week: toApiDate(addWeeks(weekStart, 1)) })
+							}
 						>
 							<IconChevronRight size={18} />
 						</ActionIcon>

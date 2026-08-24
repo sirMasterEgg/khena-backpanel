@@ -30,7 +30,7 @@ import {
 	IconUsers,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { getApiErrorMessage, getBlobApiErrorMessage } from "@/api/client";
 import {
@@ -42,6 +42,7 @@ import {
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { CustomerAvatar } from "./CustomerAvatar";
 import { CustomerFormModal } from "./CustomerFormModal";
@@ -65,6 +66,8 @@ const SORT_OPTIONS = [
 	{ value: "newest-joined", label: "Newest joined" },
 	{ value: "name-az", label: "Name A-Z" },
 ];
+const SORT_VALUES = SORT_OPTIONS.map((o) => o.value);
+const SEGMENT_TABS: SegmentTab[] = ["all", "vip", "loyal", "new"];
 
 /** Nilai dropdown sort UI → pasangan `sort` + `orderDir` untuk query API. */
 const SORT_PARAMS: Record<
@@ -82,20 +85,41 @@ export function CustomersList() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 
-	const [search, setSearch] = useState("");
-	const [segmentTab, setSegmentTab] = useState<SegmentTab>("all");
-	const [sortBy, setSortBy] = useState<string>("ltv-desc");
-	const [page, setPage] = useState(1);
+	const [filters, setFilters] = useFilterParams({
+		q: "",
+		segment: "all",
+		sort: "ltv-desc",
+		page: 1,
+	});
 	const [formOpened, setFormOpened] = useState(false);
 
-	// Debounce supaya tidak request ke server tiap keystroke.
-	const [debouncedSearch] = useDebouncedValue(search, 300);
+	// Aturan 2.5 — user bisa mengetik ?segment=ngawur atau ?sort=ngawur di address bar.
+	const segmentTab: SegmentTab = SEGMENT_TABS.includes(
+		filters.segment as SegmentTab,
+	)
+		? (filters.segment as SegmentTab)
+		: "all";
+	const sortBy: string = SORT_VALUES.includes(filters.sort)
+		? filters.sort
+		: "ltv-desc";
+
+	// Resep search dari Batch 0.4.
+	const [searchInput, setSearchInput] = useState(filters.q);
+	const [debouncedInput] = useDebouncedValue(searchInput, 300);
+	useEffect(() => {
+		if (debouncedInput !== filters.q) {
+			setFilters({ q: debouncedInput }, { replace: true });
+		}
+	}, [debouncedInput, filters.q, setFilters]);
+	useEffect(() => {
+		setSearchInput(filters.q);
+	}, [filters.q]);
 
 	const params: CustomerListParams = {
-		search: debouncedSearch || undefined,
+		search: filters.q || undefined,
 		segment: segmentTab === "all" ? undefined : segmentTab,
 		...SORT_PARAMS[sortBy],
-		page,
+		page: filters.page,
 		limit: ITEMS_PER_PAGE,
 	};
 
@@ -117,11 +141,6 @@ export function CustomersList() {
 
 	const invalidateCustomers = () =>
 		queryClient.invalidateQueries({ queryKey: ["customers"] });
-
-	const handleFilterChange = (callback: () => void) => {
-		setPage(1);
-		callback();
-	};
 
 	const exportMutation = useMutation({
 		mutationFn: exportCustomersCsv,
@@ -213,7 +232,7 @@ export function CustomersList() {
 			<Tabs
 				value={segmentTab}
 				onChange={(val) =>
-					handleFilterChange(() => setSegmentTab((val as SegmentTab) ?? "all"))
+					setFilters({ segment: (val as SegmentTab) ?? "all" })
 				}
 				mb="xs"
 			>
@@ -261,18 +280,14 @@ export function CustomersList() {
 					<TextInput
 						placeholder="Search by name, email, or phone"
 						leftSection={<IconSearch size={16} />}
-						value={search}
-						onChange={(e) =>
-							handleFilterChange(() => setSearch(e.currentTarget.value))
-						}
+						value={searchInput}
+						onChange={(e) => setSearchInput(e.currentTarget.value)}
 						w={280}
 					/>
 					<Select
 						data={SORT_OPTIONS}
 						value={sortBy}
-						onChange={(val) =>
-							handleFilterChange(() => setSortBy(val ?? "ltv-desc"))
-						}
+						onChange={(val) => setFilters({ sort: val ?? "ltv-desc" })}
 						allowDeselect={false}
 						leftSection={
 							<Text size="sm" c="dimmed">
@@ -384,7 +399,11 @@ export function CustomersList() {
 
 				{totalPages > 1 && (
 					<Group justify="center" mt="md">
-						<Pagination value={page} onChange={setPage} total={totalPages} />
+						<Pagination
+							value={filters.page}
+							onChange={(p) => setFilters({ page: p })}
+							total={totalPages}
+						/>
 					</Group>
 				)}
 			</Card>

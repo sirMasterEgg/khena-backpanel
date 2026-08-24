@@ -140,6 +140,14 @@ const routes: RouteObject[] = [
 								element: <PagesPage />,
 							},
 							{
+								path: "/pages/:section",
+								element: <PagesPage />,
+							},
+							{
+								path: "/pages/:section/:sectionKey",
+								element: <PagesPage />,
+							},
+							{
 								path: "/media",
 								element: <MediaLibrary />,
 							},
@@ -180,11 +188,19 @@ const routes: RouteObject[] = [
 								element: <PurchasingPage />,
 							},
 							{
+								path: "/purchasing/:tab",
+								element: <PurchasingPage />,
+							},
+							{
 								path: "/marketplaces",
 								element: <MarketplacesPage />,
 							},
 							{
 								path: "/messages",
+								element: <ContactMessages />,
+							},
+							{
+								path: "/messages/:id",
 								element: <ContactMessages />,
 							},
 							{
@@ -210,6 +226,14 @@ const routes: RouteObject[] = [
 							{
 								path: "/settings/users",
 								element: <UsersRolesPage />,
+							},
+							{
+								path: "/settings/users/:tab",
+								element: <UsersRolesPage />,
+							},
+							{
+								path: "*",
+								element: <PlaceholderPage title="Halaman tidak ditemukan" />,
 							},
 						],
 					},

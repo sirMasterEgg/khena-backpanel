@@ -1,7 +1,8 @@
 import { Badge, Button, Container, Tabs } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router";
 import { listAdministrators } from "@/api/administrators";
 import { listRoles } from "@/api/roles";
 import { PageHeader } from "@/components/PageHeader";
@@ -15,12 +16,21 @@ type UsersRolesTab = "users" | "roles";
 export function UsersRolesPage() {
 	usePageTitle("Users & Roles");
 	const { can } = usePermissions();
+	const navigate = useNavigate();
+	const { tab: tabParam } = useParams();
 
-	const [tab, setTab] = useState<UsersRolesTab>("users");
+	const tab: UsersRolesTab = tabParam === "roles" ? "roles" : "users";
 	const [userFormOpened, setUserFormOpened] = useState(false);
 	const [roleFormOpened, setRoleFormOpened] = useState(false);
 
 	const canReadRoles = can("role.read");
+
+	useEffect(() => {
+		// Cegah akses langsung ke /settings/users/roles tanpa permission.
+		if (tab === "roles" && !canReadRoles) {
+			navigate("/settings/users", { replace: true });
+		}
+	}, [tab, canReadRoles, navigate]);
 
 	const usersCountQuery = useQuery({
 		queryKey: ["administrators", { page: 1, limit: 1 }],
@@ -67,7 +77,11 @@ export function UsersRolesPage() {
 
 			<Tabs
 				value={tab}
-				onChange={(val) => setTab((val as UsersRolesTab) ?? "users")}
+				onChange={(val) =>
+					navigate(
+						val === "roles" ? "/settings/users/roles" : "/settings/users",
+					)
+				}
 			>
 				<Tabs.List mb="md">
 					<Tabs.Tab
