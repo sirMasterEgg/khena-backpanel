@@ -200,6 +200,10 @@ const routes: RouteObject[] = [
 								element: <ContactMessages />,
 							},
 							{
+								path: "/messages/:id",
+								element: <ContactMessages />,
+							},
+							{
 								path: "/newsletter",
 								element: <PlaceholderPage title="Newsletter" />,
 							},

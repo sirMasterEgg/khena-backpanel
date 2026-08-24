@@ -15,10 +15,12 @@ import {
 	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect } from "react";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { getApiErrorMessage } from "@/api/client";
 import {
 	deleteInquiry,
+	getInquiry,
 	type Inquiry,
 	listInquiries,
 	markInquiryRead,
@@ -26,6 +28,7 @@ import {
 } from "@/api/inquiries";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { usePermissions } from "@/hooks/usePermissions";
 import { MessageDetail } from "./MessageDetail";
@@ -39,16 +42,34 @@ export function ContactMessages() {
 	usePageTitle("Contact Messages");
 	const queryClient = useQueryClient();
 	const { can } = usePermissions();
+	const navigate = useNavigate();
+	const location = useLocation();
+	const { id } = useParams();
 
 	const canRead = can("inquiry.read");
 	const canUpdate = can("inquiry.update");
 	const canDelete = can("inquiry.delete");
 
-	const [tab, setTab] = useState<MessageTab>("all");
+	const [filters, setFilters] = useFilterParams({ tab: "all" });
+	const tab: MessageTab = filters.tab === "unread" ? "unread" : "all";
+
 	// Simpan objek Inquiry-nya, bukan cuma id — di tab Unread, pesan yang baru
 	// ditandai terbaca langsung hilang dari hasil list, jadi panel kanan tidak
-	// bisa mengandalkan lookup ke list untuk isinya.
-	const [selected, setSelected] = useState<Inquiry | null>(null);
+	// bisa mengandalkan lookup ke list untuk isinya. Karena URL hanya menyimpan
+	// id, detail diambil lewat query terpisah, bukan `inquiries.find(...)`.
+	const detailQuery = useQuery({
+		queryKey: ["inquiries", "detail", id],
+		queryFn: () => getInquiry(id as string),
+		enabled: Boolean(id) && canRead,
+	});
+	const selected = detailQuery.data ?? null;
+
+	useEffect(() => {
+		// id di URL sudah dihapus/tidak ada -> jangan tampilkan panel error, balik ke list.
+		if (id && detailQuery.isError) {
+			navigate("/messages", { replace: true });
+		}
+	}, [id, detailQuery.isError, navigate]);
 
 	const listQuery = useInfiniteQuery({
 		queryKey: ["inquiries", "list", { tab }],
@@ -81,8 +102,8 @@ export function ContactMessages() {
 
 	const readMutation = useMutation({
 		mutationFn: (id: string) => markInquiryRead(id),
-		onSuccess: (updated) => {
-			setSelected(updated);
+		onSuccess: () => {
+			// invalidate ["inquiries"] di bawah ini sudah mencakup ["inquiries", "detail", id].
 			queryClient.invalidateQueries({ queryKey: ["inquiries"] });
 		},
 		onError: (err) => notify.error(getApiErrorMessage(err)),
@@ -90,8 +111,7 @@ export function ContactMessages() {
 
 	const starMutation = useMutation({
 		mutationFn: (id: string) => toggleInquiryStar(id),
-		onSuccess: (updated) => {
-			setSelected(updated);
+		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["inquiries"] });
 		},
 		onError: (err) => notify.error(getApiErrorMessage(err)),
@@ -101,14 +121,14 @@ export function ContactMessages() {
 		mutationFn: (id: string) => deleteInquiry(id),
 		onSuccess: () => {
 			notify.success("Pesan dihapus");
-			setSelected(null);
+			navigate(`/messages${location.search}`);
 			queryClient.invalidateQueries({ queryKey: ["inquiries"] });
 		},
 		onError: (err) => notify.error(getApiErrorMessage(err)),
 	});
 
 	const handleSelect = (inquiry: Inquiry) => {
-		setSelected(inquiry);
+		navigate(`/messages/${inquiry.id}${location.search}`);
 		// Endpoint /read idempoten, tapi jangan panggil kalau sudah terbaca —
 		// tidak ada gunanya menembak API tiap kali baris diklik.
 		if (inquiry.readAt === null && canUpdate) readMutation.mutate(inquiry.id);
@@ -172,7 +192,7 @@ export function ContactMessages() {
 
 			<Tabs
 				value={tab}
-				onChange={(val) => setTab((val as MessageTab) ?? "all")}
+				onChange={(val) => setFilters({ tab: (val as MessageTab) ?? "all" })}
 				mb="md"
 			>
 				<Tabs.List>
@@ -208,8 +228,7 @@ export function ContactMessages() {
 							canDelete={canDelete}
 							onStar={(id) => starMutation.mutate(id)}
 							onDelete={confirmDelete}
-							onSent={(updated) => {
-								setSelected(updated);
+							onSent={() => {
 								queryClient.invalidateQueries({ queryKey: ["inquiries"] });
 							}}
 							starLoading={starMutation.isPending}

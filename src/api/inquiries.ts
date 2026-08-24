@@ -45,6 +45,12 @@ export async function listInquiries(params?: InquiryListParams) {
 	return res.data; // { data, meta } — terurut createdAt desc
 }
 
+/** Detail satu pesan — dipakai saat id datang dari URL, bukan dari klik list. */
+export async function getInquiry(id: string) {
+	const res = await apiClient.get<ApiSuccess<Inquiry>>(`/inquiries/${id}`);
+	return res.data.data;
+}
+
 /** Idempoten — tidak ada cara membuat pesan jadi "belum dibaca" lagi. */
 export async function markInquiryRead(id: string) {
 	const res = await apiClient.post<ApiSuccess<Inquiry>>(
