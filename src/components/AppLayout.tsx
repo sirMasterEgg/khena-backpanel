@@ -86,7 +86,10 @@ export function AppLayout() {
 		},
 	});
 
-	const isActive = (path: string) => location.pathname === path;
+	const isActive = (path: string) =>
+		path === "/"
+			? location.pathname === "/"
+			: location.pathname === path || location.pathname.startsWith(`${path}/`);
 
 	const navItems: NavSection[] = [
 		{

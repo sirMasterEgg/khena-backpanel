@@ -211,6 +211,10 @@ const routes: RouteObject[] = [
 								path: "/settings/users",
 								element: <UsersRolesPage />,
 							},
+							{
+								path: "*",
+								element: <PlaceholderPage title="Halaman tidak ditemukan" />,
+							},
 						],
 					},
 				],
