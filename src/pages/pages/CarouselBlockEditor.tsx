@@ -10,7 +10,6 @@ import {
 	Image,
 	Slider,
 	Stack,
-	Switch,
 	Text,
 	Textarea,
 	TextInput,
@@ -445,36 +444,6 @@ export function CarouselBlockEditor({
 									</Button>
 								))}
 							</Group>
-						</Stack>
-					</Card>
-
-					<Card withBorder>
-						<Stack gap="md">
-							<Text fw={600}>Visibility</Text>
-							<Controller
-								name="status"
-								control={control}
-								render={({ field }) => (
-									<Group gap="sm">
-										<Switch
-											checked={field.value === "published"}
-											onChange={(e) =>
-												field.onChange(
-													e.currentTarget.checked ? "published" : "draft",
-												)
-											}
-										/>
-										<Text
-											size="sm"
-											c={field.value === "published" ? undefined : "dimmed"}
-										>
-											{field.value === "published"
-												? "Visible on website"
-												: "Hidden — saved as draft"}
-										</Text>
-									</Group>
-								)}
-							/>
 						</Stack>
 					</Card>
 

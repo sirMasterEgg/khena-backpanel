@@ -4,7 +4,6 @@ import {
 	Breadcrumbs,
 	Button,
 	Container,
-	Group,
 	Tabs,
 	Text,
 } from "@mantine/core";
@@ -111,9 +110,6 @@ export function PagesPage() {
 		setEditingBlockId(null);
 	};
 
-	// TODO(konfirmasi): URL preview storefront belum ditentukan PM.
-	const handlePreview = () => notify.info("Preview belum tersedia");
-
 	// ------ Render isi tab ------
 
 	const renderSection = () => {
@@ -188,14 +184,9 @@ export function PagesPage() {
 				subtitle={subtitle}
 				actions={
 					isEditingBlock ? (
-						<Group gap="xs">
-							<Button variant="default" onClick={handlePreview}>
-								Preview
-							</Button>
-							<Button variant="default" onClick={() => setEditingBlockId(null)}>
-								← Back to all blocks
-							</Button>
-						</Group>
+						<Button variant="default" onClick={() => setEditingBlockId(null)}>
+							← Back to all blocks
+						</Button>
 					) : undefined
 				}
 			/>
