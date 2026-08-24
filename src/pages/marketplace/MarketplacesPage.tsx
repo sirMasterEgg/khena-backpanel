@@ -28,6 +28,7 @@ import {
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatIDR } from "@/utils/format";
@@ -36,6 +37,9 @@ import { HowItWorksCard } from "./HowItWorksCard";
 import { LogOrderModal } from "./LogOrderModal";
 import { MarketplaceOrdersCard } from "./MarketplaceOrdersCard";
 import { MARKETPLACE_CHANNELS, normalizeChannel } from "./marketplaceChannels";
+
+/** Nilai sah — lihat MarketplaceOrdersCard.tsx:134-136. */
+const CHANNEL_VALUES = ["all", "tokopedia", "shopee"];
 
 export function MarketplacesPage() {
 	usePageTitle("Marketplaces");
@@ -46,7 +50,11 @@ export function MarketplacesPage() {
 	const canRead = can("marketplace.read");
 	const canCreate = can("marketplace.create");
 
-	const [tab, setTab] = useState("all");
+	const [filters, setFilters] = useFilterParams({ channel: "all" });
+	// Aturan 2.5 — user bisa mengetik ?channel=ngawur di address bar.
+	const tab = CHANNEL_VALUES.includes(filters.channel)
+		? filters.channel
+		: "all";
 	const [logOpened, setLogOpened] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -203,7 +211,7 @@ export function MarketplacesPage() {
 							stats={stats?.channels.find(
 								(c) => normalizeChannel(c.marketplace) === ch,
 							)}
-							onViewOrders={() => setTab(ch)}
+							onViewOrders={() => setFilters({ channel: ch })}
 						/>
 					</Grid.Col>
 				))}
@@ -211,7 +219,7 @@ export function MarketplacesPage() {
 
 			<MarketplaceOrdersCard
 				tab={tab}
-				onTabChange={setTab}
+				onTabChange={(val) => setFilters({ channel: val })}
 				onDownloadTemplate={() => downloadTemplateMutation.mutate()}
 			/>
 

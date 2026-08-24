@@ -7,13 +7,15 @@ import {
 	IconUsers,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import dayjs from "dayjs";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getApiErrorMessage } from "@/api/client";
 import { type DashboardGroupBy, getDashboard } from "@/api/dashboard";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { canViewProfit } from "@/config/permissions";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
@@ -29,13 +31,58 @@ import { TopProductsCard } from "@/pages/dashboard/TopProductsCard";
 import { useAuthStore } from "@/stores/authStore";
 import { formatIDR } from "@/utils/format";
 
+const GROUP_BY_VALUES: DashboardGroupBy[] = ["day", "week", "month"];
+
 export function Dashboard() {
 	usePageTitle("Dashboard");
 
-	const [dateRange, setDateRange] = useState<DateRange>(() =>
-		rangeForPeriod("week"),
-	);
-	const [groupBy, setGroupBy] = useState<DashboardGroupBy>("day");
+	// Default-nya dinamis (minggu berjalan) — tetap dihitung sekali per mount
+	// supaya konsisten dipakai sebagai default useFilterParams maupun fallback.
+	const [defaultFrom, defaultTo] = useMemo(() => rangeForPeriod("week"), []);
+
+	const [filters, setFilters] = useFilterParams({
+		from: defaultFrom,
+		to: defaultTo,
+		groupBy: "day",
+	});
+
+	// Aturan 2.5 — from/to harus tanggal valid dan from <= to, groupBy harus
+	// salah satu nilai DashboardGroupBy. Kalau tidak, abaikan dan pakai default.
+	const parsedFrom = dayjs(filters.from, "YYYY-MM-DD", true);
+	const parsedTo = dayjs(filters.to, "YYYY-MM-DD", true);
+	const rangeValid =
+		parsedFrom.isValid() && parsedTo.isValid() && !parsedFrom.isAfter(parsedTo);
+	const dateRange: DateRange = rangeValid
+		? [filters.from, filters.to]
+		: [defaultFrom, defaultTo];
+	const groupBy: DashboardGroupBy = GROUP_BY_VALUES.includes(
+		filters.groupBy as DashboardGroupBy,
+	)
+		? (filters.groupBy as DashboardGroupBy)
+		: "day";
+
+	// rangeValid diturunkan dari filters.from/to di setiap render, jadi cukup depend ke situ.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <lihat komentar di atas>
+	useEffect(() => {
+		if (!rangeValid) {
+			setFilters({ from: defaultFrom, to: defaultTo }, { replace: true });
+		}
+	}, [filters.from, filters.to, defaultFrom, defaultTo, setFilters]);
+
+	// DatePickerInput butuh state lokal — commit ke URL baru terjadi setelah
+	// KEDUA ujung rentang terpilih, supaya klik pertama tidak langsung
+	// ter-overwrite balik ke default saat baca-ulang dari URL.
+	const [localRange, setLocalRange] = useState<DateRange>(dateRange);
+	useEffect(() => {
+		setLocalRange(dateRange);
+	}, [dateRange]);
+
+	const handleRangeChange = (range: DateRange) => {
+		setLocalRange(range);
+		const [start, end] = range;
+		if (start && end) setFilters({ from: start, to: end });
+	};
+
 	const [startDate, endDate] = dateRange;
 
 	const { can } = usePermissions();
@@ -110,7 +157,9 @@ export function Dashboard() {
 			<PageHeader
 				title={`Good morning, ${adminName ?? "there"}`}
 				subtitle="Here's what's happening with your store today."
-				actions={<PeriodFilter value={dateRange} onChange={setDateRange} />}
+				actions={
+					<PeriodFilter value={localRange} onChange={handleRangeChange} />
+				}
 			/>
 
 			{summaryQuery.isError && (
@@ -152,7 +201,7 @@ export function Dashboard() {
 						points={summary?.salesOverview ?? []}
 						dateRange={dateRange}
 						groupBy={groupBy}
-						onGroupByChange={setGroupBy}
+						onGroupByChange={(val) => setFilters({ groupBy: val })}
 						isLoading={summaryQuery.isLoading}
 					/>
 				</Grid.Col>
