@@ -19,7 +19,7 @@ import {
 	IconUpload,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getApiErrorMessage } from "@/api/client";
 import {
 	browseMedia,
@@ -38,6 +38,7 @@ import {
 } from "@/api/media";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { FolderCard } from "./FolderCard";
 import { MediaBreadcrumb } from "./MediaBreadcrumb";
@@ -53,6 +54,15 @@ const SORT_OPTIONS = [
 	{ value: "newest", label: "Newest" },
 	{ value: "oldest", label: "Oldest" },
 	{ value: "name-az", label: "Name A–Z" },
+];
+const SORT_VALUES = SORT_OPTIONS.map((o) => o.value);
+
+const FILE_TYPE_VALUES: FileTypeFilter[] = [
+	"all",
+	"image",
+	"video",
+	"audio",
+	"document",
 ];
 
 /** Jeda sebelum ketikan di kolom search dikirim ke server. */
@@ -85,14 +95,36 @@ export function MediaLibrary() {
 	usePageTitle("Media Library");
 	const queryClient = useQueryClient();
 
-	const [currentPath, setCurrentPath] = useState("/");
+	const [filters, setFilters] = useFilterParams({
+		path: "/",
+		q: "",
+		type: "all",
+		sort: "newest",
+	});
 
-	// `search` = nilai input (langsung, biar ketikan responsif),
-	// `debouncedSearch` = yang dikirim ke server.
-	const [search, setSearch] = useState("");
+	// Aturan 2.5 — path dari URL harus diawali "/".
+	const currentPath = filters.path.startsWith("/") ? filters.path : "/";
+	const fileTypeFilter: FileTypeFilter = FILE_TYPE_VALUES.includes(
+		filters.type as FileTypeFilter,
+	)
+		? (filters.type as FileTypeFilter)
+		: "all";
+	const sortBy: string = SORT_VALUES.includes(filters.sort)
+		? filters.sort
+		: "newest";
+
+	// Resep search dari Batch 0.4 — input tetap state lokal supaya ketikan responsif,
+	// ditulis ke URL setelah debounce.
+	const [search, setSearch] = useState(filters.q);
 	const [debouncedSearch] = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
-	const [fileTypeFilter, setFileTypeFilter] = useState<FileTypeFilter>("all");
-	const [sortBy, setSortBy] = useState<string>("newest");
+	useEffect(() => {
+		if (debouncedSearch !== filters.q) {
+			setFilters({ q: debouncedSearch }, { replace: true });
+		}
+	}, [debouncedSearch, filters.q, setFilters]);
+	useEffect(() => {
+		setSearch(filters.q);
+	}, [filters.q]);
 
 	const [detailFileId, setDetailFileId] = useState<string | null>(null);
 	const [newFolderOpened, setNewFolderOpened] = useState(false);
@@ -104,11 +136,11 @@ export function MediaLibrary() {
 		queryKey: [
 			"media",
 			currentPath,
-			{ search: debouncedSearch, fileTypeFilter, sortBy },
+			{ search: filters.q, fileTypeFilter, sortBy },
 		],
 		queryFn: () =>
 			browseMedia(currentPath, {
-				search: debouncedSearch || undefined,
+				search: filters.q || undefined,
 				type: fileTypeFilter === "all" ? undefined : fileTypeFilter,
 				sort: mapSortToApi(sortBy),
 				order: mapOrderToApi(sortBy),
@@ -122,7 +154,7 @@ export function MediaLibrary() {
 
 	// Search berlaku di SEMUA folder (contract.md bagian 7), jadi daftar folder
 	// milik path aktif tidak relevan lagi saat sedang mencari.
-	const isSearching = debouncedSearch.trim().length > 0;
+	const isSearching = filters.q.trim().length > 0;
 	const folders = isSearching ? [] : (data?.folders ?? []);
 
 	// Modal detail dibaca ulang dari hasil query supaya ikut ter-update setelah
@@ -170,7 +202,7 @@ export function MediaLibrary() {
 				currentPath === folder.path ||
 				currentPath.startsWith(`${folder.path}/`)
 			) {
-				setCurrentPath(parentPathOf(folder.path));
+				setFilters({ path: parentPathOf(folder.path) });
 			}
 			invalidateMedia();
 		},
@@ -282,7 +314,7 @@ export function MediaLibrary() {
 		currentPath.split("/").filter(Boolean).pop() ?? "Media Library";
 
 	const subtitle = isSearching
-		? `Hasil pencarian "${debouncedSearch}" di semua folder`
+		? `Hasil pencarian "${filters.q}" di semua folder`
 		: `${files.length} files · ${folders.length} folders`;
 
 	return (
@@ -318,7 +350,10 @@ export function MediaLibrary() {
 				onChange={(e) => handleFilesSelected(e.currentTarget.files)}
 			/>
 
-			<MediaBreadcrumb currentPath={currentPath} onNavigate={setCurrentPath} />
+			<MediaBreadcrumb
+				currentPath={currentPath}
+				onNavigate={(path) => setFilters({ path })}
+			/>
 
 			{/* Toolbar */}
 			<Card withBorder mb="md">
@@ -340,7 +375,7 @@ export function MediaLibrary() {
 						]}
 						value={fileTypeFilter}
 						onChange={(val) =>
-							setFileTypeFilter((val as FileTypeFilter) ?? "all")
+							setFilters({ type: (val as FileTypeFilter) ?? "all" })
 						}
 						allowDeselect={false}
 						w={160}
@@ -348,7 +383,7 @@ export function MediaLibrary() {
 					<Select
 						data={SORT_OPTIONS}
 						value={sortBy}
-						onChange={(val) => setSortBy(val ?? "newest")}
+						onChange={(val) => setFilters({ sort: val ?? "newest" })}
 						allowDeselect={false}
 						w={170}
 						style={{ marginLeft: "auto" }}
@@ -378,7 +413,7 @@ export function MediaLibrary() {
 									<FolderCard
 										key={folder.id}
 										folder={folder}
-										onOpen={() => setCurrentPath(folder.path)}
+										onOpen={() => setFilters({ path: folder.path })}
 										onRename={() => setRenameTarget(folder)}
 										onDelete={() => confirmDeleteFolder(folder)}
 									/>
