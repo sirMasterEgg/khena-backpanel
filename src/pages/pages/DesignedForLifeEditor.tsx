@@ -191,7 +191,9 @@ export function DesignedForLifeEditor({
 				</Stack>
 			</Card>
 
-			<Card withBorder>
+			{/* overflow visible — Card bawaan Mantine overflow:hidden, memotong
+			    dropdown saran yang posisinya absolute karena card ini pendek. */}
+			<Card withBorder style={{ overflow: "visible" }}>
 				<Stack gap="md">
 					<Text fw={600}>Add product</Text>
 					{isFull ? (
