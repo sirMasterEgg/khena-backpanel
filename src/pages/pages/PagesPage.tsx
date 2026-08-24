@@ -16,28 +16,35 @@ import {
 	dummyCareItems,
 	dummyContractProjects,
 	dummyFaqItems,
-	dummyLandingBlocks,
+	dummyLandingSections,
 	dummyReturnsItems,
 	dummyShippingItems,
+	type LandingSectionKey,
 } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { AssemblyManualsEditor } from "./AssemblyManualsEditor";
 import { ContractProjectsEditor } from "./ContractProjectsEditor";
-import { LandingBlockEditor } from "./LandingBlockEditor";
-import { LandingBlocksList } from "./LandingBlocksList";
-import type { LandingBlockFormData } from "./landingBlockSchema";
+import { CraftmanshipSectionEditor } from "./CraftmanshipSectionEditor";
+import type { CraftmanshipSectionFormData } from "./craftmanshipSectionSchema";
+import { DesignedForLifeEditor } from "./DesignedForLifeEditor";
+import type { DesignedForLifeFormData } from "./designedForLifeSchema";
+import { HeroSectionEditor } from "./HeroSectionEditor";
+import type { HeroSectionFormData } from "./heroSectionSchema";
+import { LandingSectionsList } from "./LandingSectionsList";
 import { PAGE_SECTIONS, type PageSection } from "./pagesSections";
 import { QnaSectionEditor } from "./QnaSectionEditor";
+import { SignatureSectionEditor } from "./SignatureSectionEditor";
+import type { SignatureSectionFormData } from "./signatureSectionSchema";
 
 export function PagesPage() {
 	usePageTitle("Pages");
 	const navigate = useNavigate();
 
 	const [section, setSection] = useState<PageSection>("landing");
-	const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
-	const isEditingBlock = editingBlockId !== null;
+	const [editingKey, setEditingKey] = useState<LandingSectionKey | null>(null);
+	const isEditingSection = editingKey !== null;
 
-	const [blocks, setBlocks] = useState(dummyLandingBlocks);
+	const [sections, setSections] = useState(dummyLandingSections);
 	const [faqItems, setFaqItems] = useState(dummyFaqItems);
 	const [returnsItems, setReturnsItems] = useState(dummyReturnsItems);
 	const [shippingItems, setShippingItems] = useState(dummyShippingItems);
@@ -47,7 +54,7 @@ export function PagesPage() {
 
 	const counts: Record<PageSection, number> = useMemo(
 		() => ({
-			landing: blocks.length,
+			landing: sections.length,
 			faq: faqItems.length,
 			returns: returnsItems.length,
 			shipping: shippingItems.length,
@@ -56,7 +63,7 @@ export function PagesPage() {
 			contract: projects.length,
 		}),
 		[
-			blocks.length,
+			sections.length,
 			faqItems.length,
 			returnsItems.length,
 			shippingItems.length,
@@ -66,35 +73,139 @@ export function PagesPage() {
 		],
 	);
 
-	const editingBlock = blocks.find((b) => b.id === editingBlockId) ?? null;
+	const editingSection = sections.find((s) => s.key === editingKey) ?? null;
 
-	const subtitle = isEditingBlock
-		? "Edit the media and content of this landing block"
-		: (PAGE_SECTIONS.find((s) => s.value === section)?.subtitle ?? "");
+	const subtitle =
+		isEditingSection && editingSection
+			? `Edit the ${editingSection.label} section`
+			: (PAGE_SECTIONS.find((s) => s.value === section)?.subtitle ?? "");
 
-	// ------ Handler blok landing ------
+	// ------ Handler section landing ------
 
-	const handleEditBlock = (id: string) => setEditingBlockId(id);
+	const closeEditor = () => setEditingKey(null);
 
-	const handleTogglePublish = (id: string) => {
-		const target = blocks.find((b) => b.id === id);
+	const handleEditSection = (key: LandingSectionKey) => setEditingKey(key);
+
+	const handleTogglePublish = (key: LandingSectionKey) => {
+		const target = sections.find((s) => s.key === key);
 		if (!target) return;
 		const nextStatus: "published" | "draft" =
 			target.status === "published" ? "draft" : "published";
-		setBlocks((prev) =>
-			prev.map((b) => (b.id === id ? { ...b, status: nextStatus } : b)),
+		setSections((prev) =>
+			prev.map((s) => (s.key === key ? { ...s, status: nextStatus } : s)),
 		);
 		notify.success(
-			nextStatus === "published" ? "Block published" : "Block unpublished",
+			nextStatus === "published" ? "Section published" : "Section unpublished",
 		);
 	};
 
-	const handleSaveBlock = (data: LandingBlockFormData) => {
-		setBlocks((prev) =>
-			prev.map((b) => (b.id === editingBlockId ? { ...b, ...data } : b)),
+	const handleSaveHero = (data: HeroSectionFormData) => {
+		setSections((prev) =>
+			prev.map((s) =>
+				s.key === editingKey && s.kind === "hero"
+					? {
+							...s,
+							subtitle: data.subtitle,
+							title: data.title,
+							ctaText: data.ctaText,
+							ctaLink: data.ctaLink,
+							image: { url: data.imageUrl, alt: data.imageAlt },
+						}
+					: s,
+			),
 		);
-		notify.success("Block updated");
-		setEditingBlockId(null);
+		notify.success("Section updated");
+		closeEditor();
+	};
+
+	const handleSaveSignature = (data: SignatureSectionFormData) => {
+		setSections((prev) =>
+			prev.map((s) =>
+				s.key === editingKey && s.kind === "signature"
+					? {
+							...s,
+							title: data.title,
+							image: { url: data.imageUrl, alt: data.imageAlt },
+						}
+					: s,
+			),
+		);
+		notify.success("Section updated");
+		closeEditor();
+	};
+
+	const handleSaveCraftmanship = (data: CraftmanshipSectionFormData) => {
+		setSections((prev) =>
+			prev.map((s) =>
+				s.key === editingKey && s.kind === "craftmanship"
+					? {
+							...s,
+							ctaText: data.ctaText,
+							ctaLink: data.ctaLink,
+							slideDurationSec: data.slideDurationSec,
+							slides: data.slides.map((slide) => ({
+								id: slide.id,
+								image: { url: slide.imageUrl, alt: slide.imageAlt },
+								caption: slide.caption,
+								title: slide.title,
+								description: slide.description,
+							})),
+						}
+					: s,
+			),
+		);
+		notify.success("Section updated");
+		closeEditor();
+	};
+
+	const handleSaveDesignedForLife = (data: DesignedForLifeFormData) => {
+		setSections((prev) =>
+			prev.map((s) =>
+				s.key === editingKey && s.kind === "productGrid"
+					? { ...s, productIds: data.productIds }
+					: s,
+			),
+		);
+		notify.success("Section updated");
+		closeEditor();
+	};
+
+	const renderEditor = () => {
+		if (!editingSection) return null;
+		switch (editingSection.kind) {
+			case "hero":
+				return (
+					<HeroSectionEditor
+						section={editingSection}
+						onSave={handleSaveHero}
+						onCancel={closeEditor}
+					/>
+				);
+			case "signature":
+				return (
+					<SignatureSectionEditor
+						section={editingSection}
+						onSave={handleSaveSignature}
+						onCancel={closeEditor}
+					/>
+				);
+			case "craftmanship":
+				return (
+					<CraftmanshipSectionEditor
+						section={editingSection}
+						onSave={handleSaveCraftmanship}
+						onCancel={closeEditor}
+					/>
+				);
+			case "productGrid":
+				return (
+					<DesignedForLifeEditor
+						section={editingSection}
+						onSave={handleSaveDesignedForLife}
+						onCancel={closeEditor}
+					/>
+				);
+		}
 	};
 
 	// ------ Render isi tab ------
@@ -103,9 +214,9 @@ export function PagesPage() {
 		switch (section) {
 			case "landing":
 				return (
-					<LandingBlocksList
-						blocks={blocks}
-						onEdit={handleEditBlock}
+					<LandingSectionsList
+						sections={sections}
+						onEdit={handleEditSection}
 						onTogglePublish={handleTogglePublish}
 					/>
 				);
@@ -170,15 +281,15 @@ export function PagesPage() {
 				title="Pages"
 				subtitle={subtitle}
 				actions={
-					isEditingBlock ? (
-						<Button variant="default" onClick={() => setEditingBlockId(null)}>
-							← Back to all blocks
+					isEditingSection ? (
+						<Button variant="default" onClick={closeEditor}>
+							← Back to all sections
 						</Button>
 					) : undefined
 				}
 			/>
 
-			{!isEditingBlock && (
+			{!isEditingSection && (
 				<Tabs
 					value={section}
 					onChange={(v) => setSection((v as PageSection) ?? "landing")}
@@ -202,15 +313,7 @@ export function PagesPage() {
 				</Tabs>
 			)}
 
-			{isEditingBlock && editingBlock ? (
-				<LandingBlockEditor
-					block={editingBlock}
-					onSave={handleSaveBlock}
-					onCancel={() => setEditingBlockId(null)}
-				/>
-			) : (
-				renderSection()
-			)}
+			{isEditingSection && editingSection ? renderEditor() : renderSection()}
 		</Container>
 	);
 }
