@@ -31,7 +31,7 @@ import {
 	IconUpload,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { listCategories } from "@/api/categories";
 import { getApiErrorMessage, getBlobApiErrorMessage } from "@/api/client";
@@ -48,6 +48,7 @@ import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { StatusBadge } from "@/components/StatusBadge";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { ImportProductsModal } from "./ImportProductsModal";
 
@@ -61,6 +62,7 @@ const SORT_PARAMS: Record<
 	"name-az": { sort: "name", order: "asc" },
 	"name-za": { sort: "name", order: "desc" },
 };
+const SORT_VALUES = Object.keys(SORT_PARAMS);
 
 const PRODUCT_STATUSES: ProductStatus[] = [
 	"published",
@@ -78,28 +80,74 @@ export function ProductsList() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 
-	const [activeTab, setActiveTab] = useState<string | null>("all");
-	const [search, setSearch] = useState("");
-	const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-	const [sortBy, setSortBy] = useState<string | null>(null);
-	const [page, setPage] = useState(1);
+	const [filters, setFilters] = useFilterParams({
+		q: "",
+		status: "all",
+		category: "all",
+		sort: "",
+		page: 1,
+	});
+
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
 	// Loop bulk berjalan manual (bukan useMutation) — flag ini untuk disable tombol.
 	const [bulkRunning, setBulkRunning] = useState(false);
 	const [importOpened, setImportOpened] = useState(false);
 
-	// Debounce supaya tidak request ke server tiap keystroke.
-	const [debouncedSearch] = useDebouncedValue(search, 300);
+	// Resep search dari Batch 0.4.
+	const [searchInput, setSearchInput] = useState(filters.q);
+	const [debouncedInput] = useDebouncedValue(searchInput, 300);
+	useEffect(() => {
+		if (debouncedInput !== filters.q) {
+			setFilters({ q: debouncedInput }, { replace: true });
+		}
+	}, [debouncedInput, filters.q, setFilters]);
+	useEffect(() => {
+		setSearchInput(filters.q);
+	}, [filters.q]);
 
-	// Filter status mengikuti tab aktif.
-	const effectiveStatus = activeTab !== "all" ? activeTab : null;
+	// Selection tidak masuk URL — tapi harus direset tiap kali filter berubah,
+	// supaya tidak ada id "selected" yang sudah tidak tampil di halaman ini.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: deps sengaja dipakai sebagai trigger, bukan dibaca di body.
+	useEffect(() => {
+		setSelectedIds([]);
+	}, [filters.status, filters.q, filters.category, filters.page]);
+
+	// Opsi kategori dari API — bukan lagi derive dari data produk.
+	const categoriesQuery = useQuery({
+		queryKey: ["categories", { forFilter: true }],
+		// limit besar: dropdown butuh semua kategori, bukan 10 pertama.
+		queryFn: () => listCategories({ limit: 100 }),
+	});
+	const categoryOptions = (categoriesQuery.data?.data ?? []).map((c) => ({
+		value: c.id,
+		label: c.category,
+	}));
+
+	// Aturan 2.5 — user bisa mengetik ?status=ngawur, ?category=ngawur, atau
+	// ?sort=ngawur di address bar.
+	const activeTab: ProductStatus | "all" = isProductStatus(filters.status)
+		? filters.status
+		: "all";
+	// categoryOptions belum tentu sudah termuat saat render pertama — hanya
+	// validasi begitu daftar kategori sudah ada, supaya tidak sempat "reset"
+	// palsu selagi masih loading.
+	const category =
+		filters.category === "all" ||
+		!categoriesQuery.data ||
+		categoryOptions.some((c) => c.value === filters.category)
+			? filters.category
+			: "all";
+	const sort =
+		filters.sort === "" || SORT_VALUES.includes(filters.sort)
+			? filters.sort
+			: "";
 
 	const params: ProductListParams = {
-		search: debouncedSearch || undefined,
-		categoryId: categoryFilter ?? undefined,
-		status: isProductStatus(effectiveStatus) ? effectiveStatus : undefined,
-		...(sortBy ? SORT_PARAMS[sortBy] : undefined),
-		page,
+		search: filters.q || undefined,
+		categoryId: category !== "all" ? category : undefined,
+		status: activeTab !== "all" ? activeTab : undefined,
+		...(sort ? SORT_PARAMS[sort] : undefined),
+		page: filters.page,
 		limit: 10,
 	};
 
@@ -126,25 +174,8 @@ export function ProductsList() {
 			</Badge>
 		);
 
-	// Opsi kategori dari API — bukan lagi derive dari data produk.
-	const categoriesQuery = useQuery({
-		queryKey: ["categories", { forFilter: true }],
-		// limit besar: dropdown butuh semua kategori, bukan 10 pertama.
-		queryFn: () => listCategories({ limit: 100 }),
-	});
-	const categoryOptions = (categoriesQuery.data?.data ?? []).map((c) => ({
-		value: c.id,
-		label: c.category,
-	}));
-
 	const invalidateProducts = () =>
 		queryClient.invalidateQueries({ queryKey: ["products"] });
-
-	// Reset page when filters change
-	const handleFilterChange = (callback: () => void) => {
-		setPage(1);
-		callback();
-	};
 
 	// Checkbox handlers
 	const toggleSelectAll = () => {
@@ -405,7 +436,9 @@ export function ProductsList() {
 					{/* Tabs — badge angka per status dari GET /products/stats. */}
 					<Tabs
 						value={activeTab}
-						onChange={(tab) => handleFilterChange(() => setActiveTab(tab))}
+						onChange={(val) =>
+							setFilters({ status: (val as ProductStatus | "all") ?? "all" })
+						}
 					>
 						<Tabs.List>
 							<Tabs.Tab
@@ -447,18 +480,14 @@ export function ProductsList() {
 							<TextInput
 								placeholder="Search products..."
 								leftSection={<IconSearch size={16} />}
-								value={search}
-								onChange={(e) =>
-									handleFilterChange(() => setSearch(e.currentTarget.value))
-								}
+								value={searchInput}
+								onChange={(e) => setSearchInput(e.currentTarget.value)}
 							/>
 							<Select
 								placeholder="Category"
 								data={categoryOptions}
-								value={categoryFilter}
-								onChange={(val) =>
-									handleFilterChange(() => setCategoryFilter(val))
-								}
+								value={category === "all" ? null : category}
+								onChange={(val) => setFilters({ category: val ?? "all" })}
 								clearable
 								searchable
 							/>
@@ -471,8 +500,8 @@ export function ProductsList() {
 								{ value: "name-az", label: "Name A-Z" },
 								{ value: "name-za", label: "Name Z-A" },
 							]}
-							value={sortBy}
-							onChange={(val) => handleFilterChange(() => setSortBy(val))}
+							value={sort === "" ? null : sort}
+							onChange={(val) => setFilters({ sort: val ?? "" })}
 							clearable
 						/>
 					</Group>
@@ -590,7 +619,11 @@ export function ProductsList() {
 				{/* Pagination */}
 				{totalPages > 1 && (
 					<Group justify="center" mt="md">
-						<Pagination value={page} onChange={setPage} total={totalPages} />
+						<Pagination
+							value={filters.page}
+							onChange={(p) => setFilters({ page: p })}
+							total={totalPages}
+						/>
 					</Group>
 				)}
 			</Card>

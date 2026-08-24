@@ -18,13 +18,14 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { IconDots, IconPlus, IconSearch } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { getApiErrorMessage } from "@/api/client";
 import { deleteJob, getJobSummary, listJobs } from "@/api/jobs";
 import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -43,18 +44,30 @@ export function JobsList() {
 	const canUpdate = can("job.update");
 	const canDelete = can("job.delete");
 
-	// `search` = nilai input (langsung, biar ketikan responsif),
-	// `debouncedSearch` = yang dikirim ke server.
-	const [search, setSearch] = useState("");
-	const [debouncedSearch] = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
-	const [page, setPage] = useState(1);
+	const [filters, setFilters] = useFilterParams({
+		q: "",
+		page: 1,
+	});
+
+	// Resep search dari Batch 0.4 — input tetap local state biar ketikan
+	// responsif, ditulis ke URL setelah debounce pakai replace.
+	const [searchInput, setSearchInput] = useState(filters.q);
+	const [debouncedInput] = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
+	useEffect(() => {
+		if (debouncedInput !== filters.q) {
+			setFilters({ q: debouncedInput }, { replace: true });
+		}
+	}, [debouncedInput, filters.q, setFilters]);
+	useEffect(() => {
+		setSearchInput(filters.q);
+	}, [filters.q]);
 
 	const { data, isLoading, isError, error } = useQuery({
-		queryKey: ["jobs", { search: debouncedSearch, page }],
+		queryKey: ["jobs", { search: filters.q, page: filters.page }],
 		queryFn: () =>
 			listJobs({
-				search: debouncedSearch || undefined,
-				page,
+				search: filters.q || undefined,
+				page: filters.page,
 				limit: ITEMS_PER_PAGE,
 			}),
 		placeholderData: (prev) => prev,
@@ -74,11 +87,6 @@ export function JobsList() {
 
 	const openCount = summary?.open ?? 0;
 	const closedCount = summary?.closed ?? 0;
-
-	const handleSearchChange = (value: string) => {
-		setPage(1);
-		setSearch(value);
-	};
 
 	const deleteMutation = useMutation({
 		mutationFn: (id: string) => deleteJob(id),
@@ -138,8 +146,8 @@ export function JobsList() {
 				<TextInput
 					placeholder="Search positions…"
 					leftSection={<IconSearch size={16} />}
-					value={search}
-					onChange={(e) => handleSearchChange(e.currentTarget.value)}
+					value={searchInput}
+					onChange={(e) => setSearchInput(e.currentTarget.value)}
 				/>
 			</Card>
 
@@ -250,7 +258,11 @@ export function JobsList() {
 
 				{totalPages > 1 && (
 					<Group justify="center" mt="md">
-						<Pagination value={page} onChange={setPage} total={totalPages} />
+						<Pagination
+							value={filters.page}
+							onChange={(p) => setFilters({ page: p })}
+							total={totalPages}
+						/>
 					</Group>
 				)}
 			</Card>
