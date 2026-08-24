@@ -1,10 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	ActionIcon,
-	Box,
 	Button,
 	Card,
-	Center,
 	Grid,
 	Group,
 	Image,
@@ -13,8 +11,6 @@ import {
 	Text,
 	Textarea,
 	TextInput,
-	Title,
-	UnstyledButton,
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import {
@@ -22,10 +18,9 @@ import {
 	IconArrowUp,
 	IconPlus,
 	IconTrash,
-	IconUpload,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { getApiErrorMessage } from "@/api/client";
 import { notify } from "@/components/notify";
@@ -60,7 +55,6 @@ export function CarouselBlockEditor({
 	onCancel,
 }: CarouselBlockEditorProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
-	const [activeIndex, setActiveIndex] = useState(0);
 
 	const {
 		register,
@@ -82,27 +76,10 @@ export function CarouselBlockEditor({
 		},
 	});
 
-	const blockName = watch("name");
-	const headline = watch("headline");
 	const buttonLabel = watch("buttonLabel");
 	const hasButtonLabel = buttonLabel.trim().length > 0;
 	const slides = watch("slides");
 	const durationSec = watch("slideDurationSec");
-
-	// Slide bergonta-ganti otomatis sesuai durasi rotasi.
-	useEffect(() => {
-		if (slides.length <= 1) return;
-		const timer = setInterval(
-			() => setActiveIndex((i) => (i + 1) % slides.length),
-			durationSec * 1000,
-		);
-		return () => clearInterval(timer);
-	}, [slides.length, durationSec]);
-
-	// Slide terakhir bisa terhapus saat activeIndex sedang menunjuk ke sana.
-	useEffect(() => {
-		if (activeIndex >= slides.length) setActiveIndex(0);
-	}, [activeIndex, slides.length]);
 
 	const updateSlides = (next: CarouselSlide[]) =>
 		setValue("slides", next, { shouldDirty: true });
@@ -113,8 +90,6 @@ export function CarouselBlockEditor({
 		const next = [...slides];
 		[next[index], next[target]] = [next[target], next[index]];
 		updateSlides(next);
-		// Ikutkan preview supaya slide yang barusan dipindah tetap yang terlihat.
-		if (activeIndex === index) setActiveIndex(target);
 	};
 
 	const updateCaption = (index: number, caption: string) =>
@@ -176,119 +151,21 @@ export function CarouselBlockEditor({
 
 	return (
 		<Grid gap="lg">
-			{/* KIRI — live preview */}
+			{/* KIRI — daftar slide */}
 			<Grid.Col span={{ base: 12, lg: 7 }}>
 				<Card withBorder>
 					<Stack gap="md">
-						<Stack gap={2}>
-							<Text fw={600}>{blockName} — Preview</Text>
+						<Text fw={600}>
+							Slides ({slides.length})
+							{slides.length > 0 && " — drag the arrows to reorder"}
+						</Text>
+
+						{slides.length === 0 ? (
 							<Text size="sm" c="dimmed">
-								Slides rotate automatically every {durationSec}s
+								No slides yet — add photos below.
 							</Text>
-						</Stack>
-
-						<Box
-							pos="relative"
-							h={320}
-							style={{
-								borderRadius: "var(--mantine-radius-sm)",
-								overflow: "hidden",
-							}}
-						>
-							{slides.length === 0 ? (
-								<Center h="100%" bg="var(--mantine-color-gray-1)">
-									<Stack gap={4} align="center">
-										<IconUpload
-											size={40}
-											color="var(--mantine-color-gray-6)"
-											stroke={1.5}
-										/>
-										<Text fw={500}>No slides yet</Text>
-										<Text size="sm" c="dimmed">
-											Add photos to start building this carousel.
-										</Text>
-									</Stack>
-								</Center>
-							) : (
-								<>
-									<Image
-										src={slides[activeIndex]?.mediaUrl}
-										h={320}
-										fit="cover"
-									/>
-									{headline && (
-										<Box
-											pos="absolute"
-											inset={0}
-											style={{
-												display: "flex",
-												alignItems: "center",
-												justifyContent: "center",
-												padding: "var(--mantine-spacing-md)",
-												background: "rgba(0, 0, 0, 0.25)",
-											}}
-										>
-											<Title
-												order={3}
-												c="white"
-												ta="center"
-												style={{ textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}
-											>
-												{headline}
-											</Title>
-										</Box>
-									)}
-									{slides[activeIndex]?.caption && (
-										<Box
-											pos="absolute"
-											bottom={0}
-											left={0}
-											right={0}
-											p="sm"
-											style={{
-												background:
-													"linear-gradient(to top, rgba(0,0,0,0.6), transparent)",
-											}}
-										>
-											<Text size="sm" c="white">
-												{slides[activeIndex]?.caption}
-											</Text>
-										</Box>
-									)}
-									<Group
-										justify="center"
-										gap={6}
-										pos="absolute"
-										bottom={8}
-										left={0}
-										right={0}
-									>
-										{slides.map((s, i) => (
-											<UnstyledButton
-												key={s.id}
-												aria-label={`Go to slide ${i + 1}`}
-												onClick={() => setActiveIndex(i)}
-												style={{
-													width: 8,
-													height: 8,
-													borderRadius: "50%",
-													backgroundColor:
-														i === activeIndex
-															? "white"
-															: "rgba(255, 255, 255, 0.5)",
-												}}
-											/>
-										))}
-									</Group>
-								</>
-							)}
-						</Box>
-
-						{slides.length > 0 && (
+						) : (
 							<Stack gap="xs">
-								<Text size="sm" fw={500}>
-									Slides ({slides.length}) — drag the arrows to reorder
-								</Text>
 								{slides.map((slide, index) => (
 									<Group key={slide.id} wrap="nowrap">
 										<Stack gap={2}>
