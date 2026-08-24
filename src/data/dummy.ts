@@ -1939,98 +1939,176 @@ export const dummyDeliveries: Delivery[] = [
 	},
 ];
 
-// ---------- Pages: Landing blocks ----------
+// ---------- Pages: Landing sections ----------
 
-export type LandingBlockType = "hero" | "carousel";
+export type LandingSectionKey =
+	| "mainHero"
+	| "signatureCollection"
+	| "craftmanship"
+	| "designedForLife"
+	| "bottomHero";
 
-export type CarouselSlide = {
-	id: string;
-	mediaUrl: string;
-	caption: string;
+export type LandingStatus = "published" | "draft";
+
+/** Gambar + alt text; alt wajib diisi untuk aksesibilitas & SEO. */
+export type LandingImage = {
+	url: string;
+	alt: string;
 };
 
-export type LandingBlock = {
-	id: string;
-	type: LandingBlockType;
-	name: string;
-	status: "published" | "draft";
-	headline: string;
-	buttonLabel: string;
-	buttonDestination: string | null; // null = "no destination set"
-	mediaUrl: string; // preview gambar / poster video
-	isVideo: boolean; // true → badge "Video"
-	/** Hanya untuk type "carousel". slideCount lama diturunkan dari slides.length. */
-	slides?: CarouselSlide[];
-	slideDurationSec?: number; // hanya untuk type "carousel"
+type LandingSectionBase = {
+	/** Identitas section — TETAP, tidak pernah dibuat/dihapus user. */
+	key: LandingSectionKey;
+	/** Label yang tampil di kartu list, mis. "Main Hero". */
+	label: string;
+	status: LandingStatus;
 	updatedAt: string;
 };
 
-export const dummyLandingBlocks: LandingBlock[] = [
+export type HeroSection = LandingSectionBase & {
+	kind: "hero";
+	key: "mainHero" | "bottomHero";
+	subtitle: string;
+	title: string;
+	ctaText: string;
+	/** Selalu disimpan dengan "/" di depan, mis. "/collections". */
+	ctaLink: string;
+	image: LandingImage;
+};
+
+export type SignatureCollectionSection = LandingSectionBase & {
+	kind: "signature";
+	key: "signatureCollection";
+	title: string;
+	image: LandingImage;
+};
+
+export type CraftmanshipSlide = {
+	id: string;
+	image: LandingImage;
+	caption: string;
+	title: string;
+	description: string;
+};
+
+export type CraftmanshipSection = LandingSectionBase & {
+	kind: "craftmanship";
+	key: "craftmanship";
+	ctaText: string;
+	ctaLink: string;
+	slides: CraftmanshipSlide[];
+	/** Durasi auto-rotation carousel (detik). Dipertahankan dari editor lama. */
+	slideDurationSec: number;
+};
+
+export type DesignedForLifeSection = LandingSectionBase & {
+	kind: "productGrid";
+	key: "designedForLife";
+	/** ID produk dari database. Harus tepat 6 saat disimpan. */
+	productIds: string[];
+};
+
+export type LandingSection =
+	| HeroSection
+	| SignatureCollectionSection
+	| CraftmanshipSection
+	| DesignedForLifeSection;
+
+export const dummyLandingSections: LandingSection[] = [
 	{
-		id: "BLK-001",
-		type: "hero",
-		name: "Main hero",
+		kind: "hero",
+		key: "mainHero",
+		label: "Main Hero",
 		status: "published",
-		headline: "Furniture built to last a lifetime",
-		buttonLabel: "Shop the collection",
-		buttonDestination: "/collections",
-		mediaUrl: "https://placehold.co/1200x600?text=Main+Hero",
-		isVideo: false,
 		updatedAt: "2026-08-10",
+		subtitle: "Handcrafted, built to last",
+		title: "Furniture built to last a lifetime",
+		ctaText: "Shop the collection",
+		ctaLink: "/collections",
+		image: {
+			url: "https://placehold.co/1200x600?text=Main+Hero",
+			alt: "Living room with handcrafted oak furniture",
+		},
 	},
 	{
-		id: "BLK-002",
-		type: "hero",
-		name: "Seasonal promo",
-		status: "draft",
-		headline: "New season, new pieces for your home",
-		buttonLabel: "",
-		buttonDestination: null,
-		mediaUrl: "https://placehold.co/1200x600?text=Seasonal+Promo",
-		isVideo: false,
-		updatedAt: "2026-08-05",
-	},
-	{
-		id: "BLK-003",
-		type: "carousel",
-		name: "Best sellers carousel",
+		kind: "signature",
+		key: "signatureCollection",
+		label: "Signature Collection",
 		status: "published",
-		headline: "Loved by thousands of homes",
-		buttonLabel: "View all",
-		buttonDestination: "/products",
-		mediaUrl: "https://placehold.co/1200x600?text=Best+Sellers",
-		isVideo: false,
+		updatedAt: "2026-08-08",
+		title: "The Signature Collection",
+		image: {
+			url: "https://placehold.co/1200x600?text=Signature+Collection",
+			alt: "Signature collection dining set",
+		},
+	},
+	{
+		kind: "craftmanship",
+		key: "craftmanship",
+		label: "Craftmanship",
+		status: "published",
+		updatedAt: "2026-08-01",
+		ctaText: "View all",
+		ctaLink: "/products",
 		slides: [
 			{
 				id: "SLD-001",
-				mediaUrl: "https://placehold.co/1200x600?text=Slide+1",
+				image: {
+					url: "https://placehold.co/1200x600?text=Slide+1",
+					alt: "",
+				},
 				caption: "Handcrafted oak dining set",
+				title: "Solid oak, hand-selected",
+				description:
+					"Every board is chosen and joined by hand in our workshop.",
 			},
 			{
 				id: "SLD-002",
-				mediaUrl: "https://placehold.co/1200x600?text=Slide+2",
+				image: {
+					url: "https://placehold.co/1200x600?text=Slide+2",
+					alt: "",
+				},
 				caption: "",
+				title: "",
+				description: "",
 			},
 			{
 				id: "SLD-003",
-				mediaUrl: "https://placehold.co/1200x600?text=Slide+3",
+				image: {
+					url: "https://placehold.co/1200x600?text=Slide+3",
+					alt: "",
+				},
 				caption: "Made to order in 4 weeks",
+				title: "Made to order",
+				description:
+					"Each piece is built after you order — no mass production.",
 			},
 		],
 		slideDurationSec: 5,
-		updatedAt: "2026-08-01",
 	},
 	{
-		id: "BLK-004",
-		type: "hero",
-		name: "Craftsmanship story",
+		kind: "productGrid",
+		key: "designedForLife",
+		label: "Designed for Life",
+		status: "draft",
+		updatedAt: "2026-07-30",
+		// Kosong dulu — kondisi "belum dipilih" harus terlihat jelas saat testing.
+		productIds: [],
+	},
+	{
+		kind: "hero",
+		key: "bottomHero",
+		label: "Bottom Hero",
 		status: "published",
-		headline: "See how every piece is made",
-		buttonLabel: "Watch video",
-		buttonDestination: "/contract-projects",
-		mediaUrl: "https://placehold.co/1200x600?text=Craftsmanship",
-		isVideo: true,
 		updatedAt: "2026-07-28",
+		subtitle: "See how every piece is made",
+		title: "Crafted by hand, finished with care",
+		ctaText: "Watch our story",
+		ctaLink: "/contract-projects",
+		image: {
+			url: "https://placehold.co/1200x600?text=Bottom+Hero",
+			alt: "Craftsman finishing a wooden chair",
+		},
 	},
 ];
 
