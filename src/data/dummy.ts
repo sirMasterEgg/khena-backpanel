@@ -1938,3 +1938,290 @@ export const dummyDeliveries: Delivery[] = [
 		status: "scheduled",
 	},
 ];
+
+// ---------- Pages: Landing blocks ----------
+
+export type LandingBlockType = "hero" | "carousel";
+
+export type LandingBlock = {
+	id: string;
+	type: LandingBlockType;
+	name: string;
+	status: "published" | "draft";
+	headline: string;
+	buttonLabel: string;
+	buttonDestination: string | null; // null = "no destination set"
+	mediaUrl: string; // preview gambar / poster video
+	isVideo: boolean; // true → badge "Video"
+	slideCount?: number; // hanya untuk type "carousel"
+	slideDurationSec?: number; // hanya untuk type "carousel"
+	updatedAt: string;
+};
+
+export const dummyLandingBlocks: LandingBlock[] = [
+	{
+		id: "BLK-001",
+		type: "hero",
+		name: "Main hero",
+		status: "published",
+		headline: "Furniture built to last a lifetime",
+		buttonLabel: "Shop the collection",
+		buttonDestination: "/collections",
+		mediaUrl: "https://placehold.co/1200x600?text=Main+Hero",
+		isVideo: false,
+		updatedAt: "2026-08-10",
+	},
+	{
+		id: "BLK-002",
+		type: "hero",
+		name: "Seasonal promo",
+		status: "draft",
+		headline: "New season, new pieces for your home",
+		buttonLabel: "Learn more",
+		buttonDestination: null,
+		mediaUrl: "https://placehold.co/1200x600?text=Seasonal+Promo",
+		isVideo: false,
+		updatedAt: "2026-08-05",
+	},
+	{
+		id: "BLK-003",
+		type: "carousel",
+		name: "Best sellers carousel",
+		status: "published",
+		headline: "Loved by thousands of homes",
+		buttonLabel: "View all",
+		buttonDestination: "/products",
+		mediaUrl: "https://placehold.co/1200x600?text=Best+Sellers",
+		isVideo: false,
+		slideCount: 3,
+		slideDurationSec: 5,
+		updatedAt: "2026-08-01",
+	},
+	{
+		id: "BLK-004",
+		type: "hero",
+		name: "Craftsmanship story",
+		status: "published",
+		headline: "See how every piece is made",
+		buttonLabel: "Watch video",
+		buttonDestination: "/contract-projects",
+		mediaUrl: "https://placehold.co/1200x600?text=Craftsmanship",
+		isVideo: true,
+		updatedAt: "2026-07-28",
+	},
+];
+
+// ---------- Pages: Q&A (FAQ / Returns / Shipping / Care) ----------
+
+export type QnaItem = {
+	id: string;
+	question: string;
+	answer: string;
+	category?: string; // hanya dipakai FAQ
+	updatedAt: string;
+};
+
+export const dummyFaqItems: QnaItem[] = [
+	{
+		id: "FAQ-001",
+		question: "How do I place an order?",
+		answer:
+			"Browse our catalog, add items to your cart, and complete checkout with your shipping and payment details.",
+		category: "Ordering",
+		updatedAt: "2026-08-12",
+	},
+	{
+		id: "FAQ-002",
+		question: "What payment methods do you accept?",
+		answer:
+			"We accept major credit cards, bank transfer, and popular e-wallets.",
+		category: "Payment",
+		updatedAt: "2026-08-11",
+	},
+	{
+		id: "FAQ-003",
+		question: "How long does delivery take?",
+		answer:
+			"Delivery usually takes 3–7 business days depending on your location.",
+		category: "Delivery",
+		updatedAt: "2026-08-09",
+	},
+	{
+		id: "FAQ-004",
+		question: "How do I clean and maintain my furniture?",
+		answer:
+			"Use a soft, dry cloth for regular dusting and avoid direct sunlight for extended periods.",
+		category: "Product Care",
+		updatedAt: "2026-08-07",
+	},
+	{
+		id: "FAQ-005",
+		question: "What does the warranty cover?",
+		answer:
+			"Our warranty covers manufacturing defects for up to 2 years from the date of purchase.",
+		category: "Warranty",
+		updatedAt: "2026-08-03",
+	},
+];
+
+export const dummyReturnsItems: QnaItem[] = [
+	{
+		id: "RET-001",
+		question: "What is your return policy?",
+		answer:
+			"Items can be returned within 14 days of delivery if unused and in original packaging.",
+		updatedAt: "2026-08-12",
+	},
+	{
+		id: "RET-002",
+		question: "How do I start a return?",
+		answer:
+			"Contact our support team with your order number and we'll guide you through the process.",
+		updatedAt: "2026-08-10",
+	},
+	{
+		id: "RET-003",
+		question: "Who pays for return shipping?",
+		answer:
+			"Return shipping is free for defective items; otherwise the customer covers the cost.",
+		updatedAt: "2026-08-06",
+	},
+];
+
+export const dummyShippingItems: QnaItem[] = [
+	{
+		id: "SHP-001",
+		question: "Which areas do you deliver to?",
+		answer: "We currently deliver to all major cities across Indonesia.",
+		updatedAt: "2026-08-13",
+	},
+	{
+		id: "SHP-002",
+		question: "How much does shipping cost?",
+		answer:
+			"Shipping cost is calculated at checkout based on your address and order size.",
+		updatedAt: "2026-08-08",
+	},
+	{
+		id: "SHP-003",
+		question: "Can I track my delivery?",
+		answer:
+			"Yes, you'll receive a tracking link by email once your order ships.",
+		updatedAt: "2026-08-02",
+	},
+];
+
+export const dummyCareItems: QnaItem[] = [
+	{
+		id: "CARE-001",
+		question: "How do I care for wooden furniture?",
+		answer:
+			"Wipe with a dry cloth and apply wood conditioner every few months to keep it looking fresh.",
+		updatedAt: "2026-08-14",
+	},
+	{
+		id: "CARE-002",
+		question: "How do I clean upholstered furniture?",
+		answer:
+			"Vacuum regularly and spot-clean spills immediately with a damp cloth.",
+		updatedAt: "2026-08-09",
+	},
+	{
+		id: "CARE-003",
+		question: "Where should I place my furniture?",
+		answer:
+			"Avoid placing furniture in direct sunlight or near heat sources to prevent fading and warping.",
+		updatedAt: "2026-08-04",
+	},
+];
+
+// Opsi kategori FAQ (dipakai Select di QnaItemModal)
+export const FAQ_CATEGORIES = [
+	"Ordering",
+	"Payment",
+	"Delivery",
+	"Product Care",
+	"Warranty",
+] as const;
+
+// ---------- Pages: Assembly manuals ----------
+
+export type AssemblyManual = {
+	id: string;
+	productName: string;
+	productSku?: string; // opsional, mis. "SOF-OAK-3S"
+	fileName: string; // mis. "sofa-assembly.pdf"
+	fileSize: string; // mis. "1.2 MB"
+	updatedAt: string;
+};
+
+export const dummyAssemblyManuals: AssemblyManual[] = [
+	{
+		id: "MAN-001",
+		productName: "Oakwood 3-Seater Sofa",
+		productSku: "SOF-OAK-3S",
+		fileName: "oakwood-sofa-assembly.pdf",
+		fileSize: "1.2 MB",
+		updatedAt: "2026-08-11",
+	},
+	{
+		id: "MAN-002",
+		productName: "Maple Dining Table",
+		productSku: "TBL-MPL-DN",
+		fileName: "maple-dining-table-assembly.pdf",
+		fileSize: "860 KB",
+		updatedAt: "2026-08-08",
+	},
+	{
+		id: "MAN-003",
+		productName: "Willow Bookshelf",
+		fileName: "willow-bookshelf-assembly.pdf",
+		fileSize: "540 KB",
+		updatedAt: "2026-08-05",
+	},
+	{
+		id: "MAN-004",
+		productName: "Birchwood Bed Frame",
+		productSku: "BED-BIR-FR",
+		fileName: "birchwood-bed-frame-assembly.pdf",
+		fileSize: "2.1 MB",
+		updatedAt: "2026-07-30",
+	},
+];
+
+// ---------- Pages: Contract projects ----------
+
+export type ContractProject = {
+	id: string;
+	field: string; // kategori/industri proyek, mis. "Hospitality"
+	description: string; // deskripsi singkat
+	status: "published" | "draft";
+	updatedAt: string;
+};
+
+export const dummyContractProjects: ContractProject[] = [
+	{
+		id: "PRJ-001",
+		field: "Hospitality",
+		description:
+			"Custom lobby seating and reception furniture for a 5-star hotel chain.",
+		status: "published",
+		updatedAt: "2026-08-06",
+	},
+	{
+		id: "PRJ-002",
+		field: "Office",
+		description:
+			"Workstations and lounge furniture for a modern coworking space.",
+		status: "published",
+		updatedAt: "2026-08-02",
+	},
+	{
+		id: "PRJ-003",
+		field: "Hospitality",
+		description:
+			"Dining chairs, tables, and bar furniture for a waterfront restaurant.",
+		status: "draft",
+		updatedAt: "2026-07-25",
+	},
+];
