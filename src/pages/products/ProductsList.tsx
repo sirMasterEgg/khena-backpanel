@@ -105,12 +105,14 @@ export function ProductsList() {
 		setSearchInput(filters.q);
 	}, [filters.q]);
 
-	// Selection tidak masuk URL — tapi harus direset tiap kali filter berubah,
-	// supaya tidak ada id "selected" yang sudah tidak tampil di halaman ini.
+	// Selection tidak masuk URL — direset saat filter berubah (supaya tidak ada
+	// id "selected" yang sudah tidak tampil di halaman ini), TAPI bukan saat
+	// ganti halaman — selection sengaja dipertahankan lintas halaman supaya
+	// bulk action bisa menyasar item dari beberapa halaman sekaligus.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: deps sengaja dipakai sebagai trigger, bukan dibaca di body.
 	useEffect(() => {
 		setSelectedIds([]);
-	}, [filters.status, filters.q, filters.category, filters.page]);
+	}, [filters.status, filters.q, filters.category]);
 
 	// Opsi kategori dari API — bukan lagi derive dari data produk.
 	const categoriesQuery = useQuery({
@@ -178,11 +180,20 @@ export function ProductsList() {
 		queryClient.invalidateQueries({ queryKey: ["products"] });
 
 	// Checkbox handlers
+	// Selection dipertahankan lintas halaman, jadi "select all" harus dicek
+	// per-id produk yang tampil di halaman ini — bukan sekadar bandingkan
+	// jumlah (selectedIds bisa berisi id dari halaman lain).
+	const allOnPageSelected =
+		products.length > 0 && products.every((p) => selectedIds.includes(p.id));
 	const toggleSelectAll = () => {
-		if (selectedIds.length === products.length) {
-			setSelectedIds([]);
+		const pageIds = new Set(products.map((p) => p.id));
+		if (allOnPageSelected) {
+			setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)));
 		} else {
-			setSelectedIds(products.map((p) => p.id));
+			setSelectedIds((prev) => [
+				...prev,
+				...products.map((p) => p.id).filter((id) => !prev.includes(id)),
+			]);
 		}
 	};
 
@@ -524,14 +535,11 @@ export function ProductsList() {
 							<Table.Tr>
 								<Table.Th style={{ width: 40 }}>
 									<Checkbox
-										checked={
-											selectedIds.length === products.length &&
-											products.length > 0
-										}
+										checked={allOnPageSelected}
 										onChange={toggleSelectAll}
 										indeterminate={
-											selectedIds.length > 0 &&
-											selectedIds.length < products.length
+											!allOnPageSelected &&
+											products.some((p) => selectedIds.includes(p.id))
 										}
 									/>
 								</Table.Th>

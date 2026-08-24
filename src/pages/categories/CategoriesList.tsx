@@ -143,12 +143,13 @@ export function CategoriesList() {
 
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-	// Selection bukan bagian dari URL — tapi harus direset tiap filter (atau
-	// halaman) berubah supaya tidak nyangkut ke baris yang sudah tidak tampil.
+	// Selection bukan bagian dari URL — direset saat filter berubah supaya
+	// tidak nyangkut ke baris yang sudah tidak tampil, TAPI TIDAK direset saat
+	// ganti halaman — selection sengaja dipertahankan lintas halaman.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: deps sengaja dipakai sebagai trigger, bukan dibaca di body.
 	useEffect(() => {
 		setSelectedIds([]);
-	}, [filters.status, filters.q, filters.roomType, filters.page]);
+	}, [filters.status, filters.q, filters.roomType]);
 
 	const { data, isLoading, isError, error } = useQuery({
 		queryKey: [
@@ -234,11 +235,21 @@ export function CategoriesList() {
 	const isBulkPending =
 		bulkDeleteMutation.isPending || bulkStatusMutation.isPending;
 
+	// Selection dipertahankan lintas halaman, jadi "select all" harus dicek
+	// per-id item yang tampil di halaman ini — bukan sekadar bandingkan jumlah
+	// (selectedIds bisa berisi id dari halaman lain).
+	const allOnPageSelected =
+		categories.length > 0 &&
+		categories.every((c) => selectedIds.includes(c.id));
 	const toggleSelectAll = () => {
-		if (selectedIds.length === categories.length) {
-			setSelectedIds([]);
+		const pageIds = new Set(categories.map((c) => c.id));
+		if (allOnPageSelected) {
+			setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)));
 		} else {
-			setSelectedIds(categories.map((c) => c.id));
+			setSelectedIds((prev) => [
+				...prev,
+				...categories.map((c) => c.id).filter((id) => !prev.includes(id)),
+			]);
 		}
 	};
 
@@ -420,13 +431,10 @@ export function CategoriesList() {
 						<Table.Tr>
 							<Table.Th style={{ width: 40 }}>
 								<Checkbox
-									checked={
-										selectedIds.length === categories.length &&
-										categories.length > 0
-									}
+									checked={allOnPageSelected}
 									indeterminate={
-										selectedIds.length > 0 &&
-										selectedIds.length < categories.length
+										!allOnPageSelected &&
+										categories.some((c) => selectedIds.includes(c.id))
 									}
 									onChange={toggleSelectAll}
 								/>

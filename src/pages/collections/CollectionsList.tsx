@@ -92,11 +92,12 @@ export function CollectionsList() {
 	// Loop bulk berjalan manual (bukan useMutation) — flag ini untuk disable tombol.
 	const [bulkRunning, setBulkRunning] = useState(false);
 
-	// Bulk selection tidak relevan lagi begitu filter/halaman berubah.
+	// Bulk selection tidak relevan lagi begitu filter berubah — tapi TIDAK
+	// direset saat ganti halaman, supaya selection lintas halaman tetap awet.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: deps sengaja dipakai sebagai trigger, bukan dibaca di body.
 	useEffect(() => {
 		setSelectedIds([]);
-	}, [filters.status, filters.q, filters.page]);
+	}, [filters.status, filters.q]);
 
 	const params: CollectionListParams = {
 		search: filters.q || undefined,
@@ -125,11 +126,21 @@ export function CollectionsList() {
 	const invalidateCollections = () =>
 		queryClient.invalidateQueries({ queryKey: ["collections"] });
 
+	// Selection dipertahankan lintas halaman, jadi "select all" harus dicek
+	// per-id item yang tampil di halaman ini — bukan sekadar bandingkan jumlah
+	// (selectedIds bisa berisi id dari halaman lain).
+	const allOnPageSelected =
+		collections.length > 0 &&
+		collections.every((c) => selectedIds.includes(c.id));
 	const toggleSelectAll = () => {
-		if (selectedIds.length === collections.length) {
-			setSelectedIds([]);
+		const pageIds = new Set(collections.map((c) => c.id));
+		if (allOnPageSelected) {
+			setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)));
 		} else {
-			setSelectedIds(collections.map((c) => c.id));
+			setSelectedIds((prev) => [
+				...prev,
+				...collections.map((c) => c.id).filter((id) => !prev.includes(id)),
+			]);
 		}
 	};
 
@@ -365,13 +376,10 @@ export function CollectionsList() {
 							<Table.Tr>
 								<Table.Th style={{ width: 40 }}>
 									<Checkbox
-										checked={
-											selectedIds.length === collections.length &&
-											collections.length > 0
-										}
+										checked={allOnPageSelected}
 										indeterminate={
-											selectedIds.length > 0 &&
-											selectedIds.length < collections.length
+											!allOnPageSelected &&
+											collections.some((c) => selectedIds.includes(c.id))
 										}
 										onChange={toggleSelectAll}
 									/>
