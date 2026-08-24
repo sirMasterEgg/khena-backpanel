@@ -13,15 +13,21 @@ import {
 	TextInput,
 } from "@mantine/core";
 import { IconTrash } from "@tabler/icons-react";
-import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useRef } from "react";
 import { useForm } from "react-hook-form";
-import { getMediaPreviewUrl } from "@/api/media";
+import { getApiErrorMessage } from "@/api/client";
+import { notify } from "@/components/notify";
 import type { LandingBlock } from "@/data/dummy";
-import { MediaPickerModal } from "@/pages/color/MediaPickerModal";
 import {
 	type LandingBlockFormData,
 	landingBlockSchema,
 } from "./landingBlockSchema";
+import {
+	ACCEPTED_IMAGE_TYPES,
+	MAX_IMAGE_BYTES,
+	uploadLandingImages,
+} from "./uploadLandingMedia";
 
 /** Buang "/" di depan supaya tidak dobel dengan leftSection input. */
 function stripLeadingSlash(value: string) {
@@ -39,7 +45,7 @@ export function LandingBlockEditor({
 	onSave,
 	onCancel,
 }: LandingBlockEditorProps) {
-	const [pickerOpened, setPickerOpened] = useState(false);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const {
 		register,
@@ -75,6 +81,28 @@ export function LandingBlockEditor({
 		});
 	};
 
+	const uploadMutation = useMutation({
+		mutationFn: (files: File[]) => uploadLandingImages(files),
+		onSuccess: ([url]) => {
+			if (url)
+				setValue("mediaUrl", url, { shouldDirty: true, shouldValidate: true });
+			notify.success("Gambar diunggah");
+		},
+		onError: (err) => notify.error(getApiErrorMessage(err)),
+	});
+
+	const handleFileSelected = (list: FileList | null) => {
+		const file = list?.[0];
+		// Reset value supaya file yang sama bisa dipilih lagi setelah ini.
+		if (fileInputRef.current) fileInputRef.current.value = "";
+		if (!file) return;
+		if (file.size > MAX_IMAGE_BYTES) {
+			notify.error("Ukuran gambar melebihi 10 MB");
+			return;
+		}
+		uploadMutation.mutate([file]);
+	};
+
 	return (
 		<>
 			<Grid gap="lg">
@@ -94,7 +122,7 @@ export function LandingBlockEditor({
 									}}
 								>
 									<Text c="dimmed" size="sm">
-										No image selected
+										No image yet — upload one
 									</Text>
 								</Center>
 							)}
@@ -103,13 +131,21 @@ export function LandingBlockEditor({
 									{errors.mediaUrl.message}
 								</Text>
 							)}
+							<input
+								ref={fileInputRef}
+								type="file"
+								accept={ACCEPTED_IMAGE_TYPES}
+								hidden
+								onChange={(e) => handleFileSelected(e.currentTarget.files)}
+							/>
 							<Group justify="space-between">
 								<Button
 									type="button"
 									variant="default"
-									onClick={() => setPickerOpened(true)}
+									loading={uploadMutation.isPending}
+									onClick={() => fileInputRef.current?.click()}
 								>
-									{mediaUrl ? "Replace" : "Choose"}
+									{mediaUrl ? "Replace image" : "Upload image"}
 								</Button>
 								<ActionIcon
 									type="button"
@@ -173,17 +209,6 @@ export function LandingBlockEditor({
 					Save changes
 				</Button>
 			</Group>
-
-			<MediaPickerModal
-				opened={pickerOpened}
-				onClose={() => setPickerOpened(false)}
-				onSelect={(file) => {
-					setValue("mediaUrl", getMediaPreviewUrl(file), {
-						shouldDirty: true,
-					});
-					setPickerOpened(false);
-				}}
-			/>
 		</>
 	);
 }
