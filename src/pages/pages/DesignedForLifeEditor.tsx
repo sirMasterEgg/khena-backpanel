@@ -246,11 +246,7 @@ export function DesignedForLifeEditor({
 				<Button type="button" variant="default" onClick={onCancel}>
 					Cancel
 				</Button>
-				<Button
-					type="button"
-					disabled={productIds.length !== DESIGNED_FOR_LIFE_PRODUCT_COUNT}
-					onClick={handleSubmit(onSave)}
-				>
+				<Button type="button" onClick={handleSubmit(onSave)}>
 					Save changes
 				</Button>
 			</Group>

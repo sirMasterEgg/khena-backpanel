@@ -142,18 +142,10 @@ export function LandingSectionCard({
 						</Text>
 					)}
 					{section.kind === "productGrid" && (
-						<Group gap="xs" mt="md">
-							<Text size="sm">
-								{section.productIds.length} of {DESIGNED_FOR_LIFE_PRODUCT_COUNT}{" "}
-								products selected
-							</Text>
-							{section.productIds.length !==
-								DESIGNED_FOR_LIFE_PRODUCT_COUNT && (
-								<Text size="sm" c="orange">
-									needs {DESIGNED_FOR_LIFE_PRODUCT_COUNT} products
-								</Text>
-							)}
-						</Group>
+						<Text size="sm" mt="md">
+							{section.productIds.length} of {DESIGNED_FOR_LIFE_PRODUCT_COUNT}{" "}
+							products selected
+						</Text>
 					)}
 
 					<Text size="xs" c="dimmed" mt="md">
