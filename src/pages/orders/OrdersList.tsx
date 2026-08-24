@@ -28,7 +28,7 @@ import {
 	IconSearch,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { getApiErrorMessage, getBlobApiErrorMessage } from "@/api/client";
 import {
@@ -44,6 +44,7 @@ import { notify } from "@/components/notify";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
 import { canViewPrices } from "@/config/permissions";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { CustomerAvatar } from "@/pages/customers/CustomerAvatar";
 import { formatCurrency, formatDate } from "./format";
@@ -100,27 +101,50 @@ const SORT_OPTIONS = [
 	{ value: "oldest", label: "Oldest" },
 	{ value: "total", label: "Highest total" },
 ];
+const SORT_VALUES = SORT_OPTIONS.map((o) => o.value);
 
 export function OrdersList() {
 	usePageTitle("Orders");
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 
-	const [search, setSearch] = useState("");
-	const [tab, setTab] = useState<OrdersTab>("all");
-	const [sortBy, setSortBy] = useState<OrderSalesListParams["sort"]>("newest");
-	const [page, setPage] = useState(1);
+	const [filters, setFilters] = useFilterParams({
+		q: "",
+		status: "all",
+		sort: "newest",
+		page: 1,
+	});
+
+	// Aturan 2.5 — user bisa mengetik ?status=ngawur atau ?sort=ngawur di address bar.
+	const tab: OrdersTab = TAB_ORDER.includes(filters.status as OrdersTab)
+		? (filters.status as OrdersTab)
+		: "all";
+	const sort: NonNullable<OrderSalesListParams["sort"]> = SORT_VALUES.includes(
+		filters.sort,
+	)
+		? (filters.sort as NonNullable<OrderSalesListParams["sort"]>)
+		: "newest";
+
+	// Resep search dari Batch 0.4.
+	const [searchInput, setSearchInput] = useState(filters.q);
+	const [debouncedInput] = useDebouncedValue(searchInput, 300);
+	useEffect(() => {
+		if (debouncedInput !== filters.q) {
+			setFilters({ q: debouncedInput }, { replace: true });
+		}
+	}, [debouncedInput, filters.q, setFilters]);
+	useEffect(() => {
+		setSearchInput(filters.q);
+	}, [filters.q]);
+
 	// Order yang sedang menunggu tracking number sebelum di-set ke "shipped".
 	const [shipTarget, setShipTarget] = useState<string | null>(null);
 
-	// Debounce supaya tidak request tiap keystroke.
-	const [debouncedSearch] = useDebouncedValue(search, 300);
-
 	const params: OrderSalesListParams = {
-		search: debouncedSearch || undefined,
+		search: filters.q || undefined,
 		status: tab === "all" ? undefined : TAB_TO_STATUS[tab],
-		sort: sortBy,
-		page,
+		sort,
+		page: filters.page,
 		limit: ITEMS_PER_PAGE,
 	};
 
@@ -141,11 +165,6 @@ export function OrdersList() {
 
 	// Jumlah kolom yang tampil (untuk colSpan empty state).
 	const columnCount = canViewPrices ? 7 : 6;
-
-	const handleFilterChange = (callback: () => void) => {
-		setPage(1);
-		callback();
-	};
 
 	const statusMutation = useMutation({
 		mutationFn: ({
@@ -192,9 +211,9 @@ export function OrdersList() {
 	const exportMutation = useMutation({
 		mutationFn: () =>
 			exportOrderSalesCsv({
-				search: debouncedSearch || undefined,
+				search: filters.q || undefined,
 				status: tab === "all" ? undefined : TAB_TO_STATUS[tab],
-				sort: sortBy,
+				sort,
 			}),
 		onSuccess: ({ blob, filename }) => {
 			const url = URL.createObjectURL(blob);
@@ -273,9 +292,7 @@ export function OrdersList() {
 			{/* Status Tabs */}
 			<Tabs
 				value={tab}
-				onChange={(val) =>
-					handleFilterChange(() => setTab((val as OrdersTab) ?? "all"))
-				}
+				onChange={(val) => setFilters({ status: (val as OrdersTab) ?? "all" })}
 				mb="md"
 			>
 				<Tabs.List>
@@ -311,19 +328,17 @@ export function OrdersList() {
 					<TextInput
 						placeholder="Search by invoice number or customer"
 						leftSection={<IconSearch size={16} />}
-						value={search}
-						onChange={(e) =>
-							handleFilterChange(() => setSearch(e.currentTarget.value))
-						}
+						value={searchInput}
+						onChange={(e) => setSearchInput(e.currentTarget.value)}
 						w={280}
 					/>
 					<Select
 						data={SORT_OPTIONS}
-						value={sortBy}
+						value={sort}
 						onChange={(val) =>
-							handleFilterChange(() =>
-								setSortBy((val as OrderSalesListParams["sort"]) ?? "newest"),
-							)
+							setFilters({
+								sort: (val as OrderSalesListParams["sort"]) ?? "newest",
+							})
 						}
 						allowDeselect={false}
 						leftSection={
@@ -458,7 +473,11 @@ export function OrdersList() {
 
 				{totalPages > 1 && (
 					<Group justify="center" mt="md">
-						<Pagination value={page} onChange={setPage} total={totalPages} />
+						<Pagination
+							value={filters.page}
+							onChange={(p) => setFilters({ page: p })}
+							total={totalPages}
+						/>
 					</Group>
 				)}
 			</Card>
