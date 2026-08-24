@@ -14,7 +14,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { getPurchaseOrderStats } from "@/api/purchaseOrders";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile } from "@/components/StatTile";
@@ -29,7 +29,8 @@ export function PurchasingPage() {
 	usePageTitle("Purchasing");
 	const navigate = useNavigate();
 
-	const [tab, setTab] = useState<PurchasingTab>("orders");
+	const { tab: tabParam } = useParams();
+	const tab: PurchasingTab = tabParam === "suppliers" ? "suppliers" : "orders";
 	const [ordersFormOpened, setOrdersFormOpened] = useState(false);
 	const [suppliersFormOpened, setSuppliersFormOpened] = useState(false);
 
@@ -100,7 +101,7 @@ export function PurchasingPage() {
 			{/* Section Tabs */}
 			<Tabs
 				value={tab}
-				onChange={(val) => setTab((val as PurchasingTab) ?? "orders")}
+				onChange={(val) => navigate(`/purchasing/${val ?? "orders"}`)}
 				mb="md"
 			>
 				<Tabs.List>

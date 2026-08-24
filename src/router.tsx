@@ -188,6 +188,10 @@ const routes: RouteObject[] = [
 								element: <PurchasingPage />,
 							},
 							{
+								path: "/purchasing/:tab",
+								element: <PurchasingPage />,
+							},
+							{
 								path: "/marketplaces",
 								element: <MarketplacesPage />,
 							},
@@ -217,6 +221,10 @@ const routes: RouteObject[] = [
 							},
 							{
 								path: "/settings/users",
+								element: <UsersRolesPage />,
+							},
+							{
+								path: "/settings/users/:tab",
 								element: <UsersRolesPage />,
 							},
 							{
