@@ -91,21 +91,25 @@ export function LandingBlockCard({
 					</Text>
 					<Text size="sm">{block.headline}</Text>
 
-					<Text size="xs" c="dimmed" tt="uppercase" mt="md">
-						Button
-					</Text>
-					<Group gap="xs">
-						<Badge variant="light">{block.buttonLabel}</Badge>
-						{block.buttonDestination ? (
-							<Text size="sm" c="dimmed">
-								{block.buttonDestination}
+					{block.buttonLabel ? (
+						<>
+							<Text size="xs" c="dimmed" tt="uppercase" mt="md">
+								Button
 							</Text>
-						) : (
-							<Text size="sm" c="orange">
-								no destination set
-							</Text>
-						)}
-					</Group>
+							<Group gap="xs">
+								<Badge variant="light">{block.buttonLabel}</Badge>
+								{block.buttonDestination ? (
+									<Text size="sm" c="dimmed">
+										{block.buttonDestination}
+									</Text>
+								) : (
+									<Text size="sm" c="orange">
+										no destination set
+									</Text>
+								)}
+							</Group>
+						</>
+					) : null}
 
 					<Text size="xs" c="dimmed" mt="md">
 						{formatUpdatedAt(block.updatedAt)}

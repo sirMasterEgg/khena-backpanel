@@ -1977,7 +1977,7 @@ export const dummyLandingBlocks: LandingBlock[] = [
 		name: "Seasonal promo",
 		status: "draft",
 		headline: "New season, new pieces for your home",
-		buttonLabel: "Learn more",
+		buttonLabel: "",
 		buttonDestination: null,
 		mediaUrl: "https://placehold.co/1200x600?text=Seasonal+Promo",
 		isVideo: false,

@@ -59,11 +59,18 @@ export function LandingBlockEditor({
 	});
 
 	const mediaUrl = watch("mediaUrl");
+	const buttonLabel = watch("buttonLabel");
+	const hasButtonLabel = buttonLabel.trim().length > 0;
 
 	const onSubmit = (data: LandingBlockFormData) => {
-		const destination = stripLeadingSlash(data.buttonDestination.trim());
+		const label = data.buttonLabel.trim();
+		// Destination tanpa label tak pernah tampil di storefront — buang saja.
+		const destination = label
+			? stripLeadingSlash(data.buttonDestination.trim())
+			: "";
 		onSave({
 			...data,
+			buttonLabel: label,
 			buttonDestination: destination ? `/${destination}` : "",
 		});
 	};
@@ -139,18 +146,20 @@ export function LandingBlockEditor({
 								error={errors.headline?.message}
 							/>
 							<TextInput
-								label="Button label"
+								label="Button label (optional)"
 								{...register("buttonLabel")}
 								error={errors.buttonLabel?.message}
 							/>
-							<TextInput
-								label="Button destination"
-								description="Leave blank for no destination"
-								placeholder="products"
-								leftSection="/"
-								{...register("buttonDestination")}
-								error={errors.buttonDestination?.message}
-							/>
+							{hasButtonLabel && (
+								<TextInput
+									label="Button destination"
+									description="Leave blank for no destination"
+									placeholder="products"
+									leftSection="/"
+									{...register("buttonDestination")}
+									error={errors.buttonDestination?.message}
+								/>
+							)}
 						</Stack>
 					</Card>
 				</Grid.Col>
