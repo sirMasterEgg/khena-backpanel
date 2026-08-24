@@ -31,7 +31,6 @@ import {
 	IconPercentage,
 	IconPhoto,
 	IconReceipt,
-	IconSend,
 	IconSettings,
 	IconShoppingCart,
 	IconTruck,
@@ -132,7 +131,7 @@ export function AppLayout() {
 					path: "/messages",
 					badge: "5",
 				},
-				{ label: "Newsletter", icon: IconSend, path: "/newsletter" },
+				// { label: "Newsletter", icon: IconSend, path: "/newsletter" },
 			],
 		},
 		{

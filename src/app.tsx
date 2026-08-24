@@ -22,6 +22,8 @@ const theme = createTheme({
 			},
 		}),
 	},
+	fontFamily: "DM Sans, sans-serif",
+	headings: { fontFamily: "DM Sans, sans-serif" },
 });
 
 export function App() {
