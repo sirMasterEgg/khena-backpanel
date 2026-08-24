@@ -1,6 +1,5 @@
 import {
 	Center,
-	Image,
 	Loader,
 	Modal,
 	SimpleGrid,
@@ -14,12 +13,8 @@ import { IconFolder, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { getApiErrorMessage } from "@/api/client";
-import {
-	browseMedia,
-	getMediaPreviewUrl,
-	type MediaFile,
-	type MediaFileType,
-} from "@/api/media";
+import { browseMedia, type MediaFile, type MediaFileType } from "@/api/media";
+import { FilePreview } from "@/components/FilePreview";
 import { MediaBreadcrumb } from "@/pages/media/MediaBreadcrumb";
 
 const SEARCH_DEBOUNCE_MS = 400;
@@ -160,12 +155,7 @@ export function MediaPickerModal({
 										}}
 									>
 										<Stack gap={0}>
-											<Image
-												src={getMediaPreviewUrl(file)}
-												h={120}
-												fit="cover"
-												alt={file.altText ?? file.name}
-											/>
+											<FilePreview file={file} h={120} fit="cover" />
 											<Text size="xs" ta="center" lineClamp={1} px={6} py={4}>
 												{file.name}
 											</Text>

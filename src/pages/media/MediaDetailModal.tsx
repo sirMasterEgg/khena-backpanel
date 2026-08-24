@@ -2,7 +2,6 @@ import {
 	Button,
 	Grid,
 	Group,
-	Image,
 	Modal,
 	Stack,
 	Text,
@@ -12,6 +11,7 @@ import { IconCopy, IconDownload, IconTrash } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { getMediaPreviewUrl, type MediaFile } from "@/api/media";
+import { FilePreview } from "@/components/FilePreview";
 import { formatSize } from "./format";
 
 /** Batas alt text di API (contract.md bagian 7) — dijaga juga di input. */
@@ -88,12 +88,7 @@ export function MediaDetailModal({
 					<Grid gap="md">
 						{/* Pratinjau besar */}
 						<Grid.Col span={{ base: 12, sm: 6 }}>
-							<Image
-								src={getMediaPreviewUrl(file)}
-								radius="md"
-								fit="contain"
-								alt={file.altText ?? file.name}
-							/>
+							<FilePreview file={file} h={260} fit="contain" withLabel />
 						</Grid.Col>
 
 						{/* Detail + alt text */}

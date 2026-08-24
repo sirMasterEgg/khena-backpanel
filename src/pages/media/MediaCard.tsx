@@ -1,16 +1,8 @@
-import {
-	ActionIcon,
-	Box,
-	Card,
-	Group,
-	Image,
-	Menu,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { ActionIcon, Box, Card, Group, Menu, Stack, Text } from "@mantine/core";
 import { IconDots, IconPlayerPlayFilled } from "@tabler/icons-react";
 import dayjs from "dayjs";
-import { getMediaPreviewUrl, type MediaFile } from "@/api/media";
+import type { MediaFile } from "@/api/media";
+import { FilePreview } from "@/components/FilePreview";
 import { formatSize } from "./format";
 
 interface MediaCardProps {
@@ -37,12 +29,7 @@ export function MediaCard({
 		>
 			{/* Pratinjau */}
 			<Box style={{ position: "relative" }}>
-				<Image
-					src={getMediaPreviewUrl(file)}
-					h={140}
-					fit="cover"
-					alt={file.altText ?? file.name}
-				/>
+				<FilePreview file={file} h={140} fit="cover" />
 				{file.type === "video" && (
 					<Box
 						style={{
