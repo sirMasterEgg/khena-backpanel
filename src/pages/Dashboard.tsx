@@ -52,9 +52,14 @@ export function Dashboard() {
 	const parsedTo = dayjs(filters.to, "YYYY-MM-DD", true);
 	const rangeValid =
 		parsedFrom.isValid() && parsedTo.isValid() && !parsedFrom.isAfter(parsedTo);
-	const dateRange: DateRange = rangeValid
-		? [filters.from, filters.to]
-		: [defaultFrom, defaultTo];
+	// useMemo di sini BUKAN sekadar optimisasi — tanpa ini, dateRange adalah
+	// array literal baru tiap render, sehingga efek sinkronisasi localRange di
+	// bawah (yang depend ke dateRange) tidak pernah stabil dan memicu
+	// "Maximum update depth exceeded".
+	const dateRange: DateRange = useMemo(
+		() => (rangeValid ? [filters.from, filters.to] : [defaultFrom, defaultTo]),
+		[rangeValid, filters.from, filters.to, defaultFrom, defaultTo],
+	);
 	const groupBy: DashboardGroupBy = GROUP_BY_VALUES.includes(
 		filters.groupBy as DashboardGroupBy,
 	)
