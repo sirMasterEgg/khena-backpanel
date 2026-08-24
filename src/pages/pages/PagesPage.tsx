@@ -4,6 +4,7 @@ import {
 	Breadcrumbs,
 	Button,
 	Container,
+	Group,
 	Tabs,
 	Text,
 } from "@mantine/core";
@@ -22,7 +23,9 @@ import {
 } from "@/data/dummy";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { AssemblyManualsEditor } from "./AssemblyManualsEditor";
+import { CarouselBlockEditor } from "./CarouselBlockEditor";
 import { ContractProjectsEditor } from "./ContractProjectsEditor";
+import type { CarouselBlockFormData } from "./carouselBlockSchema";
 import { LandingBlockEditor } from "./LandingBlockEditor";
 import { LandingBlocksList } from "./LandingBlocksList";
 import type { LandingBlockFormData } from "./landingBlockSchema";
@@ -67,9 +70,12 @@ export function PagesPage() {
 	);
 
 	const editingBlock = blocks.find((b) => b.id === editingBlockId) ?? null;
+	const isCarousel = editingBlock?.type === "carousel";
 
 	const subtitle = isEditingBlock
-		? "Edit the media and content of this landing block"
+		? isCarousel
+			? "Manage the slides and rotation of this carousel block"
+			: "Edit the media and content of this landing block"
 		: (PAGE_SECTIONS.find((s) => s.value === section)?.subtitle ?? "");
 
 	// ------ Handler blok landing ------
@@ -96,6 +102,17 @@ export function PagesPage() {
 		notify.success("Block updated");
 		setEditingBlockId(null);
 	};
+
+	const handleSaveCarousel = (data: CarouselBlockFormData) => {
+		setBlocks((prev) =>
+			prev.map((b) => (b.id === editingBlockId ? { ...b, ...data } : b)),
+		);
+		notify.success("Carousel updated");
+		setEditingBlockId(null);
+	};
+
+	// TODO(konfirmasi): URL preview storefront belum ditentukan PM.
+	const handlePreview = () => notify.info("Preview belum tersedia");
 
 	// ------ Render isi tab ------
 
@@ -171,9 +188,14 @@ export function PagesPage() {
 				subtitle={subtitle}
 				actions={
 					isEditingBlock ? (
-						<Button variant="default" onClick={() => setEditingBlockId(null)}>
-							← Back to all blocks
-						</Button>
+						<Group gap="xs">
+							<Button variant="default" onClick={handlePreview}>
+								Preview
+							</Button>
+							<Button variant="default" onClick={() => setEditingBlockId(null)}>
+								← Back to all blocks
+							</Button>
+						</Group>
 					) : undefined
 				}
 			/>
@@ -203,11 +225,19 @@ export function PagesPage() {
 			)}
 
 			{isEditingBlock && editingBlock ? (
-				<LandingBlockEditor
-					block={editingBlock}
-					onSave={handleSaveBlock}
-					onCancel={() => setEditingBlockId(null)}
-				/>
+				isCarousel ? (
+					<CarouselBlockEditor
+						block={editingBlock}
+						onSave={handleSaveCarousel}
+						onCancel={() => setEditingBlockId(null)}
+					/>
+				) : (
+					<LandingBlockEditor
+						block={editingBlock}
+						onSave={handleSaveBlock}
+						onCancel={() => setEditingBlockId(null)}
+					/>
+				)
 			) : (
 				renderSection()
 			)}

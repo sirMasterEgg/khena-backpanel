@@ -1943,6 +1943,12 @@ export const dummyDeliveries: Delivery[] = [
 
 export type LandingBlockType = "hero" | "carousel";
 
+export type CarouselSlide = {
+	id: string;
+	mediaUrl: string;
+	caption: string;
+};
+
 export type LandingBlock = {
 	id: string;
 	type: LandingBlockType;
@@ -1953,7 +1959,8 @@ export type LandingBlock = {
 	buttonDestination: string | null; // null = "no destination set"
 	mediaUrl: string; // preview gambar / poster video
 	isVideo: boolean; // true → badge "Video"
-	slideCount?: number; // hanya untuk type "carousel"
+	/** Hanya untuk type "carousel". slideCount lama diturunkan dari slides.length. */
+	slides?: CarouselSlide[];
 	slideDurationSec?: number; // hanya untuk type "carousel"
 	updatedAt: string;
 };
@@ -1993,7 +2000,23 @@ export const dummyLandingBlocks: LandingBlock[] = [
 		buttonDestination: "/products",
 		mediaUrl: "https://placehold.co/1200x600?text=Best+Sellers",
 		isVideo: false,
-		slideCount: 3,
+		slides: [
+			{
+				id: "SLD-001",
+				mediaUrl: "https://placehold.co/1200x600?text=Slide+1",
+				caption: "Handcrafted oak dining set",
+			},
+			{
+				id: "SLD-002",
+				mediaUrl: "https://placehold.co/1200x600?text=Slide+2",
+				caption: "",
+			},
+			{
+				id: "SLD-003",
+				mediaUrl: "https://placehold.co/1200x600?text=Slide+3",
+				caption: "Made to order in 4 weeks",
+			},
+		],
 		slideDurationSec: 5,
 		updatedAt: "2026-08-01",
 	},

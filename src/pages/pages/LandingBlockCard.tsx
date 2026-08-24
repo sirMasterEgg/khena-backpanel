@@ -50,7 +50,7 @@ export function LandingBlockCard({
 							{block.isVideo && <Badge color="dark">Video</Badge>}
 							{block.type === "carousel" && (
 								<Badge color="dark">
-									Carousel · {block.slideCount} slides ·{" "}
+									Carousel · {block.slides?.length ?? 0} slides ·{" "}
 									{block.slideDurationSec}s
 								</Badge>
 							)}
