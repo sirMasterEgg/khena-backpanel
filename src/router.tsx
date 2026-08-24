@@ -140,6 +140,14 @@ const routes: RouteObject[] = [
 								element: <PagesPage />,
 							},
 							{
+								path: "/pages/:section",
+								element: <PagesPage />,
+							},
+							{
+								path: "/pages/:section/:sectionKey",
+								element: <PagesPage />,
+							},
+							{
 								path: "/media",
 								element: <MediaLibrary />,
 							},
