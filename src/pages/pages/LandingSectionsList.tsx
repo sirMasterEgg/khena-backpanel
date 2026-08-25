@@ -1,17 +1,23 @@
 import { Stack, Text } from "@mantine/core";
-import type { LandingSection, LandingSectionKey } from "@/data/dummy";
 import { LandingSectionCard } from "./LandingSectionCard";
+import type { LandingSection, LandingSectionKey } from "./landingTypes";
 
 interface LandingSectionsListProps {
 	sections: LandingSection[];
 	onEdit: (key: LandingSectionKey) => void;
 	onTogglePublish: (key: LandingSectionKey) => void;
+	/** `page.update` tidak dimiliki user — tombol Publish/Edit di-disabled. */
+	canEdit?: boolean;
+	/** Ada toggle publish yang sedang berjalan — cegah klik ganda. */
+	isToggling?: boolean;
 }
 
 export function LandingSectionsList({
 	sections,
 	onEdit,
 	onTogglePublish,
+	canEdit = true,
+	isToggling = false,
 }: LandingSectionsListProps) {
 	return (
 		<>
@@ -26,6 +32,7 @@ export function LandingSectionsList({
 						section={section}
 						onEdit={onEdit}
 						onTogglePublish={onTogglePublish}
+						disabled={!canEdit || isToggling}
 					/>
 				))}
 			</Stack>

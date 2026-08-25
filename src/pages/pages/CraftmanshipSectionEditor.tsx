@@ -19,12 +19,10 @@ import {
 	IconPlus,
 	IconTrash,
 } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { getApiErrorMessage } from "@/api/client";
+import { PAGES_ACCEPTED_IMAGE_TYPES, PAGES_MAX_IMAGE_BYTES } from "@/api/pages";
 import { notify } from "@/components/notify";
-import type { CraftmanshipSection } from "@/data/dummy";
 import {
 	type CraftmanshipSectionFormData,
 	type CraftmanshipSlideFormData,
@@ -33,27 +31,39 @@ import {
 	MAX_SLIDE_SECONDS,
 	MIN_SLIDE_SECONDS,
 } from "./craftmanshipSectionSchema";
-import {
-	ACCEPTED_IMAGE_TYPES,
-	MAX_IMAGE_BYTES,
-	uploadLandingImages,
-} from "./uploadLandingMedia";
+import type { CraftmanshipSection } from "./landingTypes";
 
 /** Buang "/" di depan supaya tidak dobel dengan leftSection input. */
 function stripLeadingSlash(value: string) {
 	return value.replace(/^\/+/, "");
 }
 
+/** Revoke object URL preview kalau memang blob — URL server biasa dibiarkan. */
+function revokeIfBlob(url: string) {
+	if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+}
+
 interface CraftmanshipSectionEditorProps {
 	section: CraftmanshipSection;
-	onSave: (data: CraftmanshipSectionFormData) => void;
+	/**
+	 * `slideFiles` = file baru per slide (key = slide id), belum diupload.
+	 * Slide yang gambarnya tidak diganti tidak punya entri di sini.
+	 */
+	onSave: (
+		data: CraftmanshipSectionFormData,
+		slideFiles: Record<string, File | null>,
+	) => void;
 	onCancel: () => void;
+	isSaving?: boolean;
+	canSave?: boolean;
 }
 
 export function CraftmanshipSectionEditor({
 	section,
 	onSave,
 	onCancel,
+	isSaving = false,
+	canSave = true,
 }: CraftmanshipSectionEditorProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -81,10 +91,25 @@ export function CraftmanshipSectionEditor({
 		},
 	});
 
+	// File baru per slide (belum diupload) — ditahan sampai Save (gotcha #6:
+	// key hanya lahir saat dirujuk, lihat createFileCollector di src/api/pages.ts).
+	const [slideFiles, setSlideFiles] = useState<Record<string, File | null>>({});
+
 	const ctaText = watch("ctaText");
 	const hasCtaText = ctaText.trim().length > 0;
 	const slides = watch("slides");
 	const durationSec = watch("slideDurationSec");
+
+	// Lacak slide terbaru supaya cleanup unmount bisa revoke semua blob URL
+	// tanpa perlu deps effect berubah tiap kali slides berubah.
+	const slidesRef = useRef(slides);
+	slidesRef.current = slides;
+
+	useEffect(() => {
+		return () => {
+			for (const s of slidesRef.current) revokeIfBlob(s.imageUrl);
+		};
+	}, []);
 
 	const updateSlides = (next: CraftmanshipSlideFormData[]) =>
 		setValue("slides", next, { shouldDirty: true, shouldValidate: true });
@@ -107,6 +132,7 @@ export function CraftmanshipSectionEditor({
 		);
 
 	const confirmDeleteSlide = (index: number) => {
+		const target = slides[index];
 		modals.openConfirmModal({
 			title: "Delete slide",
 			children: (
@@ -116,49 +142,58 @@ export function CraftmanshipSectionEditor({
 			),
 			labels: { confirm: "Delete", cancel: "Cancel" },
 			confirmProps: { color: "red" },
-			onConfirm: () => updateSlides(slides.filter((_, i) => i !== index)),
+			onConfirm: () => {
+				revokeIfBlob(target.imageUrl);
+				setSlideFiles((prev) => {
+					const next = { ...prev };
+					delete next[target.id];
+					return next;
+				});
+				updateSlides(slides.filter((_, i) => i !== index));
+			},
 		});
 	};
-
-	const uploadMutation = useMutation({
-		mutationFn: (files: File[]) => uploadLandingImages(files),
-		onSuccess: (urls) => {
-			updateSlides([
-				...slides,
-				...urls.map((url) => ({
-					id: crypto.randomUUID(),
-					imageUrl: url,
-					imageAlt: "",
-					caption: "",
-					title: "",
-					description: "",
-				})),
-			]);
-			notify.success(`${urls.length} slide ditambahkan`);
-		},
-		onError: (err) => notify.error(getApiErrorMessage(err)),
-	});
 
 	const handleFilesSelected = (list: FileList | null) => {
 		if (fileInputRef.current) fileInputRef.current.value = "";
 		const files = Array.from(list ?? []);
 		if (files.length === 0) return;
 
-		const validFiles = files.filter((f) => f.size <= MAX_IMAGE_BYTES);
+		const validFiles = files.filter((f) => f.size <= PAGES_MAX_IMAGE_BYTES);
 		if (validFiles.length < files.length) {
-			notify.error("Sebagian gambar melebihi 10 MB dan dilewati");
+			notify.error("Sebagian gambar melebihi 5 MB dan dilewati");
 		}
-		if (validFiles.length > 0) uploadMutation.mutate(validFiles);
+		if (validFiles.length === 0) return;
+
+		const newSlides = validFiles.map((file) => ({
+			id: crypto.randomUUID(),
+			file,
+			imageUrl: URL.createObjectURL(file),
+			imageAlt: "",
+			caption: "",
+			title: "",
+			description: "",
+		}));
+		updateSlides([...slides, ...newSlides.map(({ file, ...slide }) => slide)]);
+		setSlideFiles((prev) => {
+			const next = { ...prev };
+			for (const s of newSlides) next[s.id] = s.file;
+			return next;
+		});
+		notify.success(`${newSlides.length} slide ditambahkan`);
 	};
 
 	const onSubmit = (data: CraftmanshipSectionFormData) => {
 		const text = data.ctaText.trim();
 		const link = text ? stripLeadingSlash(data.ctaLink.trim()) : "";
-		onSave({
-			...data,
-			ctaText: text,
-			ctaLink: link ? `/${link}` : "",
-		});
+		onSave(
+			{
+				...data,
+				ctaText: text,
+				ctaLink: link ? `/${link}` : "",
+			},
+			slideFiles,
+		);
 	};
 
 	return (
@@ -276,7 +311,7 @@ export function CraftmanshipSectionEditor({
 						<input
 							ref={fileInputRef}
 							type="file"
-							accept={ACCEPTED_IMAGE_TYPES}
+							accept={PAGES_ACCEPTED_IMAGE_TYPES}
 							multiple
 							hidden
 							onChange={(e) => handleFilesSelected(e.currentTarget.files)}
@@ -286,7 +321,6 @@ export function CraftmanshipSectionEditor({
 							fullWidth
 							variant="default"
 							leftSection={<IconPlus size={16} />}
-							loading={uploadMutation.isPending}
 							onClick={() => fileInputRef.current?.click()}
 						>
 							Add slides
@@ -369,10 +403,20 @@ export function CraftmanshipSectionEditor({
 					</Card>
 
 					<Group justify="flex-end">
-						<Button type="button" variant="default" onClick={onCancel}>
+						<Button
+							type="button"
+							variant="default"
+							disabled={isSaving}
+							onClick={onCancel}
+						>
 							Cancel
 						</Button>
-						<Button type="button" onClick={handleSubmit(onSubmit)}>
+						<Button
+							type="button"
+							loading={isSaving}
+							disabled={!canSave}
+							onClick={handleSubmit(onSubmit)}
+						>
 							Save changes
 						</Button>
 					</Group>

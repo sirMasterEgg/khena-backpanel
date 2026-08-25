@@ -9,13 +9,14 @@ import {
 	Textarea,
 	TextInput,
 } from "@mantine/core";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import type { HeroSection } from "@/data/dummy";
 import {
 	type HeroSectionFormData,
 	heroSectionSchema,
 } from "./heroSectionSchema";
 import { ImageUploadCard } from "./ImageUploadCard";
+import type { HeroSection } from "./landingTypes";
 
 /** Buang "/" di depan supaya tidak dobel dengan leftSection input. */
 function stripLeadingSlash(value: string) {
@@ -24,14 +25,19 @@ function stripLeadingSlash(value: string) {
 
 interface HeroSectionEditorProps {
 	section: HeroSection;
-	onSave: (data: HeroSectionFormData) => void;
+	/** `imageFile` = gambar baru yang dipilih user, belum diupload — null kalau tidak diganti. */
+	onSave: (data: HeroSectionFormData, imageFile: File | null) => void;
 	onCancel: () => void;
+	isSaving?: boolean;
+	canSave?: boolean;
 }
 
 export function HeroSectionEditor({
 	section,
 	onSave,
 	onCancel,
+	isSaving = false,
+	canSave = true,
 }: HeroSectionEditorProps) {
 	const {
 		register,
@@ -51,6 +57,10 @@ export function HeroSectionEditor({
 		},
 	});
 
+	// File baru yang dipilih user — ditahan di sini, dikirim saat Save (lihat
+	// ImageUploadCard). Bukan bagian dari heroSectionSchema.
+	const [imageFile, setImageFile] = useState<File | null>(null);
+
 	const imageUrl = watch("imageUrl");
 	const imageAlt = watch("imageAlt");
 	const ctaText = watch("ctaText");
@@ -60,11 +70,14 @@ export function HeroSectionEditor({
 		const text = data.ctaText.trim();
 		// Link tanpa teks tak pernah tampil di storefront — buang saja.
 		const link = text ? stripLeadingSlash(data.ctaLink.trim()) : "";
-		onSave({
-			...data,
-			ctaText: text,
-			ctaLink: link ? `/${link}` : "",
-		});
+		onSave(
+			{
+				...data,
+				ctaText: text,
+				ctaLink: link ? `/${link}` : "",
+			},
+			imageFile,
+		);
 	};
 
 	return (
@@ -78,12 +91,13 @@ export function HeroSectionEditor({
 						alt={imageAlt}
 						urlError={errors.imageUrl?.message}
 						altError={errors.imageAlt?.message}
-						onUrlChange={(url) =>
-							setValue("imageUrl", url, {
+						onImageChange={(value) => {
+							setValue("imageUrl", value.url, {
 								shouldDirty: true,
 								shouldValidate: true,
-							})
-						}
+							});
+							setImageFile(value.file ?? null);
+						}}
 						onAltChange={(alt) =>
 							setValue("imageAlt", alt, {
 								shouldDirty: true,
@@ -131,10 +145,20 @@ export function HeroSectionEditor({
 			</Grid>
 
 			<Group justify="flex-end" mt="lg">
-				<Button type="button" variant="default" onClick={onCancel}>
+				<Button
+					type="button"
+					variant="default"
+					disabled={isSaving}
+					onClick={onCancel}
+				>
 					Cancel
 				</Button>
-				<Button type="button" onClick={handleSubmit(onSubmit)}>
+				<Button
+					type="button"
+					loading={isSaving}
+					disabled={!canSave}
+					onClick={handleSubmit(onSubmit)}
+				>
 					Save changes
 				</Button>
 			</Group>

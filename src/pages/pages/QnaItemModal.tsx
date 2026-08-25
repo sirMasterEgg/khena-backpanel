@@ -10,7 +10,7 @@ import {
 } from "@mantine/core";
 import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { FAQ_CATEGORIES, type QnaItem } from "@/data/dummy";
+import { FAQ_CATEGORIES, type QnaItem } from "./landingTypes";
 import {
 	faqItemSchema,
 	type QnaItemFormData,

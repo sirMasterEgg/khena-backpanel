@@ -3,13 +3,13 @@ import { Button, Group, Modal, Stack, Text, TextInput } from "@mantine/core";
 import { IconFileTypePdf } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import type { MediaFile } from "@/api/media";
-import type { AssemblyManual } from "@/data/dummy";
+import { getMediaDownloadUrl, type MediaFile } from "@/api/media";
 import { MediaPickerModal } from "@/pages/color/MediaPickerModal";
 import {
 	type AssemblyManualFormData,
 	assemblyManualSchema,
 } from "./assemblyManualSchema";
+import type { AssemblyManual } from "./landingTypes";
 
 /** Perkiraan ukuran file dari MediaFile — dummy data cukup pakai KB/MB kasar. */
 function formatFileSize(bytes: number) {
@@ -20,8 +20,11 @@ function formatFileSize(bytes: number) {
 interface AssemblyManualModalProps {
 	opened: boolean;
 	onClose: () => void;
-	onSave: (data: AssemblyManualFormData & { fileSize: string }) => void;
+	onSave: (
+		data: AssemblyManualFormData & { fileSize: string; fileUrl: string },
+	) => void;
 	manual?: AssemblyManual | null;
+	disabled?: boolean;
 }
 
 export function AssemblyManualModal({
@@ -29,10 +32,12 @@ export function AssemblyManualModal({
 	onClose,
 	onSave,
 	manual,
+	disabled = false,
 }: AssemblyManualModalProps) {
 	const isEdit = Boolean(manual);
 	const [pickerOpened, setPickerOpened] = useState(false);
 	const [fileSize, setFileSize] = useState("");
+	const [fileUrl, setFileUrl] = useState("");
 
 	const {
 		register,
@@ -56,16 +61,20 @@ export function AssemblyManualModal({
 			fileName: manual?.fileName ?? "",
 		});
 		setFileSize(manual?.fileSize ?? "");
+		setFileUrl(manual?.fileUrl ?? "");
 	}, [opened, manual, reset]);
 
 	const handlePick = (file: MediaFile) => {
 		setValue("fileName", file.name, { shouldValidate: true });
 		setFileSize(formatFileSize(file.sizeBytes));
+		// Sama seperti getMediaPreviewUrl — jatuh ke endpoint download kalau
+		// MEDIA_PUBLIC_BASE_URL belum di-set di backend.
+		setFileUrl(file.url?.trim() || getMediaDownloadUrl(file.id));
 		setPickerOpened(false);
 	};
 
 	const onSubmit = (data: AssemblyManualFormData) => {
-		onSave({ ...data, fileSize });
+		onSave({ ...data, fileSize, fileUrl });
 		onClose();
 	};
 
@@ -115,7 +124,11 @@ export function AssemblyManualModal({
 						<Button type="button" variant="default" onClick={onClose}>
 							Cancel
 						</Button>
-						<Button type="button" onClick={handleSubmit(onSubmit)}>
+						<Button
+							type="button"
+							disabled={disabled}
+							onClick={handleSubmit(onSubmit)}
+						>
 							Save
 						</Button>
 					</Group>

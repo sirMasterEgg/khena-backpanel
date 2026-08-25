@@ -2,20 +2,23 @@ import { Button, Card, Group, SimpleGrid, Stack, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { IconEdit, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
-import { notify } from "@/components/notify";
 import { StatusBadge } from "@/components/StatusBadge";
-import type { ContractProject } from "@/data/dummy";
 import { ContractProjectModal } from "./ContractProjectModal";
 import type { ContractProjectFormData } from "./contractProjectSchema";
+import type { ContractProject } from "./landingTypes";
 
 interface ContractProjectsEditorProps {
 	projects: ContractProject[];
+	/** Selalu kirim SELURUH array — endpoint tidak punya DELETE (gotcha #10). */
 	onChange: (projects: ContractProject[]) => void;
+	/** Mutation sedang berjalan / user tidak punya izin — cegah PATCH balapan. */
+	disabled?: boolean;
 }
 
 export function ContractProjectsEditor({
 	projects,
 	onChange,
+	disabled = false,
 }: ContractProjectsEditorProps) {
 	const [modalOpened, setModalOpened] = useState(false);
 	const [editingProject, setEditingProject] = useState<ContractProject | null>(
@@ -32,6 +35,7 @@ export function ContractProjectsEditor({
 		setModalOpened(true);
 	};
 
+	// notify.success dipindah ke onSuccess mutation di PagesPage.tsx.
 	const handleSave = (data: ContractProjectFormData) => {
 		if (editingProject) {
 			onChange(
@@ -45,7 +49,6 @@ export function ContractProjectsEditor({
 						: p,
 				),
 			);
-			notify.success("Project updated");
 		} else {
 			const newProject: ContractProject = {
 				id: crypto.randomUUID(),
@@ -53,7 +56,6 @@ export function ContractProjectsEditor({
 				...data,
 			};
 			onChange([...projects, newProject]);
-			notify.success("Project added");
 		}
 	};
 
@@ -68,10 +70,7 @@ export function ContractProjectsEditor({
 			),
 			labels: { confirm: "Delete", cancel: "Cancel" },
 			confirmProps: { color: "red" },
-			onConfirm: () => {
-				onChange(projects.filter((p) => p.id !== project.id));
-				notify.success("Project deleted");
-			},
+			onConfirm: () => onChange(projects.filter((p) => p.id !== project.id)),
 		});
 	};
 
@@ -84,6 +83,7 @@ export function ContractProjectsEditor({
 				<Button
 					size="xs"
 					leftSection={<IconPlus size={14} />}
+					disabled={disabled}
 					onClick={handleAdd}
 				>
 					Add project
@@ -113,6 +113,7 @@ export function ContractProjectsEditor({
 										size="xs"
 										variant="default"
 										leftSection={<IconEdit size={14} />}
+										disabled={disabled}
 										onClick={() => handleEdit(project)}
 									>
 										Edit
@@ -122,6 +123,7 @@ export function ContractProjectsEditor({
 										color="red"
 										variant="subtle"
 										leftSection={<IconTrash size={14} />}
+										disabled={disabled}
 										onClick={() => confirmDelete(project)}
 									>
 										Delete

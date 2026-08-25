@@ -17,16 +17,18 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import { notify } from "@/components/notify";
-import type { QnaItem } from "@/data/dummy";
+import type { QnaItem } from "./landingTypes";
 import { QnaItemModal } from "./QnaItemModal";
 import type { QnaItemFormData } from "./qnaItemSchema";
 
 interface QnaSectionEditorProps {
 	items: QnaItem[];
+	/** Selalu kirim SELURUH array — endpoint tidak punya DELETE (gotcha #10). */
 	onChange: (items: QnaItem[]) => void;
 	withCategory?: boolean; // true hanya untuk FAQ
 	description: string; // teks keterangan di atas daftar
+	/** Mutation sedang berjalan / user tidak punya izin — cegah PATCH balapan. */
+	disabled?: boolean;
 }
 
 export function QnaSectionEditor({
@@ -34,6 +36,7 @@ export function QnaSectionEditor({
 	onChange,
 	withCategory,
 	description,
+	disabled = false,
 }: QnaSectionEditorProps) {
 	const [modalOpened, setModalOpened] = useState(false);
 	const [editingItem, setEditingItem] = useState<QnaItem | null>(null);
@@ -48,12 +51,13 @@ export function QnaSectionEditor({
 		setModalOpened(true);
 	};
 
+	// notify.success dipindah ke onSuccess mutation di PagesPage.tsx — supaya
+	// tidak muncul notif "berhasil" padahal request PATCH-nya gagal.
 	const handleSave = (data: QnaItemFormData) => {
 		if (editingItem) {
 			onChange(
 				items.map((i) => (i.id === editingItem.id ? { ...i, ...data } : i)),
 			);
-			notify.success("Item updated");
 		} else {
 			const newItem: QnaItem = {
 				id: crypto.randomUUID(),
@@ -61,7 +65,6 @@ export function QnaSectionEditor({
 				...data,
 			};
 			onChange([...items, newItem]);
-			notify.success("Item added");
 		}
 	};
 
@@ -75,10 +78,7 @@ export function QnaSectionEditor({
 			),
 			labels: { confirm: "Delete", cancel: "Cancel" },
 			confirmProps: { color: "red" },
-			onConfirm: () => {
-				onChange(items.filter((i) => i.id !== item.id));
-				notify.success("Item deleted");
-			},
+			onConfirm: () => onChange(items.filter((i) => i.id !== item.id)),
 		});
 	};
 
@@ -99,6 +99,7 @@ export function QnaSectionEditor({
 				<Button
 					size="xs"
 					leftSection={<IconPlus size={14} />}
+					disabled={disabled}
 					onClick={handleAdd}
 				>
 					Add item
@@ -124,7 +125,7 @@ export function QnaSectionEditor({
 										size="sm"
 										variant="subtle"
 										color="gray"
-										disabled={index === 0}
+										disabled={disabled || index === 0}
 										aria-label="Move up"
 										onClick={() => move(index, "up")}
 									>
@@ -134,7 +135,7 @@ export function QnaSectionEditor({
 										size="sm"
 										variant="subtle"
 										color="gray"
-										disabled={index === items.length - 1}
+										disabled={disabled || index === items.length - 1}
 										aria-label="Move down"
 										onClick={() => move(index, "down")}
 									>
@@ -158,6 +159,7 @@ export function QnaSectionEditor({
 											size="xs"
 											variant="default"
 											leftSection={<IconEdit size={14} />}
+											disabled={disabled}
 											onClick={() => handleEdit(item)}
 										>
 											Edit
@@ -167,6 +169,7 @@ export function QnaSectionEditor({
 											color="red"
 											variant="subtle"
 											leftSection={<IconTrash size={14} />}
+											disabled={disabled}
 											onClick={() => confirmDelete(item)}
 										>
 											Delete

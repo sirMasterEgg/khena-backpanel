@@ -9,14 +9,15 @@ import {
 	Text,
 } from "@mantine/core";
 import type { MouseEvent } from "react";
-import type { LandingSection, LandingSectionKey } from "@/data/dummy";
 import { DESIGNED_FOR_LIFE_PRODUCT_COUNT } from "./designedForLifeSchema";
 import { formatUpdatedAt } from "./format";
+import type { LandingSection, LandingSectionKey } from "./landingTypes";
 
 interface LandingSectionCardProps {
 	section: LandingSection;
 	onEdit: (key: LandingSectionKey) => void;
 	onTogglePublish: (key: LandingSectionKey) => void;
+	disabled?: boolean;
 }
 
 /** Badge tipe section, mis. "Hero", "Carousel · 3 slides". */
@@ -50,6 +51,7 @@ export function LandingSectionCard({
 	section,
 	onEdit,
 	onTogglePublish,
+	disabled = false,
 }: LandingSectionCardProps) {
 	// Cegah klik tombol ikut membuka editor (kartu punya onClick sendiri).
 	const stop = (fn: () => void) => (e: MouseEvent) => {
@@ -109,6 +111,7 @@ export function LandingSectionCard({
 							<Button
 								size="xs"
 								variant="light"
+								disabled={disabled}
 								onClick={stop(() => onTogglePublish(section.key))}
 							>
 								{section.status === "published" ? "Unpublish" : "Publish"}
@@ -116,6 +119,7 @@ export function LandingSectionCard({
 							<Button
 								size="xs"
 								variant="default"
+								disabled={disabled}
 								onClick={stop(() => onEdit(section.key))}
 							>
 								Edit section

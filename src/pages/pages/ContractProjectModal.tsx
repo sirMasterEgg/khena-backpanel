@@ -10,11 +10,11 @@ import {
 } from "@mantine/core";
 import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
-import type { ContractProject } from "@/data/dummy";
 import {
 	type ContractProjectFormData,
 	contractProjectSchema,
 } from "./contractProjectSchema";
+import type { ContractProject } from "./landingTypes";
 
 interface ContractProjectModalProps {
 	opened: boolean;
