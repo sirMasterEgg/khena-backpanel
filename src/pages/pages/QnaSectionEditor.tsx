@@ -16,7 +16,7 @@ import {
 	IconPlus,
 	IconTrash,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { QnaItem } from "./landingTypes";
 import { QnaItemModal } from "./QnaItemModal";
 import type { QnaItemFormData } from "./qnaItemSchema";
@@ -40,6 +40,20 @@ export function QnaSectionEditor({
 }: QnaSectionEditorProps) {
 	const [modalOpened, setModalOpened] = useState(false);
 	const [editingItem, setEditingItem] = useState<QnaItem | null>(null);
+
+	// Kategori yang sudah pernah dipakai di item lain — jadi saran tambahan di
+	// Autocomplete supaya penamaan kategori tetap konsisten antar item.
+	const existingCategories = useMemo(
+		() =>
+			Array.from(
+				new Set(
+					items
+						.map((i) => i.category?.trim())
+						.filter((c): c is string => Boolean(c)),
+				),
+			),
+		[items],
+	);
 
 	const handleAdd = () => {
 		setEditingItem(null);
@@ -188,6 +202,7 @@ export function QnaSectionEditor({
 				onSave={handleSave}
 				item={editingItem}
 				withCategory={withCategory}
+				existingCategories={existingCategories}
 			/>
 		</Stack>
 	);
