@@ -27,11 +27,12 @@ type LandingSectionBase = {
 export type HeroSection = LandingSectionBase & {
 	kind: "hero";
 	key: "mainHero" | "bottomHero";
-	subtitle: string;
-	title: string;
-	ctaText: string;
+	/** Small text above the headline. */
+	eyebrow: string;
+	headline: string;
+	ctaLabel: string;
 	/** Selalu disimpan dengan "/" di depan, mis. "/collections". */
-	ctaLink: string;
+	ctaHref: string;
 	image: LandingImage;
 };
 
@@ -45,18 +46,17 @@ export type SignatureCollectionSection = LandingSectionBase & {
 export type CraftmanshipSlide = {
 	id: string;
 	image: LandingImage;
-	caption: string;
 	title: string;
-	description: string;
+	body: string;
 };
 
 export type CraftmanshipSection = LandingSectionBase & {
 	kind: "craftmanship";
 	key: "craftmanship";
-	/** Small text above the CTA — dikirim ke storefront sebagai `eyebrow`. */
+	/** Small text above the CTA. */
 	eyebrow: string;
-	ctaText: string;
-	ctaLink: string;
+	ctaLabel: string;
+	ctaHref: string;
 	slides: CraftmanshipSlide[];
 	/** Durasi auto-rotation carousel (detik). Dipertahankan dari editor lama. */
 	slideDurationSec: number;
@@ -86,10 +86,10 @@ export const DEFAULT_LANDING_SECTIONS: LandingSection[] = [
 		label: "Main Hero",
 		status: "draft",
 		updatedAt: "",
-		subtitle: "",
-		title: "",
-		ctaText: "",
-		ctaLink: "",
+		eyebrow: "",
+		headline: "",
+		ctaLabel: "",
+		ctaHref: "",
 		image: { url: "", alt: "" },
 	},
 	{
@@ -108,8 +108,8 @@ export const DEFAULT_LANDING_SECTIONS: LandingSection[] = [
 		status: "draft",
 		updatedAt: "",
 		eyebrow: "",
-		ctaText: "",
-		ctaLink: "",
+		ctaLabel: "",
+		ctaHref: "",
 		slides: [],
 		slideDurationSec: 5,
 	},
@@ -127,10 +127,10 @@ export const DEFAULT_LANDING_SECTIONS: LandingSection[] = [
 		label: "Bottom Hero",
 		status: "draft",
 		updatedAt: "",
-		subtitle: "",
-		title: "",
-		ctaText: "",
-		ctaLink: "",
+		eyebrow: "",
+		headline: "",
+		ctaLabel: "",
+		ctaHref: "",
 		image: { url: "", alt: "" },
 	},
 ];

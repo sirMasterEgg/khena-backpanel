@@ -57,6 +57,8 @@ function imageAltFromData(value: unknown): string {
 /**
  * Dipakai untuk mainHero ("hero") maupun bottomHero ("productBanner") — dua
  * section ini identik bentuknya di storefront, cuma beda `page`+`section`.
+ * Nama field UI (eyebrow/headline/ctaLabel/ctaHref) sudah sama persis dengan
+ * nama field di `data` — tidak ada lagi terjemahan nama di sini.
  */
 export function heroFromRow(row: PageRow, base: HeroSection): HeroSection {
 	const image = (row.data as { image?: unknown } | null)?.image;
@@ -64,12 +66,12 @@ export function heroFromRow(row: PageRow, base: HeroSection): HeroSection {
 		...base,
 		status: row.status,
 		updatedAt: row.updatedAt,
-		// Field baru (eyebrow/headline/ctaLabel/ctaHref) diutamakan; fallback ke
-		// nama lama untuk row yang sudah tersimpan sebelum rename ini.
-		subtitle: str(row.data, "eyebrow") || str(row.data, "subtitle"),
-		title: str(row.data, "headline") || str(row.data, "title"),
-		ctaText: str(row.data, "ctaLabel") || str(row.data, "ctaText"),
-		ctaLink: str(row.data, "ctaHref") || str(row.data, "ctaLink"),
+		// Fallback ke nama lama (subtitle/title/ctaText/ctaLink) untuk row yang
+		// sempat tersimpan sebelum field ini di-rename.
+		eyebrow: str(row.data, "eyebrow") || str(row.data, "subtitle"),
+		headline: str(row.data, "headline") || str(row.data, "title"),
+		ctaLabel: str(row.data, "ctaLabel") || str(row.data, "ctaText"),
+		ctaHref: str(row.data, "ctaHref") || str(row.data, "ctaLink"),
 		image: { url: imageUrlFromData(image), alt: imageAltFromData(image) },
 	};
 }
@@ -93,10 +95,9 @@ function slideFromData(value: unknown): CraftmanshipSlide {
 	return {
 		id: str(value, "id") || crypto.randomUUID(),
 		image: { url: imageUrlFromData(image), alt: imageAltFromData(image) },
-		caption: str(value, "caption"),
 		title: str(value, "title"),
 		// "body" adalah nama baru; "description" fallback untuk row lama.
-		description: str(value, "body") || str(value, "description"),
+		body: str(value, "body") || str(value, "description"),
 	};
 }
 
@@ -117,8 +118,10 @@ export function craftmanshipFromRow(
 		status: row.status,
 		updatedAt: row.updatedAt,
 		eyebrow: str(row.data, "eyebrow"),
-		ctaText: str(row.data, "ctaLabel") || str(row.data, "ctaText"),
-		ctaLink: str(row.data, "ctaHref") || str(row.data, "ctaLink"),
+		// Fallback ke nama lama (ctaText/ctaLink) untuk row yang sempat
+		// tersimpan sebelum field ini di-rename.
+		ctaLabel: str(row.data, "ctaLabel") || str(row.data, "ctaText"),
+		ctaHref: str(row.data, "ctaHref") || str(row.data, "ctaLink"),
 		slides: Array.isArray(slidesValue) ? slidesValue.map(slideFromData) : [],
 		slideDurationSec: craftmanshipDurationSec(row.data, base.slideDurationSec),
 	};
@@ -157,18 +160,18 @@ export type ImageValue = { url: string; alt: string; file?: File | null };
  * ditampilkan di form untuk referensi admin tapi tidak ikut payload ini).
  */
 export function heroToPayload(form: {
-	subtitle: string;
-	title: string;
-	ctaText: string;
-	ctaLink: string;
+	eyebrow: string;
+	headline: string;
+	ctaLabel: string;
+	ctaHref: string;
 	image: ImageValue;
 }): { data: unknown; files: PageFilePart[] } {
 	const collector = createFileCollector();
 	const data = {
-		eyebrow: form.subtitle,
-		headline: form.title,
-		ctaLabel: form.ctaText,
-		ctaHref: form.ctaLink,
+		eyebrow: form.eyebrow,
+		headline: form.headline,
+		ctaLabel: form.ctaLabel,
+		ctaHref: form.ctaHref,
 		// ref() → URL lama apa adanya, ATAU "@file:fN" + file dicatat ke collector
 		image: collector.ref(form.image) || null,
 	};
@@ -190,29 +193,26 @@ export function signatureToPayload(form: {
 /** Serialize ke section "craftmanship" — dikirim ke storefront sebagai "materials". */
 export function craftmanshipToPayload(form: {
 	eyebrow: string;
-	ctaText: string;
-	ctaLink: string;
+	ctaLabel: string;
+	ctaHref: string;
 	slideDurationSec: number;
 	slides: {
 		id: string;
 		image: ImageValue;
-		caption: string;
 		title: string;
-		description: string;
+		body: string;
 	}[];
 }): { data: unknown; files: PageFilePart[] } {
 	// Satu collector dipakai untuk SEMUA slide — key "fN" tetap unik lintas slide.
 	const collector = createFileCollector();
 	const data = {
 		eyebrow: form.eyebrow,
-		ctaLabel: form.ctaText,
-		ctaHref: form.ctaLink,
+		ctaLabel: form.ctaLabel,
+		ctaHref: form.ctaHref,
 		intervalMs: Math.round(form.slideDurationSec * 1000),
 		slides: form.slides.map((slide) => ({
 			title: slide.title,
-			// "caption" tidak ada di bentuk storefront — tetap ditampilkan di UI
-			// untuk referensi admin, tapi tidak ikut dikirim.
-			body: slide.description,
+			body: slide.body,
 			image: collector.ref(slide.image) || null,
 		})),
 	};

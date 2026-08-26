@@ -78,15 +78,14 @@ export function CraftmanshipSectionEditor({
 		resolver: zodResolver(craftmanshipSectionSchema),
 		defaultValues: {
 			eyebrow: section.eyebrow,
-			ctaText: section.ctaText,
-			ctaLink: stripLeadingSlash(section.ctaLink),
+			ctaLabel: section.ctaLabel,
+			ctaHref: stripLeadingSlash(section.ctaHref),
 			slides: section.slides.map((s) => ({
 				id: s.id,
 				imageUrl: s.image.url,
 				imageAlt: s.image.alt,
-				caption: s.caption,
 				title: s.title,
-				description: s.description,
+				body: s.body,
 			})),
 			slideDurationSec: section.slideDurationSec,
 		},
@@ -96,8 +95,8 @@ export function CraftmanshipSectionEditor({
 	// key hanya lahir saat dirujuk, lihat createFileCollector di src/api/pages.ts).
 	const [slideFiles, setSlideFiles] = useState<Record<string, File | null>>({});
 
-	const ctaText = watch("ctaText");
-	const hasCtaText = ctaText.trim().length > 0;
+	const ctaLabel = watch("ctaLabel");
+	const hasCtaLabel = ctaLabel.trim().length > 0;
 	const slides = watch("slides");
 	const durationSec = watch("slideDurationSec");
 
@@ -125,7 +124,7 @@ export function CraftmanshipSectionEditor({
 
 	const updateSlideField = (
 		index: number,
-		field: "title" | "caption" | "description",
+		field: "title" | "body",
 		value: string,
 	) =>
 		updateSlides(
@@ -171,9 +170,8 @@ export function CraftmanshipSectionEditor({
 			file,
 			imageUrl: URL.createObjectURL(file),
 			imageAlt: "",
-			caption: "",
 			title: "",
-			description: "",
+			body: "",
 		}));
 		updateSlides([...slides, ...newSlides.map(({ file, ...slide }) => slide)]);
 		setSlideFiles((prev) => {
@@ -185,13 +183,13 @@ export function CraftmanshipSectionEditor({
 	};
 
 	const onSubmit = (data: CraftmanshipSectionFormData) => {
-		const text = data.ctaText.trim();
-		const link = text ? stripLeadingSlash(data.ctaLink.trim()) : "";
+		const text = data.ctaLabel.trim();
+		const link = text ? stripLeadingSlash(data.ctaHref.trim()) : "";
 		onSave(
 			{
 				...data,
-				ctaText: text,
-				ctaLink: link ? `/${link}` : "",
+				ctaLabel: text,
+				ctaHref: link ? `/${link}` : "",
 			},
 			slideFiles,
 		);
@@ -267,28 +265,16 @@ export function CraftmanshipSectionEditor({
 														)
 													}
 												/>
-												<TextInput
-													placeholder="Caption"
-													size="sm"
-													value={slide.caption}
-													onChange={(e) =>
-														updateSlideField(
-															index,
-															"caption",
-															e.currentTarget.value,
-														)
-													}
-												/>
 												<Textarea
-													placeholder="Description"
+													placeholder="Body"
 													size="sm"
 													autosize
 													minRows={2}
-													value={slide.description}
+													value={slide.body}
 													onChange={(e) =>
 														updateSlideField(
 															index,
-															"description",
+															"body",
 															e.currentTarget.value,
 														)
 													}
@@ -343,17 +329,17 @@ export function CraftmanshipSectionEditor({
 								error={errors.eyebrow?.message}
 							/>
 							<TextInput
-								label="CTA text (optional)"
-								{...register("ctaText")}
-								error={errors.ctaText?.message}
+								label="CTA label (optional)"
+								{...register("ctaLabel")}
+								error={errors.ctaLabel?.message}
 							/>
-							{hasCtaText && (
+							{hasCtaLabel && (
 								<TextInput
-									label="CTA link"
+									label="CTA href"
 									leftSection="/"
 									placeholder="products"
-									{...register("ctaLink")}
-									error={errors.ctaLink?.message}
+									{...register("ctaHref")}
+									error={errors.ctaHref?.message}
 								/>
 							)}
 						</Stack>

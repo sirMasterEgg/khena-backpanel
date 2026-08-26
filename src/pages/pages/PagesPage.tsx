@@ -250,10 +250,10 @@ export function PagesPage() {
 	) => {
 		if (!editingKey) return;
 		const { data: payloadData, files } = heroToPayload({
-			subtitle: data.subtitle,
-			title: data.title,
-			ctaText: data.ctaText,
-			ctaLink: data.ctaLink,
+			eyebrow: data.eyebrow,
+			headline: data.headline,
+			ctaLabel: data.ctaLabel,
+			ctaHref: data.ctaHref,
 			image: { url: data.imageUrl, alt: data.imageAlt, file: imageFile },
 		});
 		saveLandingSection(editingKey, payloadData, files);
@@ -278,8 +278,8 @@ export function PagesPage() {
 		if (!editingKey) return;
 		const { data: payloadData, files } = craftmanshipToPayload({
 			eyebrow: data.eyebrow,
-			ctaText: data.ctaText,
-			ctaLink: data.ctaLink,
+			ctaLabel: data.ctaLabel,
+			ctaHref: data.ctaHref,
 			slideDurationSec: data.slideDurationSec,
 			slides: data.slides.map((slide) => ({
 				id: slide.id,
@@ -288,9 +288,8 @@ export function PagesPage() {
 					alt: slide.imageAlt,
 					file: slideFiles[slide.id] ?? null,
 				},
-				caption: slide.caption,
 				title: slide.title,
-				description: slide.description,
+				body: slide.body,
 			})),
 		});
 		saveLandingSection(editingKey, payloadData, files);

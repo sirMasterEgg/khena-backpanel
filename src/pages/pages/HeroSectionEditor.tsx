@@ -48,10 +48,10 @@ export function HeroSectionEditor({
 	} = useForm<HeroSectionFormData>({
 		resolver: zodResolver(heroSectionSchema),
 		defaultValues: {
-			subtitle: section.subtitle,
-			title: section.title,
-			ctaText: section.ctaText,
-			ctaLink: stripLeadingSlash(section.ctaLink),
+			eyebrow: section.eyebrow,
+			headline: section.headline,
+			ctaLabel: section.ctaLabel,
+			ctaHref: stripLeadingSlash(section.ctaHref),
 			imageUrl: section.image.url,
 			imageAlt: section.image.alt,
 		},
@@ -63,18 +63,18 @@ export function HeroSectionEditor({
 
 	const imageUrl = watch("imageUrl");
 	const imageAlt = watch("imageAlt");
-	const ctaText = watch("ctaText");
-	const hasCtaText = ctaText.trim().length > 0;
+	const ctaLabel = watch("ctaLabel");
+	const hasCtaLabel = ctaLabel.trim().length > 0;
 
 	const onSubmit = (data: HeroSectionFormData) => {
-		const text = data.ctaText.trim();
+		const text = data.ctaLabel.trim();
 		// Link tanpa teks tak pernah tampil di storefront — buang saja.
-		const link = text ? stripLeadingSlash(data.ctaLink.trim()) : "";
+		const link = text ? stripLeadingSlash(data.ctaHref.trim()) : "";
 		onSave(
 			{
 				...data,
-				ctaText: text,
-				ctaLink: link ? `/${link}` : "",
+				ctaLabel: text,
+				ctaHref: link ? `/${link}` : "",
 			},
 			imageFile,
 		);
@@ -113,30 +113,30 @@ export function HeroSectionEditor({
 						<Stack gap="md">
 							<Text fw={600}>Section content</Text>
 							<TextInput
-								label="Subtitle"
-								description="Small text above the title"
-								{...register("subtitle")}
-								error={errors.subtitle?.message}
+								label="Eyebrow"
+								description="Small text above the headline"
+								{...register("eyebrow")}
+								error={errors.eyebrow?.message}
 							/>
 							<Textarea
-								label="Title"
+								label="Headline"
 								autosize
 								minRows={2}
-								{...register("title")}
-								error={errors.title?.message}
+								{...register("headline")}
+								error={errors.headline?.message}
 							/>
 							<TextInput
-								label="CTA text (optional)"
-								{...register("ctaText")}
-								error={errors.ctaText?.message}
+								label="CTA label (optional)"
+								{...register("ctaLabel")}
+								error={errors.ctaLabel?.message}
 							/>
-							{hasCtaText && (
+							{hasCtaLabel && (
 								<TextInput
-									label="CTA link"
+									label="CTA href"
 									leftSection="/"
 									placeholder="products"
-									{...register("ctaLink")}
-									error={errors.ctaLink?.message}
+									{...register("ctaHref")}
+									error={errors.ctaHref?.message}
 								/>
 							)}
 						</Stack>

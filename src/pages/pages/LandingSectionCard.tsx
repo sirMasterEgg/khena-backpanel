@@ -130,9 +130,9 @@ export function LandingSectionCard({
 					{section.kind === "hero" && (
 						<>
 							<Text size="xs" c="dimmed" mt="md">
-								{section.subtitle}
+								{section.eyebrow}
 							</Text>
-							<Text size="sm">{section.title}</Text>
+							<Text size="sm">{section.headline}</Text>
 						</>
 					)}
 					{section.kind === "signature" && (
@@ -142,7 +142,7 @@ export function LandingSectionCard({
 					)}
 					{section.kind === "craftmanship" && (
 						<Text size="sm" mt="md">
-							{section.slides.length} slides · {section.ctaText}
+							{section.slides.length} slides · {section.ctaLabel}
 						</Text>
 					)}
 					{section.kind === "productGrid" && (
