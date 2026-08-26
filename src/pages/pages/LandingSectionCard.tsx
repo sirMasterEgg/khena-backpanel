@@ -83,7 +83,7 @@ export function LandingSectionCard({
 								style={{ borderRadius: "var(--mantine-radius-sm)" }}
 							>
 								<Text c="dimmed" size="sm">
-									Products
+									{section.kind === "productGrid" ? "Products" : "No image yet"}
 								</Text>
 							</Stack>
 						)}
@@ -153,7 +153,11 @@ export function LandingSectionCard({
 					)}
 
 					<Text size="xs" c="dimmed" mt="md">
-						{formatUpdatedAt(section.updatedAt)}
+						{/* Row belum pernah dibuat di database — updatedAt kosong (lihat
+						    DEFAULT_LANDING_SECTIONS), jangan format jadi "Invalid Date". */}
+						{section.updatedAt
+							? formatUpdatedAt(section.updatedAt)
+							: "Not saved yet"}
 					</Text>
 				</Grid.Col>
 			</Grid>

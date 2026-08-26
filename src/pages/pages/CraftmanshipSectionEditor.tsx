@@ -155,8 +155,10 @@ export function CraftmanshipSectionEditor({
 	};
 
 	const handleFilesSelected = (list: FileList | null) => {
-		if (fileInputRef.current) fileInputRef.current.value = "";
+		// Baca dulu SEBELUM reset — `list` adalah FileList live milik input;
+		// mereset `.value` lebih dulu mengosongkannya sebelum sempat dibaca.
 		const files = Array.from(list ?? []);
+		if (fileInputRef.current) fileInputRef.current.value = "";
 		if (files.length === 0) return;
 
 		const validFiles = files.filter((f) => f.size <= PAGES_MAX_IMAGE_BYTES);
