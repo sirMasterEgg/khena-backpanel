@@ -6,10 +6,9 @@ export const heroSectionSchema = z.object({
 	ctaLabel: z.string().trim(), // opsional
 	ctaHref: z.string(), // tanpa "/" di depan
 	imageUrl: z.string().min(1, "Hero image is required"),
-	// Opsional — alt text TIDAK dipersist ke server (lihat pagesMapper.ts),
-	// jadi selalu kosong lagi setiap kali section dibuka ulang. Kalau field
-	// ini wajib, user tidak akan pernah bisa Save ulang tanpa mengetik ulang.
-	imageAlt: z.string().trim(),
+	// image dikirim sebagai {url, alt} — sama seperti signatureSectionSchema —
+	// jadi alt text tersimpan dan aman untuk diwajibkan.
+	imageAlt: z.string().trim().min(1, "Image alt text is required"),
 });
 
 export type HeroSectionFormData = z.infer<typeof heroSectionSchema>;

@@ -26,9 +26,9 @@ function num(obj: unknown, key: string, fallback: number): number {
 }
 
 /**
- * `image` sekarang dikirim sebagai string URL biasa (bukan `{url,alt}` lagi —
- * storefront tidak butuh alt). Tetap toleransi bentuk lama untuk row yang
- * sudah kadung tersimpan sebelum field ini di-rename.
+ * Baca `url` dari `image` — dipakai untuk craftmanship (slide `image` selalu
+ * string biasa) dan juga hero (toleransi row lama yang sempat tersimpan
+ * sebagai string biasa, sebelum hero kembali memakai bentuk `{url,alt}`).
  */
 function imageUrlFromData(value: unknown): string {
 	if (typeof value === "string") return value;
@@ -40,9 +40,10 @@ function imageUrlFromData(value: unknown): string {
 }
 
 /**
- * Alt text TIDAK lagi dikirim/disimpan di server (lihat imageUrlFromData) —
- * admin tetap bisa mengisinya di UI untuk referensi, tapi setelah refresh
- * akan kosong lagi kecuali row-nya masih pakai bentuk lama `{url,alt}`.
+ * Baca `alt` dari `image` kalau bentuknya object `{url,alt}`. Untuk
+ * craftmanship (slide) ini selalu "" karena slide tidak punya alt. Untuk
+ * hero, row yang sempat tersimpan sebagai string biasa (masa transisi)
+ * juga menghasilkan "" di sini — wajar, alt-nya memang belum pernah disimpan.
  */
 function imageAltFromData(value: unknown): string {
 	if (typeof value === "object" && value !== null) {
@@ -155,9 +156,7 @@ export type ImageValue = { url: string; alt: string; file?: File | null };
 
 /**
  * Dipakai untuk mainHero ("hero") maupun bottomHero ("productBanner").
- * `image` dikirim sebagai string URL biasa (atau null) — alt TIDAK dikirim,
- * storefront tidak punya tempat untuk itu (lihat ImageValue di UI, alt tetap
- * ditampilkan di form untuk referensi admin tapi tidak ikut payload ini).
+ * `image` bentuknya sama persis dengan Signature Collection: `{url, alt}`.
  */
 export function heroToPayload(form: {
 	eyebrow: string;
@@ -173,7 +172,7 @@ export function heroToPayload(form: {
 		ctaLabel: form.ctaLabel,
 		ctaHref: form.ctaHref,
 		// ref() → URL lama apa adanya, ATAU "@file:fN" + file dicatat ke collector
-		image: collector.ref(form.image) || null,
+		image: { url: collector.ref(form.image), alt: form.image.alt },
 	};
 	return { data, files: collector.files };
 }
