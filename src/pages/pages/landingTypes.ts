@@ -53,6 +53,8 @@ export type CraftmanshipSlide = {
 export type CraftmanshipSection = LandingSectionBase & {
 	kind: "craftmanship";
 	key: "craftmanship";
+	/** Small text above the CTA — dikirim ke storefront sebagai `eyebrow`. */
+	eyebrow: string;
 	ctaText: string;
 	ctaLink: string;
 	slides: CraftmanshipSlide[];
@@ -105,6 +107,7 @@ export const DEFAULT_LANDING_SECTIONS: LandingSection[] = [
 		label: "Craftmanship",
 		status: "draft",
 		updatedAt: "",
+		eyebrow: "",
 		ctaText: "",
 		ctaLink: "",
 		slides: [],

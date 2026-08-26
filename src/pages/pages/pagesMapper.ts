@@ -25,19 +25,52 @@ function num(obj: unknown, key: string, fallback: number): number {
 	return typeof value === "number" ? value : fallback;
 }
 
+/**
+ * `image` sekarang dikirim sebagai string URL biasa (bukan `{url,alt}` lagi —
+ * storefront tidak butuh alt). Tetap toleransi bentuk lama untuk row yang
+ * sudah kadung tersimpan sebelum field ini di-rename.
+ */
+function imageUrlFromData(value: unknown): string {
+	if (typeof value === "string") return value;
+	if (typeof value === "object" && value !== null) {
+		const url = (value as Record<string, unknown>).url;
+		if (typeof url === "string") return url;
+	}
+	return "";
+}
+
+/**
+ * Alt text TIDAK lagi dikirim/disimpan di server (lihat imageUrlFromData) —
+ * admin tetap bisa mengisinya di UI untuk referensi, tapi setelah refresh
+ * akan kosong lagi kecuali row-nya masih pakai bentuk lama `{url,alt}`.
+ */
+function imageAltFromData(value: unknown): string {
+	if (typeof value === "object" && value !== null) {
+		const alt = (value as Record<string, unknown>).alt;
+		if (typeof alt === "string") return alt;
+	}
+	return "";
+}
+
 // ---------- A. Deserialize: PageRow -> tipe UI ----------
 
+/**
+ * Dipakai untuk mainHero ("hero") maupun bottomHero ("productBanner") — dua
+ * section ini identik bentuknya di storefront, cuma beda `page`+`section`.
+ */
 export function heroFromRow(row: PageRow, base: HeroSection): HeroSection {
 	const image = (row.data as { image?: unknown } | null)?.image;
 	return {
 		...base,
 		status: row.status,
 		updatedAt: row.updatedAt,
-		subtitle: str(row.data, "subtitle"),
-		title: str(row.data, "title"),
-		ctaText: str(row.data, "ctaText"),
-		ctaLink: str(row.data, "ctaLink"),
-		image: { url: str(image, "url"), alt: str(image, "alt") },
+		// Field baru (eyebrow/headline/ctaLabel/ctaHref) diutamakan; fallback ke
+		// nama lama untuk row yang sudah tersimpan sebelum rename ini.
+		subtitle: str(row.data, "eyebrow") || str(row.data, "subtitle"),
+		title: str(row.data, "headline") || str(row.data, "title"),
+		ctaText: str(row.data, "ctaLabel") || str(row.data, "ctaText"),
+		ctaLink: str(row.data, "ctaHref") || str(row.data, "ctaLink"),
+		image: { url: imageUrlFromData(image), alt: imageAltFromData(image) },
 	};
 }
 
@@ -59,11 +92,19 @@ function slideFromData(value: unknown): CraftmanshipSlide {
 	const image = (value as { image?: unknown } | null)?.image;
 	return {
 		id: str(value, "id") || crypto.randomUUID(),
-		image: { url: str(image, "url"), alt: str(image, "alt") },
+		image: { url: imageUrlFromData(image), alt: imageAltFromData(image) },
 		caption: str(value, "caption"),
 		title: str(value, "title"),
-		description: str(value, "description"),
+		// "body" adalah nama baru; "description" fallback untuk row lama.
+		description: str(value, "body") || str(value, "description"),
 	};
+}
+
+/** `intervalMs` (baru, milidetik) diutamakan; fallback ke `slideDurationSec` lama (detik). */
+function craftmanshipDurationSec(data: unknown, fallbackSec: number): number {
+	const intervalMs = num(data, "intervalMs", Number.NaN);
+	if (!Number.isNaN(intervalMs)) return intervalMs / 1000;
+	return num(data, "slideDurationSec", fallbackSec);
 }
 
 export function craftmanshipFromRow(
@@ -75,10 +116,11 @@ export function craftmanshipFromRow(
 		...base,
 		status: row.status,
 		updatedAt: row.updatedAt,
-		ctaText: str(row.data, "ctaText"),
-		ctaLink: str(row.data, "ctaLink"),
+		eyebrow: str(row.data, "eyebrow"),
+		ctaText: str(row.data, "ctaLabel") || str(row.data, "ctaText"),
+		ctaLink: str(row.data, "ctaHref") || str(row.data, "ctaLink"),
 		slides: Array.isArray(slidesValue) ? slidesValue.map(slideFromData) : [],
-		slideDurationSec: num(row.data, "slideDurationSec", base.slideDurationSec),
+		slideDurationSec: craftmanshipDurationSec(row.data, base.slideDurationSec),
 	};
 }
 
@@ -108,6 +150,12 @@ export function itemsFromRow<T>(row: PageRow | undefined, key: string): T[] {
 /** Nilai gambar di form: URL lama, atau File baru yang belum diupload. */
 export type ImageValue = { url: string; alt: string; file?: File | null };
 
+/**
+ * Dipakai untuk mainHero ("hero") maupun bottomHero ("productBanner").
+ * `image` dikirim sebagai string URL biasa (atau null) — alt TIDAK dikirim,
+ * storefront tidak punya tempat untuk itu (lihat ImageValue di UI, alt tetap
+ * ditampilkan di form untuk referensi admin tapi tidak ikut payload ini).
+ */
 export function heroToPayload(form: {
 	subtitle: string;
 	title: string;
@@ -117,12 +165,12 @@ export function heroToPayload(form: {
 }): { data: unknown; files: PageFilePart[] } {
 	const collector = createFileCollector();
 	const data = {
-		subtitle: form.subtitle,
-		title: form.title,
-		ctaText: form.ctaText,
-		ctaLink: form.ctaLink,
+		eyebrow: form.subtitle,
+		headline: form.title,
+		ctaLabel: form.ctaText,
+		ctaHref: form.ctaLink,
 		// ref() → URL lama apa adanya, ATAU "@file:fN" + file dicatat ke collector
-		image: { url: collector.ref(form.image), alt: form.image.alt },
+		image: collector.ref(form.image) || null,
 	};
 	return { data, files: collector.files };
 }
@@ -139,7 +187,9 @@ export function signatureToPayload(form: {
 	return { data, files: collector.files };
 }
 
+/** Serialize ke section "craftmanship" — dikirim ke storefront sebagai "materials". */
 export function craftmanshipToPayload(form: {
+	eyebrow: string;
 	ctaText: string;
 	ctaLink: string;
 	slideDurationSec: number;
@@ -154,15 +204,16 @@ export function craftmanshipToPayload(form: {
 	// Satu collector dipakai untuk SEMUA slide — key "fN" tetap unik lintas slide.
 	const collector = createFileCollector();
 	const data = {
-		ctaText: form.ctaText,
-		ctaLink: form.ctaLink,
-		slideDurationSec: form.slideDurationSec,
+		eyebrow: form.eyebrow,
+		ctaLabel: form.ctaText,
+		ctaHref: form.ctaLink,
+		intervalMs: Math.round(form.slideDurationSec * 1000),
 		slides: form.slides.map((slide) => ({
-			id: slide.id,
-			image: { url: collector.ref(slide.image), alt: slide.image.alt },
-			caption: slide.caption,
 			title: slide.title,
-			description: slide.description,
+			// "caption" tidak ada di bentuk storefront — tetap ditampilkan di UI
+			// untuk referensi admin, tapi tidak ikut dikirim.
+			body: slide.description,
+			image: collector.ref(slide.image) || null,
 		})),
 	};
 	return { data, files: collector.files };

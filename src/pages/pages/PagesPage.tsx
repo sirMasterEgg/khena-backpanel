@@ -277,6 +277,7 @@ export function PagesPage() {
 	) => {
 		if (!editingKey) return;
 		const { data: payloadData, files } = craftmanshipToPayload({
+			eyebrow: data.eyebrow,
 			ctaText: data.ctaText,
 			ctaLink: data.ctaLink,
 			slideDurationSec: data.slideDurationSec,

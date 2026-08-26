@@ -77,6 +77,7 @@ export function CraftmanshipSectionEditor({
 	} = useForm<CraftmanshipSectionFormData>({
 		resolver: zodResolver(craftmanshipSectionSchema),
 		defaultValues: {
+			eyebrow: section.eyebrow,
 			ctaText: section.ctaText,
 			ctaLink: stripLeadingSlash(section.ctaLink),
 			slides: section.slides.map((s) => ({
@@ -335,6 +336,12 @@ export function CraftmanshipSectionEditor({
 					<Card withBorder>
 						<Stack gap="md">
 							<Text fw={600}>Call to action</Text>
+							<TextInput
+								label="Eyebrow (optional)"
+								description="Small text shown above the CTA"
+								{...register("eyebrow")}
+								error={errors.eyebrow?.message}
+							/>
 							<TextInput
 								label="CTA text (optional)"
 								{...register("ctaText")}

@@ -10,6 +10,7 @@ export const craftmanshipSlideSchema = z.object({
 });
 
 export const craftmanshipSectionSchema = z.object({
+	eyebrow: z.string().trim(), // opsional — dikirim ke storefront sebagai `eyebrow`
 	ctaText: z.string().trim(),
 	ctaLink: z.string(),
 	slides: z
