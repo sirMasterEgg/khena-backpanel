@@ -9,14 +9,15 @@ import {
 	Text,
 } from "@mantine/core";
 import type { MouseEvent } from "react";
-import type { LandingSection, LandingSectionKey } from "@/data/dummy";
 import { DESIGNED_FOR_LIFE_PRODUCT_COUNT } from "./designedForLifeSchema";
 import { formatUpdatedAt } from "./format";
+import type { LandingSection, LandingSectionKey } from "./landingTypes";
 
 interface LandingSectionCardProps {
 	section: LandingSection;
 	onEdit: (key: LandingSectionKey) => void;
 	onTogglePublish: (key: LandingSectionKey) => void;
+	disabled?: boolean;
 }
 
 /** Badge tipe section, mis. "Hero", "Carousel · 3 slides". */
@@ -50,6 +51,7 @@ export function LandingSectionCard({
 	section,
 	onEdit,
 	onTogglePublish,
+	disabled = false,
 }: LandingSectionCardProps) {
 	// Cegah klik tombol ikut membuka editor (kartu punya onClick sendiri).
 	const stop = (fn: () => void) => (e: MouseEvent) => {
@@ -81,7 +83,7 @@ export function LandingSectionCard({
 								style={{ borderRadius: "var(--mantine-radius-sm)" }}
 							>
 								<Text c="dimmed" size="sm">
-									Products
+									{section.kind === "productGrid" ? "Products" : "No image yet"}
 								</Text>
 							</Stack>
 						)}
@@ -109,6 +111,7 @@ export function LandingSectionCard({
 							<Button
 								size="xs"
 								variant="light"
+								disabled={disabled}
 								onClick={stop(() => onTogglePublish(section.key))}
 							>
 								{section.status === "published" ? "Unpublish" : "Publish"}
@@ -116,6 +119,7 @@ export function LandingSectionCard({
 							<Button
 								size="xs"
 								variant="default"
+								disabled={disabled}
 								onClick={stop(() => onEdit(section.key))}
 							>
 								Edit section
@@ -126,9 +130,9 @@ export function LandingSectionCard({
 					{section.kind === "hero" && (
 						<>
 							<Text size="xs" c="dimmed" mt="md">
-								{section.subtitle}
+								{section.eyebrow}
 							</Text>
-							<Text size="sm">{section.title}</Text>
+							<Text size="sm">{section.headline}</Text>
 						</>
 					)}
 					{section.kind === "signature" && (
@@ -138,7 +142,7 @@ export function LandingSectionCard({
 					)}
 					{section.kind === "craftmanship" && (
 						<Text size="sm" mt="md">
-							{section.slides.length} slides · {section.ctaText}
+							{section.slides.length} slides · {section.ctaLabel}
 						</Text>
 					)}
 					{section.kind === "productGrid" && (
@@ -149,7 +153,11 @@ export function LandingSectionCard({
 					)}
 
 					<Text size="xs" c="dimmed" mt="md">
-						{formatUpdatedAt(section.updatedAt)}
+						{/* Row belum pernah dibuat di database — updatedAt kosong (lihat
+						    DEFAULT_LANDING_SECTIONS), jangan format jadi "Invalid Date". */}
+						{section.updatedAt
+							? formatUpdatedAt(section.updatedAt)
+							: "Not saved yet"}
 					</Text>
 				</Grid.Col>
 			</Grid>

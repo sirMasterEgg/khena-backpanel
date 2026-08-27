@@ -1,11 +1,13 @@
 import { z } from "zod";
 
 export const heroSectionSchema = z.object({
-	subtitle: z.string().trim(), // opsional
-	title: z.string().trim().min(1, "Title is required"),
-	ctaText: z.string().trim(), // opsional
-	ctaLink: z.string(), // tanpa "/" di depan
+	eyebrow: z.string().trim(), // opsional
+	headline: z.string().trim().min(1, "Headline is required"),
+	ctaLabel: z.string().trim(), // opsional
+	ctaHref: z.string(), // tanpa "/" di depan
 	imageUrl: z.string().min(1, "Hero image is required"),
+	// image dikirim sebagai {url, alt} — sama seperti signatureSectionSchema —
+	// jadi alt text tersimpan dan aman untuk diwajibkan.
 	imageAlt: z.string().trim().min(1, "Image alt text is required"),
 });
 

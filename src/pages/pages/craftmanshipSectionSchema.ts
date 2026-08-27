@@ -4,14 +4,14 @@ export const craftmanshipSlideSchema = z.object({
 	id: z.string(),
 	imageUrl: z.string().min(1),
 	imageAlt: z.string(), // opsional — belum ditampilkan di UI, lihat issue #90
-	caption: z.string(),
 	title: z.string(),
-	description: z.string(),
+	body: z.string(),
 });
 
 export const craftmanshipSectionSchema = z.object({
-	ctaText: z.string().trim(),
-	ctaLink: z.string(),
+	eyebrow: z.string().trim(), // opsional — dikirim ke storefront sebagai `eyebrow`
+	ctaLabel: z.string().trim(),
+	ctaHref: z.string(),
 	slides: z
 		.array(craftmanshipSlideSchema)
 		.min(1, "At least one slide is required"),

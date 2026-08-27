@@ -21,12 +21,12 @@ import { useForm } from "react-hook-form";
 import { getApiErrorMessage } from "@/api/client";
 import { getProduct, listProducts } from "@/api/products";
 import { notify } from "@/components/notify";
-import type { DesignedForLifeSection } from "@/data/dummy";
 import {
 	DESIGNED_FOR_LIFE_PRODUCT_COUNT,
 	type DesignedForLifeFormData,
 	designedForLifeSchema,
 } from "./designedForLifeSchema";
+import type { DesignedForLifeSection } from "./landingTypes";
 
 /** Label produk yang sudah dipilih — form hanya menyimpan id-nya. */
 type ProductLabel = { name: string; baseSku: string };
@@ -35,12 +35,16 @@ interface DesignedForLifeEditorProps {
 	section: DesignedForLifeSection;
 	onSave: (data: DesignedForLifeFormData) => void;
 	onCancel: () => void;
+	isSaving?: boolean;
+	canSave?: boolean;
 }
 
 export function DesignedForLifeEditor({
 	section,
 	onSave,
 	onCancel,
+	isSaving = false,
+	canSave = true,
 }: DesignedForLifeEditorProps) {
 	const {
 		handleSubmit,
@@ -245,10 +249,20 @@ export function DesignedForLifeEditor({
 			</Card>
 
 			<Group justify="flex-end" mt="lg">
-				<Button type="button" variant="default" onClick={onCancel}>
+				<Button
+					type="button"
+					variant="default"
+					disabled={isSaving}
+					onClick={onCancel}
+				>
 					Cancel
 				</Button>
-				<Button type="button" onClick={handleSubmit(onSave)}>
+				<Button
+					type="button"
+					loading={isSaving}
+					disabled={!canSave}
+					onClick={handleSubmit(onSave)}
+				>
 					Save changes
 				</Button>
 			</Group>

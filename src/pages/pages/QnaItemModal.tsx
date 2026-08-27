@@ -1,16 +1,16 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+	Autocomplete,
 	Button,
 	Group,
 	Modal,
-	Select,
 	Stack,
 	Textarea,
 	TextInput,
 } from "@mantine/core";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { FAQ_CATEGORIES, type QnaItem } from "@/data/dummy";
+import { FAQ_CATEGORIES, type QnaItem } from "./landingTypes";
 import {
 	faqItemSchema,
 	type QnaItemFormData,
@@ -23,12 +23,9 @@ interface QnaItemModalProps {
 	onSave: (data: QnaItemFormData) => void;
 	item?: QnaItem | null;
 	withCategory?: boolean;
+	/** Kategori yang sudah pernah dipakai di item FAQ lain — jadi saran tambahan. */
+	existingCategories?: string[];
 }
-
-const FAQ_CATEGORY_OPTIONS = FAQ_CATEGORIES.map((c) => ({
-	value: c,
-	label: c,
-}));
 
 export function QnaItemModal({
 	opened,
@@ -36,8 +33,20 @@ export function QnaItemModal({
 	onSave,
 	item,
 	withCategory,
+	existingCategories,
 }: QnaItemModalProps) {
 	const isEdit = Boolean(item);
+
+	// Free text + saran: gabungan kategori baku (FAQ_CATEGORIES) dan kategori
+	// yang sudah pernah diketik user di item lain, supaya penamaan tetap
+	// konsisten tanpa mengunci user ke daftar tetap.
+	const categorySuggestions = useMemo(
+		() =>
+			Array.from(
+				new Set([...FAQ_CATEGORIES, ...(existingCategories ?? [])]),
+			).sort((a, b) => a.localeCompare(b)),
+		[existingCategories],
+	);
 
 	const {
 		control,
@@ -90,10 +99,11 @@ export function QnaItemModal({
 						name="category"
 						control={control}
 						render={({ field }) => (
-							<Select
+							<Autocomplete
 								label="Category"
-								data={FAQ_CATEGORY_OPTIONS}
-								value={field.value || null}
+								placeholder="e.g. Ordering"
+								data={categorySuggestions}
+								value={field.value}
 								onChange={field.onChange}
 								error={errors.category?.message}
 							/>

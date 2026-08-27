@@ -8,9 +8,10 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import type { SignatureCollectionSection } from "@/data/dummy";
 import { ImageUploadCard } from "./ImageUploadCard";
+import type { SignatureCollectionSection } from "./landingTypes";
 import {
 	type SignatureSectionFormData,
 	signatureSectionSchema,
@@ -18,14 +19,19 @@ import {
 
 interface SignatureSectionEditorProps {
 	section: SignatureCollectionSection;
-	onSave: (data: SignatureSectionFormData) => void;
+	/** `imageFile` = gambar baru yang dipilih user, belum diupload — null kalau tidak diganti. */
+	onSave: (data: SignatureSectionFormData, imageFile: File | null) => void;
 	onCancel: () => void;
+	isSaving?: boolean;
+	canSave?: boolean;
 }
 
 export function SignatureSectionEditor({
 	section,
 	onSave,
 	onCancel,
+	isSaving = false,
+	canSave = true,
 }: SignatureSectionEditorProps) {
 	const {
 		register,
@@ -42,8 +48,13 @@ export function SignatureSectionEditor({
 		},
 	});
 
+	// File baru yang dipilih user — ditahan di sini, dikirim saat Save.
+	const [imageFile, setImageFile] = useState<File | null>(null);
+
 	const imageUrl = watch("imageUrl");
 	const imageAlt = watch("imageAlt");
+
+	const onSubmit = (data: SignatureSectionFormData) => onSave(data, imageFile);
 
 	return (
 		<>
@@ -56,12 +67,13 @@ export function SignatureSectionEditor({
 						alt={imageAlt}
 						urlError={errors.imageUrl?.message}
 						altError={errors.imageAlt?.message}
-						onUrlChange={(url) =>
-							setValue("imageUrl", url, {
+						onImageChange={(value) => {
+							setValue("imageUrl", value.url, {
 								shouldDirty: true,
 								shouldValidate: true,
-							})
-						}
+							});
+							setImageFile(value.file ?? null);
+						}}
 						onAltChange={(alt) =>
 							setValue("imageAlt", alt, {
 								shouldDirty: true,
@@ -87,10 +99,20 @@ export function SignatureSectionEditor({
 			</Grid>
 
 			<Group justify="flex-end" mt="lg">
-				<Button type="button" variant="default" onClick={onCancel}>
+				<Button
+					type="button"
+					variant="default"
+					disabled={isSaving}
+					onClick={onCancel}
+				>
 					Cancel
 				</Button>
-				<Button type="button" onClick={handleSubmit(onSave)}>
+				<Button
+					type="button"
+					loading={isSaving}
+					disabled={!canSave}
+					onClick={handleSubmit(onSubmit)}
+				>
 					Save changes
 				</Button>
 			</Group>

@@ -2,19 +2,22 @@ import { Button, Card, Group, Table, Text, TextInput } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { IconFileTypePdf, IconPlus, IconSearch } from "@tabler/icons-react";
 import { useState } from "react";
-import { notify } from "@/components/notify";
-import type { AssemblyManual } from "@/data/dummy";
 import { AssemblyManualModal } from "./AssemblyManualModal";
 import { formatUpdatedAt } from "./format";
+import type { AssemblyManual } from "./landingTypes";
 
 interface AssemblyManualsEditorProps {
 	manuals: AssemblyManual[];
+	/** Selalu kirim SELURUH array — endpoint tidak punya DELETE (gotcha #10). */
 	onChange: (manuals: AssemblyManual[]) => void;
+	/** Mutation sedang berjalan / user tidak punya izin — cegah PATCH balapan. */
+	disabled?: boolean;
 }
 
 export function AssemblyManualsEditor({
 	manuals,
 	onChange,
+	disabled = false,
 }: AssemblyManualsEditorProps) {
 	const [modalOpened, setModalOpened] = useState(false);
 	const [editingManual, setEditingManual] = useState<AssemblyManual | null>(
@@ -36,11 +39,13 @@ export function AssemblyManualsEditor({
 		setModalOpened(true);
 	};
 
+	// notify.success dipindah ke onSuccess mutation di PagesPage.tsx.
 	const handleSave = (data: {
 		productName: string;
 		productSku?: string;
 		fileName: string;
 		fileSize: string;
+		fileUrl: string;
 	}) => {
 		if (editingManual) {
 			onChange(
@@ -54,7 +59,6 @@ export function AssemblyManualsEditor({
 						: m,
 				),
 			);
-			notify.success("Manual updated");
 		} else {
 			const newManual: AssemblyManual = {
 				id: crypto.randomUUID(),
@@ -62,7 +66,6 @@ export function AssemblyManualsEditor({
 				...data,
 			};
 			onChange([...manuals, newManual]);
-			notify.success("Manual added");
 		}
 	};
 
@@ -77,10 +80,7 @@ export function AssemblyManualsEditor({
 			),
 			labels: { confirm: "Delete", cancel: "Cancel" },
 			confirmProps: { color: "red" },
-			onConfirm: () => {
-				onChange(manuals.filter((m) => m.id !== manual.id));
-				notify.success("Manual deleted");
-			},
+			onConfirm: () => onChange(manuals.filter((m) => m.id !== manual.id)),
 		});
 	};
 
@@ -93,6 +93,7 @@ export function AssemblyManualsEditor({
 				<Button
 					size="xs"
 					leftSection={<IconPlus size={14} />}
+					disabled={disabled}
 					onClick={handleAdd}
 				>
 					Add manual
@@ -141,7 +142,19 @@ export function AssemblyManualsEditor({
 									<Table.Td>
 										<Group gap="xs" wrap="nowrap">
 											<IconFileTypePdf size={16} />
-											<Text size="sm">{manual.fileName}</Text>
+											{manual.fileUrl ? (
+												<Text
+													component="a"
+													href={manual.fileUrl}
+													target="_blank"
+													rel="noreferrer"
+													size="sm"
+												>
+													{manual.fileName}
+												</Text>
+											) : (
+												<Text size="sm">{manual.fileName}</Text>
+											)}
 										</Group>
 									</Table.Td>
 									<Table.Td>{manual.fileSize}</Table.Td>
@@ -151,6 +164,7 @@ export function AssemblyManualsEditor({
 											<Button
 												size="xs"
 												variant="default"
+												disabled={disabled}
 												onClick={() => handleReplace(manual)}
 											>
 												Replace
@@ -159,6 +173,7 @@ export function AssemblyManualsEditor({
 												size="xs"
 												color="red"
 												variant="subtle"
+												disabled={disabled}
 												onClick={() => confirmDelete(manual)}
 											>
 												Delete
@@ -177,6 +192,7 @@ export function AssemblyManualsEditor({
 				onClose={() => setModalOpened(false)}
 				onSave={handleSave}
 				manual={editingManual}
+				disabled={disabled}
 			/>
 		</>
 	);
